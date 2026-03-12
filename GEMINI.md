@@ -1,62 +1,56 @@
 # Project Overview
 
-**BoozeRunJpn** is a lightweight, mobile-first web application designed to track drink consumption during a trip to Japan. It features a global leaderboard, a map visualization of all logged drinks, and a simple entry system that captures the user's GPS location and allows for photo proof.
+**BoozeRunJpn** is a lightweight, mobile-first web application designed to track drink consumption during a trip to Japan. It features a modern Cyber-Tokyo aesthetic, a global leaderboard, and an interactive map with detail sheets.
 
-# Flow
+# Features & UX
 
-* **Leaderboard**: Displays consumption statistics (total liters and total alcohol) for all users.
-* **Map Visualization**: A Leaflet-powered map displaying all drink locations, with user filtering and "spiderfy" clustering to handle multiple drinks at the same location.
-* **Log a Drink**: Users can submit a new entry with a user-gesture triggered location capture and photo proof.
-* **Automatic Geolocation**: Reliable GPS capture triggered via button click for mobile browser compatibility.
+* **Modern Aesthetic**: Glassmorphism UI with neon accents, optimized for both mobile and desktop.
+* **Hybrid Map UX**: Small map popups with drink thumbnails that transition into a full-screen Bottom Sheet for complete details.
+* **Image Optimization**: Server-side resizing (max 1080px) and JPEG compression via Pillow for fast loading on roaming data.
+* **Reliable Geolocation**: User-gesture triggered GPS capture to bypass mobile browser security restrictions.
+* **Auto-Polling & Sync**: A persistent "Sync Bar" that polls the server every 30s and allows manual on-demand refreshes.
+* **Persistence**: Remembers the latest username locally using `localStorage`.
 
 # Tech Stack
 
-The application is optimized for low-resource environments like a Raspberry Pi 3 and requires no external subscriptions.
-
 * **Backend**: FastAPI (Python 3.13+)
+* **Image Processing**: Pillow (Resizing & Compression)
+* **Database**: SQLite + SQLAlchemy 2.0+
+* **Frontend**: Vanilla JS + CSS Glassmorphism + Leaflet + Leaflet.markercluster
 * **Package Management**: `uv`
-* **Database**: SQLite
-* **ORM**: SQLAlchemy 2.0+
-* **Frontend**: Vanilla HTML5/CSS3/JS + Leaflet.js + Leaflet.markercluster
-* **Testing**: `pytest`
 
 # Project Structure
 
 ```text
 /
 ├── .python-version      # UV-managed Python version (3.13)
-├── pyproject.toml       # Project dependencies
-├── uv.lock              # Reproducible lockfile
-├── main.py              # FastAPI app & API routes
-├── models.py            # SQLAlchemy models
-├── database.py          # Database setup
-├── static/              # Static assets
-│   ├── css/style.css    # Mobile-first neon styling
-│   ├── js/app.js        # Frontend logic (Tabs, Map, Geolocation)
-│   └── uploads/         # Uploaded drink photos
+├── pyproject.toml       # Dependencies (fastapi, pillow, sqlalchemy, etc.)
+├── main.py              # Backend API & Image processing logic
+├── models.py            # Database schemas
+├── database.py          # SQLite engine & session setup
+├── static/              
+│   ├── css/style.css    # Cyber-Tokyo glassmorphism styles
+│   ├── js/app.js        # Frontend logic & Map/Sheet orchestration
+│   └── uploads/         # Optimized JPEG drink photos
 ├── templates/
-│   └── index.html       # Main HTML template
-└── test_main.py         # Automated API tests
+│   └── index.html       # Main application entry point
+└── test_main.py         # API verification tests
 ```
 
-# Usage
+# Usage & Deployment
 
-### Development / Deployment
-
+### Running Locally
 ```powershell
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-*Note: Mobile geolocation strictly requires HTTPS unless accessed via localhost.*
+### Running with HTTPS (Required for Geolocation)
+To access outside your network with secure GPS support, use Caddy:
+```powershell
+caddy reverse-proxy --from your-domain.com --to localhost:8000
+```
 
-### Running Tests
-
+### Testing
 ```powershell
 uv run pytest test_main.py
 ```
-
-## Key Files
-
-*   **`README.md`**: Project intent.
-*   **`LICENSE`**: MIT License.
-*   **`.gitignore`**: Standard ignore patterns.

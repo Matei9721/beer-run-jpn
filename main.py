@@ -1,9 +1,11 @@
 import os
+import io
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
+from PIL import Image
 
 import models
 from database import engine, get_db
@@ -87,11 +89,26 @@ async def create_entry(
 
     image_path = None
     if image:
-        # Save image to static/uploads
-        filename = f"{int(models.datetime.now(models.UTC).timestamp())}_{image.filename}"
+        # Generate filename
+        timestamp = int(models.datetime.now(models.UTC).timestamp())
+        filename = f"{timestamp}_{image.filename.split('.')[0]}.jpg"
         image_path = os.path.join("static/uploads", filename)
-        with open(image_path, "wb") as buffer:
-            buffer.write(await image.read())
+        
+        # Read image data
+        contents = await image.read()
+        img = Image.open(io.BytesIO(contents))
+        
+        # Convert to RGB (in case of RGBA/PNG)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        # Resize if too large (max 1080px on longest side)
+        max_size = 1080
+        if max(img.size) > max_size:
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            
+        # Save as optimized JPEG
+        img.save(image_path, "JPEG", quality=85, optimize=True)
 
     new_entry = models.Entry(
         drink_type=drink_type,

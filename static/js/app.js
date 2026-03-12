@@ -98,6 +98,39 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomToBoundsOnClick: true
     }).addTo(map);
 
+    const detailSheet = document.getElementById('detail-sheet');
+    const detailTitle = document.getElementById('detail-title');
+    const detailMeta = document.getElementById('detail-meta');
+    const detailImg = document.getElementById('detail-img');
+    const closeSheet = document.getElementById('close-sheet');
+
+    // Make openDetail globally accessible for popup onclick events
+    window.openDetail = function(entryJson) {
+        const entry = JSON.parse(decodeURIComponent(entryJson));
+        detailTitle.innerText = `${entry.username}`;
+        detailMeta.innerHTML = `
+            <strong>${entry.drink_type}</strong> ${entry.brand ? `(${entry.brand})` : ''}<br>
+            ${entry.abv}% ABV | ${entry.quantity}L<br>
+            <span style="font-size: 12px; opacity: 0.7;">Logged at ${new Date(entry.timestamp).toLocaleTimeString()}</span>
+        `;
+        
+        if (entry.image_path) {
+            detailImg.src = `/${entry.image_path.replace(/\\/g, '/')}`;
+            detailImg.style.display = 'block';
+        } else {
+            detailImg.style.display = 'none';
+        }
+        
+        detailSheet.classList.add('active');
+    };
+
+    function closeDetail() {
+        detailSheet.classList.remove('active');
+    }
+
+    closeSheet.addEventListener('click', closeDetail);
+    map.on('click', closeDetail);
+
     async function updateMapMarkers(username = "", shouldZoom = true) {
         markerGroup.clearLayers();
         try {
@@ -106,15 +139,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const entries = await response.json();
 
             entries.forEach(entry => {
+                const entryJson = encodeURIComponent(JSON.stringify(entry));
                 const popupContent = `
-                    <div class="popup-content">
-                        <strong>${entry.username}</strong> drank a <strong>${entry.drink_type}</strong><br>
-                        ${entry.brand ? `<em>${entry.brand}</em><br>` : ''}
-                        ABV: ${entry.abv}% | Vol: ${entry.quantity}L<br>
-                        <small style="color:#888">${new Date(entry.timestamp).toLocaleTimeString()}</small>
-                        ${entry.image_path ? `<img src="/${entry.image_path.replace(/\\/g, '/')}" class="popup-img">` : ''}
+                    <div class="mini-popup">
+                        ${entry.image_path ? `<img src="/${entry.image_path.replace(/\\/g, '/')}" class="popup-thumb">` : ''}
+                        <div class="popup-info">
+                            <span class="popup-user">${entry.username}</span>
+                            <span class="popup-drink">${entry.drink_type}</span>
+                            <a class="popup-link" onclick="openDetail('${entryJson}')">View Details</a>
+                        </div>
                     </div>
                 `;
+                
                 L.marker([entry.latitude, entry.longitude])
                     .bindPopup(popupContent)
                     .addTo(markerGroup);

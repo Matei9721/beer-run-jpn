@@ -160,29 +160,65 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Log Form Logic ---
     const entryForm = document.getElementById('entry-form');
     const locationStatus = document.getElementById('location-status');
+    const getLocationBtn = document.getElementById('get-location-btn');
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
 
-    if (navigator.geolocation) {
+    function requestLocation() {
+        if (!navigator.geolocation) {
+            locationStatus.innerText = "Error: Geolocation not supported.";
+            locationStatus.style.color = "red";
+            return;
+        }
+
+        // Check for secure context (HTTPS)
+        if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            locationStatus.innerText = "Error: HTTPS required for location on mobile.";
+            locationStatus.style.color = "orange";
+        } else {
+            locationStatus.innerText = "Requesting location permission...";
+            locationStatus.style.color = "var(--text-primary)";
+        }
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        };
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 latInput.value = position.coords.latitude;
                 lngInput.value = position.coords.longitude;
-                locationStatus.innerText = `Location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                locationStatus.innerText = `Location captured: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
                 locationStatus.style.color = 'var(--success-color)';
+                console.log('Location success:', position.coords);
             },
             (error) => {
-                locationStatus.innerText = "Error: Location access denied.";
+                console.error('Location error:', error);
+                let msg = "Error: Location access denied.";
+                if (error.code === error.TIMEOUT) msg = "Error: Location request timed out.";
+                if (error.code === error.POSITION_UNAVAILABLE) msg = "Error: Position unavailable.";
+                
+                locationStatus.innerText = msg;
                 locationStatus.style.color = "red";
             },
-            { enableHighAccuracy: true }
+            options
         );
     }
+
+    // Attempt on load
+    requestLocation();
+
+    // Re-request on button click (User Gesture)
+    getLocationBtn.addEventListener('click', () => {
+        requestLocation();
+    });
 
     entryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!latInput.value) {
-            alert("Waiting for location access...");
+            alert("Please capture your location first using the button.");
             return;
         }
 

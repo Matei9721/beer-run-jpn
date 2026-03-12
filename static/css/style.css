@@ -99,6 +99,20 @@ button:hover {
     box-shadow: 0 0 15px var(--accent-color);
 }
 
+.secondary-btn {
+    background-color: transparent;
+    border: 1px solid var(--accent-secondary);
+    color: var(--accent-secondary);
+    font-size: 14px;
+    padding: 10px;
+    margin-bottom: 5px;
+}
+
+.secondary-btn:hover {
+    background-color: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 10px var(--accent-secondary);
+}
+
 .status-msg {
     text-align: center;
     margin-top: 10px;

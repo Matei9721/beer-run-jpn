@@ -1,59 +1,55 @@
 # Project Overview
 
-**BoozeRunJpn** is a lightweight, mobile-first web application designed to track drink consumption during a trip to Japan. It features a global leaderboard and a simple entry system that automatically captures the user's GPS location and allows for photo proof of each drink.
+**BoozeRunJpn** is a lightweight, mobile-first web application designed to track drink consumption during a trip to Japan. It features a global leaderboard, a map visualization of all logged drinks, and a simple entry system that captures the user's GPS location and allows for photo proof.
 
 # Flow
 
-* **Leaderboard**: Displays consumption statistics (total liters and total alcohol) for all users on the main page.
-* **Log a Drink**: Users can submit a new entry specifying the drink type, ABV%, quantity, and brand. 
-* **Automatic Geolocation**: The app automatically retrieves the user's GPS coordinates (latitude/longitude) via the browser's Geolocation API.
-* **Photo Proof**: Users can upload a picture of their drink, which is saved locally and linked to the entry.
+* **Leaderboard**: Displays consumption statistics (total liters and total alcohol) for all users.
+* **Map Visualization**: A Leaflet-powered map displaying all drink locations, with user filtering and "spiderfy" clustering to handle multiple drinks at the same location.
+* **Log a Drink**: Users can submit a new entry with a user-gesture triggered location capture and photo proof.
+* **Automatic Geolocation**: Reliable GPS capture triggered via button click for mobile browser compatibility.
 
 # Tech Stack
 
 The application is optimized for low-resource environments like a Raspberry Pi 3 and requires no external subscriptions.
 
 * **Backend**: FastAPI (Python 3.13+)
-* **Package Management**: `uv` (Fast, reliable dependency and Python version control)
-* **Database**: SQLite (Zero-config, single-file storage)
-* **ORM**: SQLAlchemy 2.0+ (Modern, asynchronous-ready database interaction)
-* **Frontend**: Vanilla HTML5, CSS3, and JavaScript (No heavy frameworks or build steps)
-* **Testing**: `pytest` with `httpx` for API verification
+* **Package Management**: `uv`
+* **Database**: SQLite
+* **ORM**: SQLAlchemy 2.0+
+* **Frontend**: Vanilla HTML5/CSS3/JS + Leaflet.js + Leaflet.markercluster
+* **Testing**: `pytest`
 
 # Project Structure
 
 ```text
 /
 ├── .python-version      # UV-managed Python version (3.13)
-├── pyproject.toml       # Project dependencies and configuration
+├── pyproject.toml       # Project dependencies
 ├── uv.lock              # Reproducible lockfile
-├── main.py              # FastAPI application, routes, and static file serving
-├── models.py            # SQLAlchemy database models (User, Entry)
-├── database.py          # Database connection and session management
+├── main.py              # FastAPI app & API routes
+├── models.py            # SQLAlchemy models
+├── database.py          # Database setup
 ├── static/              # Static assets
-│   ├── css/style.css    # Mobile-first neon/vibe styling
-│   ├── js/app.js        # Frontend logic (leaderboard, geolocation, form submission)
-│   └── uploads/         # Directory for uploaded drink proof photos
+│   ├── css/style.css    # Mobile-first neon styling
+│   ├── js/app.js        # Frontend logic (Tabs, Map, Geolocation)
+│   └── uploads/         # Uploaded drink photos
 ├── templates/
-│   └── index.html       # Main application entry point
-└── test_main.py         # Automated API and integration tests
+│   └── index.html       # Main HTML template
+└── test_main.py         # Automated API tests
 ```
 
 # Usage
 
 ### Development / Deployment
 
-To run the application locally or on a Raspberry Pi, ensure `uv` is installed, then execute:
-
 ```powershell
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-The application will be accessible at `http://<ip-address>:8000`.
+*Note: Mobile geolocation strictly requires HTTPS unless accessed via localhost.*
 
 ### Running Tests
-
-To verify the API and database logic:
 
 ```powershell
 uv run pytest test_main.py
@@ -61,6 +57,6 @@ uv run pytest test_main.py
 
 ## Key Files
 
-*   **`README.md`**: Brief project intent.
-*   **`LICENSE`**: MIT License information.
-*   **`.gitignore`**: Standard Python and SQLite ignore patterns.
+*   **`README.md`**: Project intent.
+*   **`LICENSE`**: MIT License.
+*   **`.gitignore`**: Standard ignore patterns.

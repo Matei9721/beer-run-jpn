@@ -163,6 +163,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const getLocationBtn = document.getElementById('get-location-btn');
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
+    const usernameInput = document.getElementById('username');
+
+    // Load persisted username
+    const savedUsername = localStorage.getItem('boozerun_username');
+    if (savedUsername && usernameInput) {
+        usernameInput.value = savedUsername;
+    }
+
+    // Custom field toggles
+    const drinkTypeSelect = document.getElementById('drink_type_select');
+    const customDrinkType = document.getElementById('custom_drink_type');
+    const quantitySelect = document.getElementById('quantity_select');
+    const customQuantity = document.getElementById('custom_quantity');
+
+    if (drinkTypeSelect && customDrinkType) {
+        drinkTypeSelect.addEventListener('change', () => {
+            console.log('Drink type changed to:', drinkTypeSelect.value);
+            if (drinkTypeSelect.value === 'Other') {
+                customDrinkType.style.display = 'block';
+                customDrinkType.focus();
+            } else {
+                customDrinkType.style.display = 'none';
+            }
+        });
+    }
+
+    if (quantitySelect && customQuantity) {
+        quantitySelect.addEventListener('change', () => {
+            console.log('Quantity changed to:', quantitySelect.value);
+            if (quantitySelect.value === 'custom') {
+                customQuantity.style.display = 'block';
+                customQuantity.focus();
+            } else {
+                customQuantity.style.display = 'none';
+            }
+        });
+    }
 
     function requestLocation() {
         if (!navigator.geolocation) {
@@ -222,7 +259,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const usernameValue = usernameInput.value;
         const formData = new FormData(entryForm);
+
+        // Handle custom values
+        const finalType = drinkTypeSelect.value === 'Other' ? customDrinkType.value : drinkTypeSelect.value;
+        const finalQuantity = quantitySelect.value === 'custom' ? customQuantity.value : quantitySelect.value;
+
+        if (!finalType) {
+            alert("Please specify the drink type.");
+            return;
+        }
+        if (!finalQuantity || isNaN(parseFloat(finalQuantity))) {
+            alert("Please specify a valid quantity.");
+            return;
+        }
+
+        formData.set('drink_type', finalType);
+        formData.set('quantity', finalQuantity);
+
         const submitBtn = document.getElementById('submit-btn');
         submitBtn.disabled = true;
         submitBtn.innerText = "Logging...";
@@ -234,6 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
+                // Save username for next time
+                localStorage.setItem('boozerun_username', usernameValue);
+                
                 entryForm.innerHTML = `<div class="success-msg">🔥 Logged! 🔥</div>
                                       <button onclick="window.location.reload()">Log Another</button>`;
                 fetchLeaderboard();

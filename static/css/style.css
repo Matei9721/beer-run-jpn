@@ -113,6 +113,17 @@ button:hover {
     box-shadow: 0 0 10px var(--accent-secondary);
 }
 
+.custom-input {
+    display: none;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background-color: #0b0e14;
+    border: 1px solid var(--accent-secondary);
+    border-radius: 6px;
+    color: white;
+}
+
 .status-msg {
     text-align: center;
     margin-top: 10px;

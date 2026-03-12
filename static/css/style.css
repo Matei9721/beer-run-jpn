@@ -106,6 +106,60 @@ button:hover {
     color: #888;
 }
 
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background-color: var(--accent-secondary);
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 0 10px var(--accent-secondary);
+    border-color: var(--accent-secondary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+#map {
+    height: 400px;
+    width: 100%;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 1px solid #333;
+}
+
+.popup-content {
+    color: #000;
+    max-width: 200px;
+}
+
+.popup-img {
+    width: 100%;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
 .leaderboard-table {
     width: 100%;
     border-collapse: collapse;

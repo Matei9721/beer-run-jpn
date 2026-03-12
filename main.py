@@ -45,6 +45,26 @@ async def get_leaderboard(db: Session = Depends(get_db)):
     leaderboard.sort(key=lambda x: x["total_liters"], reverse=True)
     return leaderboard
 
+@app.get("/api/entries")
+async def get_entries(username: str = None, db: Session = Depends(get_db)):
+    query = db.query(models.Entry)
+    if username:
+        query = query.join(models.User).filter(models.User.username == username)
+    entries = query.order_by(models.Entry.timestamp.desc()).all()
+    
+    return [{
+        "id": e.id,
+        "username": e.owner.username,
+        "drink_type": e.drink_type,
+        "abv": e.abv,
+        "quantity": e.quantity,
+        "brand": e.brand,
+        "latitude": e.latitude,
+        "longitude": e.longitude,
+        "image_path": e.image_path,
+        "timestamp": e.timestamp.isoformat()
+    } for e in entries]
+
 @app.post("/api/entries")
 async def create_entry(
     username: str = Form(...),

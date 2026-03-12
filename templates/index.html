@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BoozeRunJpn</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <!-- Leaflet MarkerCluster CSS -->
@@ -14,19 +15,19 @@
 <body>
     <div class="container">
         <header>
-            <h1>BoozeRunJpn 🍺🇯🇵</h1>
+            <h1>BoozeRunJpn</h1>
         </header>
 
         <nav class="tabs">
-            <button class="tab-btn active" data-tab="leaderboard-tab">Leaderboard</button>
-            <button class="tab-btn" data-tab="map-tab">Map</button>
-            <button class="tab-btn" data-tab="log-tab">Log Drink</button>
+            <button class="tab-btn active" data-tab="leaderboard-tab">RANKING</button>
+            <button class="tab-btn" data-tab="map-tab">MAP</button>
+            <button class="tab-btn" data-tab="log-tab">LOG DRINK</button>
         </nav>
 
         <section id="leaderboard-tab" class="tab-content active">
             <h2>Leaderboard</h2>
             <div id="leaderboard-data" class="card">
-                <p>Loading leaderboard...</p>
+                <p>Syncing statistics...</p>
             </div>
         </section>
 
@@ -34,9 +35,9 @@
             <h2>Drink Map</h2>
             <div class="card">
                 <div class="form-group">
-                    <label for="user-filter">Filter by User:</label>
+                    <label>Filter User</label>
                     <select id="user-filter">
-                        <option value="">Select User</option>
+                        <option value="">All Users</option>
                     </select>
                 </div>
                 <div id="map"></div>
@@ -47,11 +48,11 @@
             <h2>Log a Drink</h2>
             <form id="entry-form" class="card" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required placeholder="e.g., BeerMaster99">
+                    <label>Username</label>
+                    <input type="text" id="username" name="username" required placeholder="Who are you?">
                 </div>
                 <div class="form-group">
-                    <label for="drink_type">Type:</label>
+                    <label>Drink Type</label>
                     <select id="drink_type_select" required>
                         <option value="Beer">Beer</option>
                         <option value="Sake">Sake</option>
@@ -60,18 +61,18 @@
                         <option value="Ume-shu">Ume-shu</option>
                         <option value="Other">Other...</option>
                     </select>
-                    <input type="text" id="custom_drink_type" placeholder="Enter drink type" style="display: none; margin-top: 10px;">
+                    <input type="text" id="custom_drink_type" class="custom-input" placeholder="What's the drink?">
                 </div>
                 <div class="form-group">
-                    <label for="brand">Brand (Optional):</label>
-                    <input type="text" id="brand" name="brand" placeholder="e.g., Asahi">
+                    <label>Brand (Optional)</label>
+                    <input type="text" id="brand" name="brand" placeholder="Asahi, Suntory, etc.">
                 </div>
                 <div class="form-group">
-                    <label for="abv">Alcohol (%):</label>
-                    <input type="number" id="abv" name="abv" step="0.1" required placeholder="e.g., 5.0">
+                    <label>ABV (%)</label>
+                    <input type="number" id="abv" name="abv" step="0.1" required placeholder="Alcohol percentage">
                 </div>
                 <div class="form-group">
-                    <label for="quantity">Quantity:</label>
+                    <label>Quantity</label>
                     <select id="quantity_select" required>
                         <option value="0.33">330ml</option>
                         <option value="0.5">500ml</option>
@@ -79,28 +80,35 @@
                         <option value="1.0">1L</option>
                         <option value="custom">Custom...</option>
                     </select>
-                    <input type="number" id="custom_quantity" step="0.01" placeholder="Enter liters (e.g., 0.4)" style="display: none; margin-top: 10px;">
+                    <input type="number" id="custom_quantity" class="custom-input" step="0.01" placeholder="Liters (e.g. 0.4)">
                 </div>
                 <div class="form-group">
-                    <label for="image">Proof (Photo):</label>
+                    <label>Photo Proof</label>
                     <input type="file" id="image" name="image" accept="image/*">
                 </div>
                 
-                <!-- Hidden inputs for location -->
                 <input type="hidden" id="latitude" name="latitude">
                 <input type="hidden" id="longitude" name="longitude">
 
-                <button type="button" id="get-location-btn" class="secondary-btn">Fetch My Location 📍</button>
-                <div id="location-status" class="status-msg">Fetching location...</div>
+                <button type="button" id="get-location-btn" class="secondary-btn">Pin Current Location 📍</button>
+                <div id="location-status" class="status-msg">Waiting for GPS...</div>
 
-                <button type="submit" id="submit-btn">Log It!</button>
+                <button type="submit" id="submit-btn">SEND ENTRY</button>
             </form>
         </section>
     </div>
 
-    <!-- Leaflet JS -->
+    <!-- The Slick Sync Bar -->
+    <div id="sync-bar" class="sync-bar">
+        <div class="sync-info">
+            <div id="sync-dot" class="sync-dot"></div>
+            <span id="sync-status">Synced</span>
+        </div>
+        <div class="sync-btn-label">Refresh Data</div>
+    </div>
+
+    <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- Leaflet MarkerCluster JS -->
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="/static/js/app.js"></script>
 </body>

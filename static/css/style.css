@@ -1,213 +1,321 @@
 :root {
-    --bg-color: #0b0e14;
-    --card-bg: #1a1f2b;
-    --text-primary: #f0f0f0;
-    --accent-color: #ff00ff; /* Neon Pink/Purple vibe */
-    --accent-secondary: #00ffff; /* Neon Cyan */
-    --success-color: #39ff14; /* Neon Green */
+    --bg-color: #05070a;
+    --glass-bg: rgba(26, 31, 43, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent-primary: #00f2ff; /* Cyber Cyan */
+    --accent-secondary: #ff007a; /* Neon Pink */
+    --success-color: #39ff14;
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
 }
 
 * {
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
     background-color: var(--bg-color);
+    background-image: 
+        radial-gradient(circle at 20% 20%, rgba(0, 242, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(255, 0, 122, 0.05) 0%, transparent 40%);
+    background-attachment: fixed;
     color: var(--text-primary);
     margin: 0;
-    padding: 10px;
+    padding: 0;
     display: flex;
     justify-content: center;
+    min-height: 100vh;
 }
 
 .container {
     max-width: 500px;
     width: 100%;
+    padding: 20px 15px 80px 15px; /* Extra bottom padding for sync bar */
 }
 
 header {
     text-align: center;
-    margin-bottom: 20px;
+    padding: 20px 0;
 }
 
 h1 {
-    color: var(--accent-secondary);
-    text-shadow: 0 0 10px var(--accent-secondary);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin: 0;
+    background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
 }
 
-h2 {
-    color: var(--accent-color);
-    text-shadow: 0 0 5px var(--accent-color);
-    margin-top: 20px;
-}
-
-.card {
-    background-color: var(--card-bg);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    border: 1px solid #333;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-input, select {
-    width: 100%;
-    padding: 12px;
-    background-color: #0b0e14;
-    border: 1px solid #444;
-    border-radius: 6px;
-    color: white;
-    font-size: 16px;
-}
-
-input:focus, select:focus {
-    border-color: var(--accent-secondary);
-    outline: none;
-    box-shadow: 0 0 5px var(--accent-secondary);
-}
-
-button {
-    width: 100%;
-    padding: 15px;
-    background-color: var(--accent-color);
-    border: none;
-    border-radius: 6px;
-    color: white;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s;
-    margin-top: 10px;
-}
-
-button:active {
-    transform: scale(0.98);
-}
-
-button:hover {
-    box-shadow: 0 0 15px var(--accent-color);
-}
-
-.secondary-btn {
-    background-color: transparent;
-    border: 1px solid var(--accent-secondary);
-    color: var(--accent-secondary);
-    font-size: 14px;
-    padding: 10px;
-    margin-bottom: 5px;
-}
-
-.secondary-btn:hover {
-    background-color: rgba(0, 255, 255, 0.1);
-    box-shadow: 0 0 10px var(--accent-secondary);
-}
-
-.custom-input {
-    display: none;
-    width: 100%;
-    margin-top: 10px;
-    padding: 12px;
-    background-color: #0b0e14;
-    border: 1px solid var(--accent-secondary);
-    border-radius: 6px;
-    color: white;
-}
-
-.status-msg {
-    text-align: center;
-    margin-top: 10px;
-    font-size: 14px;
-    color: #888;
-}
-
+/* Tab Navigation - Segmented Control Style */
 .tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    justify-content: center;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 25px;
+    box-shadow: var(--card-shadow);
 }
 
 .tab-btn {
     flex: 1;
-    padding: 10px;
-    background-color: var(--card-bg);
-    color: var(--text-primary);
-    border: 1px solid #333;
+    padding: 10px 5px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab-btn.active {
-    background-color: var(--accent-secondary);
-    color: #000;
-    font-weight: bold;
-    box-shadow: 0 0 10px var(--accent-secondary);
-    border-color: var(--accent-secondary);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--accent-primary);
+    box-shadow: inset 0 0 0 1px var(--glass-border);
 }
 
 .tab-content {
     display: none;
+    animation: fadeIn 0.4s ease-out;
 }
 
 .tab-content.active {
     display: block;
 }
 
-#map {
-    height: 400px;
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Glass Cards */
+.card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: var(--card-shadow);
+}
+
+h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+h2::before {
+    content: '';
+    width: 3px;
+    height: 18px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+}
+
+/* Form Styling */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+input, select {
     width: 100%;
-    border-radius: 8px;
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: white;
+    font-size: 15px;
+    transition: all 0.2s;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.1);
+}
+
+.custom-input {
+    display: none;
+    margin-top: 12px;
+    border-color: var(--accent-secondary);
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+#submit-btn {
+    background: linear-gradient(135deg, var(--accent-primary), #00a2ff);
+    color: #05070a;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);
     margin-top: 10px;
-    border: 1px solid #333;
+}
+
+#submit-btn:active {
+    transform: scale(0.97);
+}
+
+.secondary-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-size: 14px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Leaderboard Table */
+.leaderboard-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+}
+
+.leaderboard-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 0 10px;
+}
+
+.leaderboard-table td {
+    padding: 15px 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.leaderboard-table tr td:first-child { border-radius: 10px 0 0 10px; font-weight: 700; }
+.leaderboard-table tr td:last-child { border-radius: 0 10px 10px 0; text-align: right; color: var(--accent-primary); }
+
+/* Map Styling */
+#map {
+    height: 350px;
+    width: 100%;
+    border-radius: 15px;
+    border: 1px solid var(--glass-border);
+}
+
+.leaflet-container {
+    background: #05070a !important;
 }
 
 .popup-content {
-    color: #000;
-    max-width: 200px;
+    color: #333;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .popup-img {
     width: 100%;
-    border-radius: 4px;
-    margin-top: 5px;
+    border-radius: 8px;
+    margin-top: 8px;
 }
 
-.leaderboard-table {
-    width: 100%;
-    border-collapse: collapse;
+/* Sync Bar - The refined UX */
+.sync-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 30px);
+    max-width: 470px;
+    background: rgba(15, 20, 30, 0.85);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.leaderboard-table th, .leaderboard-table td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid #333;
+.sync-bar:active {
+    transform: translateX(-50%) scale(0.98);
 }
 
-.leaderboard-table th {
-    color: var(--accent-secondary);
+.sync-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
-.success-msg {
-    color: var(--success-color);
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--success-color);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--success-color);
+}
+
+.sync-dot.syncing {
+    background: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-primary);
+    animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+}
+
+.sync-btn-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-primary);
+    font-weight: 800;
+}
+
+.status-msg {
+    font-size: 12px;
+    margin-top: 10px;
     text-align: center;
-    font-weight: bold;
 }
 
-hr {
-    border: 0;
-    border-top: 1px solid #333;
-    margin: 30px 0;
-}
+.success-msg { color: var(--success-color); font-weight: 700; }

@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Global State ---
+    let lastRefreshTime = new Date();
+
     // --- Tabs Logic ---
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -6,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.getAttribute('data-tab');
-            console.log('Switching to tab:', tabId);
             
             tabButtons.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => c.classList.remove('active'));
@@ -15,9 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById(tabId).classList.add('active');
 
             if (tabId === 'map-tab') {
-                // Leaflet needs to be notified when the container size changes (hidden to shown)
                 setTimeout(() => {
-                    console.log('Invalidating map size...');
                     map.invalidateSize();
                     updateMapMarkers(document.getElementById('user-filter').value);
                 }, 200);
@@ -27,16 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Leaderboard Logic ---
     const leaderboardData = document.getElementById('leaderboard-data');
-    fetchLeaderboard();
-
+    
     async function fetchLeaderboard() {
         try {
-            console.log('Fetching leaderboard...');
             const response = await fetch('/api/leaderboard');
             const data = await response.json();
-            console.log('Leaderboard data:', data);
             
-            // Populate Map filter dropdown while we're at it
+            // Populate Map filter dropdown
             const userFilter = document.getElementById('user-filter');
             const currentFilter = userFilter.value;
             userFilter.innerHTML = '<option value="">All Users</option>';
@@ -49,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userFilter.value = currentFilter;
 
             if (data.length === 0) {
-                leaderboardData.innerHTML = "<p>No drinks logged yet. Be the first!</p>";
+                leaderboardData.innerHTML = "<p style='color: #888; text-align: center; padding: 20px;'>No entries found.</p>";
                 return;
             }
 
@@ -59,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <tr>
                             <th>User</th>
                             <th>Total (L)</th>
-                            <th>Pure Alc (L)</th>
+                            <th>Alc (L)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -79,12 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
             leaderboardData.innerHTML = html;
         } catch (error) {
             console.error("Error fetching leaderboard:", error);
-            leaderboardData.innerHTML = "<p>Error loading data.</p>";
         }
     }
 
     // --- Map Logic ---
-    // Fix for Leaflet default icon issues with some build setups/CDNs
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -92,41 +87,31 @@ document.addEventListener('DOMContentLoaded', () => {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     });
 
-    console.log('Initializing map...');
-    const map = L.map('map').setView([35.6895, 139.6917], 5); // Default to Japan
+    const map = L.map('map').setView([35.6895, 139.6917], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OSM'
     }).addTo(map);
 
-    // Initialize MarkerCluster group
     const markerGroup = L.markerClusterGroup({
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true
     }).addTo(map);
 
-    async function updateMapMarkers(username = "") {
-        console.log(`Updating markers for: ${username || 'All Users'}`);
+    async function updateMapMarkers(username = "", shouldZoom = true) {
         markerGroup.clearLayers();
         try {
             const url = username ? `/api/entries?username=${encodeURIComponent(username)}` : '/api/entries';
             const response = await fetch(url);
             const entries = await response.json();
-            console.log(`Fetched ${entries.length} entries:`, entries);
-
-            if (entries.length === 0) {
-                console.log('No entries to show on map.');
-                return;
-            }
 
             entries.forEach(entry => {
-                console.log(`Adding marker at: ${entry.latitude}, ${entry.longitude}`);
                 const popupContent = `
                     <div class="popup-content">
                         <strong>${entry.username}</strong> drank a <strong>${entry.drink_type}</strong><br>
                         ${entry.brand ? `<em>${entry.brand}</em><br>` : ''}
                         ABV: ${entry.abv}% | Vol: ${entry.quantity}L<br>
-                        <small>${new Date(entry.timestamp).toLocaleString()}</small>
+                        <small style="color:#888">${new Date(entry.timestamp).toLocaleTimeString()}</small>
                         ${entry.image_path ? `<img src="/${entry.image_path.replace(/\\/g, '/')}" class="popup-img">` : ''}
                     </div>
                 `;
@@ -135,27 +120,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     .addTo(markerGroup);
             });
 
-            // Zoom to markers
-            const group = new L.featureGroup(markerGroup.getLayers());
-            const bounds = group.getBounds();
-            if (bounds.isValid()) {
-                console.log('Fitting map to bounds:', bounds);
-                map.fitBounds(bounds.pad(0.2));
-            } else {
-                console.warn('Invalid bounds for marker group.');
+            if (shouldZoom && entries.length > 0) {
+                const group = new L.featureGroup(markerGroup.getLayers());
+                const bounds = group.getBounds();
+                if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
             }
         } catch (error) {
             console.error("Error updating map:", error);
         }
     }
 
-    document.getElementById('user-filter').addEventListener('change', (e) => {
-        updateMapMarkers(e.target.value);
-    });
+    // --- Global Refresh Logic ---
+    const syncStatus = document.getElementById('sync-status');
+    const syncDot = document.getElementById('sync-dot');
+    const syncBar = document.getElementById('sync-bar');
 
-    // Don't update markers until we switch to the tab or after a slight delay
-    // to ensure the map container exists and has dimensions
-    setTimeout(() => updateMapMarkers(), 500);
+    async function refreshData(isManual = false) {
+        syncStatus.innerText = 'Syncing...';
+        syncDot.classList.add('syncing');
+        
+        await Promise.all([fetchLeaderboard(), updateMapMarkers(document.getElementById('user-filter').value, isManual)]);
+        
+        lastRefreshTime = new Date();
+        syncStatus.innerText = `Synced ${lastRefreshTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        syncDot.classList.remove('syncing');
+    }
+
+    syncBar.addEventListener('click', () => refreshData(true));
+    setInterval(() => refreshData(false), 30000);
+
+    document.getElementById('user-filter').addEventListener('change', (e) => {
+        updateMapMarkers(e.target.value, true);
+    });
 
     // --- Log Form Logic ---
     const entryForm = document.getElementById('entry-form');
@@ -165,144 +161,89 @@ document.addEventListener('DOMContentLoaded', () => {
     const lngInput = document.getElementById('longitude');
     const usernameInput = document.getElementById('username');
 
-    // Load persisted username
+    // Persistence
     const savedUsername = localStorage.getItem('boozerun_username');
-    if (savedUsername && usernameInput) {
-        usernameInput.value = savedUsername;
-    }
+    if (savedUsername && usernameInput) usernameInput.value = savedUsername;
 
-    // Custom field toggles
+    // Custom Toggles
     const drinkTypeSelect = document.getElementById('drink_type_select');
     const customDrinkType = document.getElementById('custom_drink_type');
     const quantitySelect = document.getElementById('quantity_select');
     const customQuantity = document.getElementById('custom_quantity');
 
-    if (drinkTypeSelect && customDrinkType) {
-        drinkTypeSelect.addEventListener('change', () => {
-            console.log('Drink type changed to:', drinkTypeSelect.value);
-            if (drinkTypeSelect.value === 'Other') {
-                customDrinkType.style.display = 'block';
-                customDrinkType.focus();
-            } else {
-                customDrinkType.style.display = 'none';
-            }
-        });
-    }
+    drinkTypeSelect.addEventListener('change', () => {
+        customDrinkType.style.display = drinkTypeSelect.value === 'Other' ? 'block' : 'none';
+        if (drinkTypeSelect.value === 'Other') customDrinkType.focus();
+    });
 
-    if (quantitySelect && customQuantity) {
-        quantitySelect.addEventListener('change', () => {
-            console.log('Quantity changed to:', quantitySelect.value);
-            if (quantitySelect.value === 'custom') {
-                customQuantity.style.display = 'block';
-                customQuantity.focus();
-            } else {
-                customQuantity.style.display = 'none';
-            }
-        });
-    }
+    quantitySelect.addEventListener('change', () => {
+        customQuantity.style.display = quantitySelect.value === 'custom' ? 'block' : 'none';
+        if (quantitySelect.value === 'custom') customQuantity.focus();
+    });
 
     function requestLocation() {
         if (!navigator.geolocation) {
-            locationStatus.innerText = "Error: Geolocation not supported.";
+            locationStatus.innerText = "GPS Not Supported";
             locationStatus.style.color = "red";
             return;
         }
 
-        // Check for secure context (HTTPS)
-        if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            locationStatus.innerText = "Error: HTTPS required for location on mobile.";
-            locationStatus.style.color = "orange";
-        } else {
-            locationStatus.innerText = "Requesting location permission...";
-            locationStatus.style.color = "var(--text-primary)";
-        }
-
-        const options = {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        };
+        locationStatus.innerText = "Requesting GPS...";
+        locationStatus.style.color = "var(--text-primary)";
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 latInput.value = position.coords.latitude;
                 lngInput.value = position.coords.longitude;
-                locationStatus.innerText = `Location captured: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                locationStatus.innerText = `Ready: ${position.coords.latitude.toFixed(3)}, ${position.coords.longitude.toFixed(3)}`;
                 locationStatus.style.color = 'var(--success-color)';
-                console.log('Location success:', position.coords);
             },
-            (error) => {
-                console.error('Location error:', error);
-                let msg = "Error: Location access denied.";
-                if (error.code === error.TIMEOUT) msg = "Error: Location request timed out.";
-                if (error.code === error.POSITION_UNAVAILABLE) msg = "Error: Position unavailable.";
-                
-                locationStatus.innerText = msg;
+            (err) => {
+                locationStatus.innerText = "GPS Error - try again";
                 locationStatus.style.color = "red";
             },
-            options
+            { enableHighAccuracy: true, timeout: 10000 }
         );
     }
 
-    // Attempt on load
     requestLocation();
-
-    // Re-request on button click (User Gesture)
-    getLocationBtn.addEventListener('click', () => {
-        requestLocation();
-    });
+    getLocationBtn.addEventListener('click', requestLocation);
 
     entryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!latInput.value) {
-            alert("Please capture your location first using the button.");
-            return;
-        }
+        if (!latInput.value) { alert("Pin location first."); return; }
 
-        const usernameValue = usernameInput.value;
         const formData = new FormData(entryForm);
-
-        // Handle custom values
         const finalType = drinkTypeSelect.value === 'Other' ? customDrinkType.value : drinkTypeSelect.value;
         const finalQuantity = quantitySelect.value === 'custom' ? customQuantity.value : quantitySelect.value;
 
-        if (!finalType) {
-            alert("Please specify the drink type.");
-            return;
-        }
-        if (!finalQuantity || isNaN(parseFloat(finalQuantity))) {
-            alert("Please specify a valid quantity.");
-            return;
-        }
+        if (!finalType || !finalQuantity) { alert("Complete all fields."); return; }
 
         formData.set('drink_type', finalType);
         formData.set('quantity', finalQuantity);
 
         const submitBtn = document.getElementById('submit-btn');
         submitBtn.disabled = true;
-        submitBtn.innerText = "Logging...";
+        submitBtn.innerText = "SENDING...";
 
         try {
-            const response = await fetch('/api/entries', {
-                method: 'POST',
-                body: formData
-            });
-
+            const response = await fetch('/api/entries', { method: 'POST', body: formData });
             if (response.ok) {
-                // Save username for next time
-                localStorage.setItem('boozerun_username', usernameValue);
-                
-                entryForm.innerHTML = `<div class="success-msg">🔥 Logged! 🔥</div>
-                                      <button onclick="window.location.reload()">Log Another</button>`;
-                fetchLeaderboard();
-                updateMapMarkers();
-            } else {
-                throw new Error("Failed");
+                localStorage.setItem('boozerun_username', usernameInput.value);
+                entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;">
+                    <h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2>
+                    <p style="color: var(--text-secondary);">Your drink has been logged.</p>
+                    <button onclick="window.location.reload()" style="background: var(--accent-primary); color: #000; margin-top: 20px;">LOG ANOTHER</button>
+                </div>`;
+                refreshData(true);
             }
-        } catch (error) {
-            alert("Error logging drink.");
+        } catch (err) {
+            alert("Upload failed.");
             submitBtn.disabled = false;
-            submitBtn.innerText = "Log It!";
+            submitBtn.innerText = "SEND ENTRY";
         }
     });
+
+    // Initial load
+    refreshData(true);
 });

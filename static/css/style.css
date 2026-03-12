@@ -1,0 +1,134 @@
+:root {
+    --bg-color: #0b0e14;
+    --card-bg: #1a1f2b;
+    --text-primary: #f0f0f0;
+    --accent-color: #ff00ff; /* Neon Pink/Purple vibe */
+    --accent-secondary: #00ffff; /* Neon Cyan */
+    --success-color: #39ff14; /* Neon Green */
+}
+
+* {
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    max-width: 500px;
+    width: 100%;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    color: var(--accent-secondary);
+    text-shadow: 0 0 10px var(--accent-secondary);
+}
+
+h2 {
+    color: var(--accent-color);
+    text-shadow: 0 0 5px var(--accent-color);
+    margin-top: 20px;
+}
+
+.card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    background-color: #0b0e14;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: white;
+    font-size: 16px;
+}
+
+input:focus, select:focus {
+    border-color: var(--accent-secondary);
+    outline: none;
+    box-shadow: 0 0 5px var(--accent-secondary);
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-top: 10px;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:hover {
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+.status-msg {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #888;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table th, .leaderboard-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+.leaderboard-table th {
+    color: var(--accent-secondary);
+}
+
+.success-msg {
+    color: var(--success-color);
+    text-align: center;
+    font-weight: bold;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid #333;
+    margin: 30px 0;
+}

@@ -1,0 +1,90 @@
+import os
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import List
+
+import models
+from database import engine, get_db
+
+# Create the database tables
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="BoozeRunJpn")
+
+# Ensure static directories exist
+os.makedirs("static/uploads", exist_ok=True)
+os.makedirs("static/css", exist_ok=True)
+os.makedirs("static/js", exist_ok=True)
+os.makedirs("templates", exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def root():
+    return FileResponse("templates/index.html")
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(db: Session = Depends(get_db)):
+    # Basic leaderboard logic: sum of quantity and total alcohol consumed
+    # (Simplified for now, will expand in Phase 2)
+    users = db.query(models.User).all()
+    leaderboard = []
+    for user in users:
+        total_liters = sum(e.quantity for e in user.entries)
+        # Total pure alcohol: quantity * (abv/100)
+        total_alcohol = sum(e.quantity * (e.abv / 100.0) for e in user.entries)
+        leaderboard.append({
+            "username": user.username,
+            "total_liters": total_liters,
+            "total_alcohol": total_alcohol
+        })
+    # Sort by total liters
+    leaderboard.sort(key=lambda x: x["total_liters"], reverse=True)
+    return leaderboard
+
+@app.post("/api/entries")
+async def create_entry(
+    username: str = Form(...),
+    drink_type: str = Form(...),
+    abv: float = Form(...),
+    quantity: float = Form(...),
+    brand: str = Form(None),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    image: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    # Ensure user exists or create them
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        user = models.User(username=username)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    image_path = None
+    if image:
+        # Save image to static/uploads
+        filename = f"{int(models.datetime.now(models.UTC).timestamp())}_{image.filename}"
+        image_path = os.path.join("static/uploads", filename)
+        with open(image_path, "wb") as buffer:
+            buffer.write(await image.read())
+
+    new_entry = models.Entry(
+        drink_type=drink_type,
+        abv=abv,
+        quantity=quantity,
+        brand=brand,
+        latitude=latitude,
+        longitude=longitude,
+        image_path=image_path,
+        user_id=user.id
+    )
+    db.add(new_entry)
+    db.commit()
+    db.refresh(new_entry)
+    
+    return {"status": "success", "entry_id": new_entry.id}

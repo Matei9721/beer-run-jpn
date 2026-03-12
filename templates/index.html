@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoozeRunJpn</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>BoozeRunJpn 🍺🇯🇵</h1>
+        </header>
+
+        <section id="leaderboard">
+            <h2>Leaderboard</h2>
+            <div id="leaderboard-data" class="card">
+                <p>Loading leaderboard...</p>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="add-entry">
+            <h2>Log a Drink</h2>
+            <form id="entry-form" class="card" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required placeholder="e.g., BeerMaster99">
+                </div>
+                <div class="form-group">
+                    <label for="drink_type">Type:</label>
+                    <select id="drink_type" name="drink_type" required>
+                        <option value="Beer">Beer</option>
+                        <option value="Sake">Sake</option>
+                        <option value="Chu-hi">Chu-hi</option>
+                        <option value="Highball">Highball</option>
+                        <option value="Ume-shu">Ume-shu</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="brand">Brand (Optional):</label>
+                    <input type="text" id="brand" name="brand" placeholder="e.g., Asahi">
+                </div>
+                <div class="form-group">
+                    <label for="abv">Alcohol (%):</label>
+                    <input type="number" id="abv" name="abv" step="0.1" required placeholder="e.g., 5.0">
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity (Liters):</label>
+                    <input type="number" id="quantity" name="quantity" step="0.01" required placeholder="e.g., 0.5">
+                </div>
+                <div class="form-group">
+                    <label for="image">Proof (Photo):</label>
+                    <input type="file" id="image" name="image" accept="image/*">
+                </div>
+                
+                <!-- Hidden inputs for location -->
+                <input type="hidden" id="latitude" name="latitude">
+                <input type="hidden" id="longitude" name="longitude">
+
+                <button type="submit" id="submit-btn">Log It!</button>
+                <div id="location-status" class="status-msg">Fetching location...</div>
+            </form>
+        </section>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

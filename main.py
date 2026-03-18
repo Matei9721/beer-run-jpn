@@ -1,13 +1,17 @@
 import os
 import io
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from PIL import Image
 
 import models
+import schemas
+import auth
 from database import engine, get_db
 
 # Create the database tables
@@ -27,6 +31,31 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def root():
     return FileResponse("templates/index.html")
+
+@app.post("/token", response_model=schemas.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print(f"Login attempt for user: {form_data.username}")
+    # Case-insensitive search
+    user = db.query(models.User).filter(func.lower(models.User.username) == func.lower(form_data.username)).first()
+    if not user:
+        print(f"User {form_data.username} not found")
+    elif not user.hashed_password:
+        print(f"User {form_data.username} has no hashed_password")
+    elif not auth.verify_password(form_data.password, user.hashed_password):
+        print(f"Password mismatch for user: {form_data.username}")
+    
+    if not user or not user.hashed_password or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = auth.create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/me")
+async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+    return {"username": current_user.username, "id": current_user.id}
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(db: Session = Depends(get_db)):
@@ -69,7 +98,6 @@ async def get_entries(username: str = None, db: Session = Depends(get_db)):
 
 @app.post("/api/entries")
 async def create_entry(
-    username: str = Form(...),
     drink_type: str = Form(...),
     abv: float = Form(...),
     quantity: float = Form(...),
@@ -77,51 +105,60 @@ async def create_entry(
     latitude: float = Form(...),
     longitude: float = Form(...),
     image: UploadFile = File(None),
+    current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Ensure user exists or create them
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        user = models.User(username=username)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
+    print(f"Creating entry for {current_user.username}: {drink_type}, {abv}%, {quantity}L")
     image_path = None
-    if image:
-        # Generate filename
-        timestamp = int(models.datetime.now(models.UTC).timestamp())
-        filename = f"{timestamp}_{image.filename.split('.')[0]}.jpg"
-        image_path = os.path.join("static/uploads", filename)
-        
-        # Read image data
-        contents = await image.read()
-        img = Image.open(io.BytesIO(contents))
-        
-        # Convert to RGB (in case of RGBA/PNG)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-            
-        # Resize if too large (max 1080px on longest side)
-        max_size = 1080
-        if max(img.size) > max_size:
-            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-            
-        # Save as optimized JPEG
-        img.save(image_path, "JPEG", quality=85, optimize=True)
+    if image and image.filename and image.filename.strip():
+        print(f"Processing image: {image.filename}")
+        try:
+            # Read image data first to check if it has content
+            contents = await image.read()
+            if not contents:
+                print("Image field exists but is empty (0 bytes). Skipping processing.")
+            else:
+                # Generate filename
+                timestamp = int(models.datetime.now(models.UTC).timestamp())
+                # Ensure filename is safe or just use a generic name
+                safe_filename = f"{timestamp}.jpg"
+                image_path = os.path.join("static/uploads", safe_filename)
+                
+                img = Image.open(io.BytesIO(contents))
+                
+                # Convert to RGB (in case of RGBA/PNG)
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                    
+                # Resize if too large (max 1080px on longest side)
+                max_size = 1080
+                if max(img.size) > max_size:
+                    img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                    
+                # Save as optimized JPEG
+                img.save(image_path, "JPEG", quality=85, optimize=True)
+                print(f"Image saved to: {image_path}")
+        except Exception as e:
+            print(f"Image processing failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
 
-    new_entry = models.Entry(
-        drink_type=drink_type,
-        abv=abv,
-        quantity=quantity,
-        brand=brand,
-        latitude=latitude,
-        longitude=longitude,
-        image_path=image_path,
-        user_id=user.id
-    )
-    db.add(new_entry)
-    db.commit()
-    db.refresh(new_entry)
-    
-    return {"status": "success", "entry_id": new_entry.id}
+    try:
+        new_entry = models.Entry(
+            drink_type=drink_type,
+            abv=abv,
+            quantity=quantity,
+            brand=brand,
+            latitude=latitude,
+            longitude=longitude,
+            image_path=image_path,
+            user_id=current_user.id
+        )
+        db.add(new_entry)
+        db.commit()
+        db.refresh(new_entry)
+        print(f"Entry created with ID: {new_entry.id}")
+        return {"status": "success", "entry_id": new_entry.id}
+    except Exception as e:
+        print(f"Database error: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

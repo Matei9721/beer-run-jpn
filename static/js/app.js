@@ -2,6 +2,90 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Global State ---
     let lastRefreshTime = new Date();
 
+    // --- Auth Logic ---
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginModal = document.getElementById('login-modal');
+    const closeLogin = document.getElementById('close-login');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const authRestrictedElements = document.querySelectorAll('.auth-restricted');
+
+    function updateAuthUI() {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'block';
+            authRestrictedElements.forEach(el => el.style.display = 'block');
+        } else {
+            loginBtn.style.display = 'block';
+            logoutBtn.style.display = 'none';
+            authRestrictedElements.forEach(el => el.style.display = 'none');
+            
+            // If on a restricted tab, switch to leaderboard
+            const activeTab = document.querySelector('.tab-btn.active');
+            if (activeTab && activeTab.classList.contains('auth-restricted')) {
+                document.querySelector('[data-tab="leaderboard-tab"]').click();
+            }
+        }
+    }
+
+    loginBtn.addEventListener('click', () => {
+        loginModal.style.display = 'flex';
+        document.getElementById('login-username').focus();
+    });
+
+    closeLogin.addEventListener('click', () => {
+        loginModal.style.display = 'none';
+        loginError.style.display = 'none';
+    });
+
+    window.onclick = (event) => {
+        if (event.target == loginModal) {
+            loginModal.style.display = 'none';
+        }
+    };
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+        
+        const params = new URLSearchParams();
+        params.append('username', username);
+        params.append('password', password);
+        
+        try {
+            const response = await fetch('/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('access_token', data.access_token);
+                loginModal.style.display = 'none';
+                loginForm.reset();
+                updateAuthUI();
+                refreshData(true);
+            } else {
+                loginError.style.display = 'block';
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            loginError.innerText = "Connection error";
+            loginError.style.display = 'block';
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('access_token');
+        updateAuthUI();
+    });
+
     // --- Tabs Logic ---
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -36,13 +120,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Populate Map filter dropdown
             const userFilter = document.getElementById('user-filter');
             const currentFilter = userFilter.value;
-            userFilter.innerHTML = '<option value="">All Users</option>';
+            // Keep "All Users"
+            const options = ['<option value="">All Users</option>'];
             data.forEach(user => {
-                const opt = document.createElement('option');
-                opt.value = user.username;
-                opt.innerText = user.username;
-                userFilter.appendChild(opt);
+                options.push(`<option value="${user.username}">${user.username}</option>`);
             });
+            userFilter.innerHTML = options.join('');
             userFilter.value = currentFilter;
 
             if (data.length === 0) {
@@ -195,11 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getLocationBtn = document.getElementById('get-location-btn');
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
-    const usernameInput = document.getElementById('username');
-
-    // Persistence
-    const savedUsername = localStorage.getItem('boozerun_username');
-    if (savedUsername && usernameInput) usernameInput.value = savedUsername;
+    const usernameInput = document.getElementById('username'); // Might be null if removed from HTML, but we keep it for now
 
     // Custom Toggles
     const drinkTypeSelect = document.getElementById('drink_type_select');
@@ -242,11 +321,20 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    // Only init location if we are logged in? No, can init anyway.
     requestLocation();
     getLocationBtn.addEventListener('click', requestLocation);
 
     entryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            alert("You must be logged in.");
+            updateAuthUI(); // Will show login button
+            return;
+        }
+
         if (!latInput.value) { alert("Pin location first."); return; }
 
         const formData = new FormData(entryForm);
@@ -257,29 +345,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         formData.set('drink_type', finalType);
         formData.set('quantity', finalQuantity);
+        
+        // Remove username if it exists in form data (it's ignored by backend anyway but clean up)
+        if(formData.has('username')) formData.delete('username');
 
         const submitBtn = document.getElementById('submit-btn');
         submitBtn.disabled = true;
         submitBtn.innerText = "SENDING...";
 
         try {
-            const response = await fetch('/api/entries', { method: 'POST', body: formData });
+            const response = await fetch('/api/entries', { 
+                method: 'POST', 
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
             if (response.ok) {
-                localStorage.setItem('boozerun_username', usernameInput.value);
                 entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;">
                     <h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2>
                     <p style="color: var(--text-secondary);">Your drink has been logged.</p>
                     <button onclick="window.location.reload()" style="background: var(--accent-primary); color: #000; margin-top: 20px;">LOG ANOTHER</button>
                 </div>`;
                 refreshData(true);
+            } else {
+                const errorText = await response.text();
+                console.error("Server error:", errorText);
+                if (response.status === 401) {
+                    alert("Session expired. Please login again.");
+                    localStorage.removeItem('access_token');
+                    updateAuthUI();
+                } else {
+                    alert(`Upload failed: ${errorText || response.statusText}`);
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerText = "SEND ENTRY";
             }
         } catch (err) {
-            alert("Upload failed.");
+            console.error("Fetch error:", err);
+            alert("Upload failed. Check console for details.");
             submitBtn.disabled = false;
             submitBtn.innerText = "SEND ENTRY";
         }
     });
 
     // Initial load
+    updateAuthUI();
     refreshData(true);
 });

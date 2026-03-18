@@ -1,13 +1,19 @@
 import os
 import json
 import sqlite3
+import sys
+
+# Add the project root to sys.path so we can import local modules
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
 from auth import get_password_hash
 
-DB_FILE = "boozerun.db"
-CONFIG_FILE = "users.json"
+DB_FILE = os.path.join(BASE_DIR, "boozerun.db")
+CONFIG_FILE = os.path.join(BASE_DIR, "users.json")
 
 def migrate():
     """Adds missing columns to the database."""

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BoozeRunJpn</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/auth.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -16,12 +17,16 @@
     <div class="container">
         <header>
             <h1>BoozeRunJpn</h1>
+            <div class="auth-controls">
+                <button id="login-btn" class="auth-btn">LOGIN</button>
+                <button id="logout-btn" class="auth-btn" style="display:none;">LOGOUT</button>
+            </div>
         </header>
 
         <nav class="tabs">
             <button class="tab-btn active" data-tab="leaderboard-tab">RANKING</button>
             <button class="tab-btn" data-tab="map-tab">MAP</button>
-            <button class="tab-btn" data-tab="log-tab">LOG DRINK</button>
+            <button class="tab-btn auth-restricted" data-tab="log-tab" style="display:none;">LOG DRINK</button>
         </nav>
 
         <section id="leaderboard-tab" class="tab-content active">
@@ -47,10 +52,6 @@
         <section id="log-tab" class="tab-content">
             <h2>Log a Drink</h2>
             <form id="entry-form" class="card" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="username" name="username" required placeholder="Who are you?">
-                </div>
                 <div class="form-group">
                     <label>Drink Type</label>
                     <select id="drink_type_select" required>
@@ -118,6 +119,26 @@
         </div>
         <div class="detail-img-container">
             <img id="detail-img" class="detail-img" src="" alt="Drink Proof">
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content card">
+            <span id="close-login" class="close">&times;</span>
+            <h2>Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" name="password" required>
+                </div>
+                <button type="submit">LOGIN</button>
+                <p id="login-error" style="color: red; display: none; margin-top: 10px;">Invalid credentials</p>
+            </form>
         </div>
     </div>
 

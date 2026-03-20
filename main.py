@@ -73,7 +73,7 @@ async def get_leaderboard(db: Session = Depends(get_db)):
             "total_alcohol": total_alcohol
         })
     # Sort by total liters
-    leaderboard.sort(key=lambda x: x["total_liters"], reverse=True)
+    leaderboard.sort(key=lambda x: x["total_alcohol"], reverse=True)
     return leaderboard
 
 @app.get("/api/entries")

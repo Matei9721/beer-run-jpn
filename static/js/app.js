@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tabId === 'map-tab') {
                 setTimeout(() => {
                     mapMod.map.invalidateSize();
-                    refreshData(false); // Update map markers specifically
+                    refreshData(true); // Ensure markers are fitted to bounds when switching to map
                     ui.showMapHint();
                 }, 200);
             }

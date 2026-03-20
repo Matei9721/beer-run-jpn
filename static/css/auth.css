@@ -1,41 +1,5 @@
 
-/* Auth Controls */
-.auth-controls {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-}
-
-.auth-btn {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    color: var(--accent-primary);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 0;
-}
-
-.auth-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
-    transform: translateY(-2px);
-}
-
-.auth-btn:active {
-    transform: scale(0.95);
-}
-
-.auth-btn svg {
-    display: block;
-}
+/* Auth Controls removed and moved to style.css with new classes */
 
 /* Login Modal */
 .modal {

@@ -1,12 +1,14 @@
 import os
 import io
+import json
+from functools import lru_cache
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Dict, Any
 from PIL import Image
 
 import models
@@ -28,9 +30,21 @@ os.makedirs("templates", exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+@lru_cache()
+def get_drink_config() -> Dict[str, Any]:
+    try:
+        with open("data/drinks.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"types": [], "quantities": []}
+
 @app.get("/")
 async def root():
     return FileResponse("templates/index.html")
+
+@app.get("/api/config")
+async def get_config():
+    return get_drink_config()
 
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

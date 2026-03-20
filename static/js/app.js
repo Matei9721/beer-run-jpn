@@ -207,8 +207,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Init & Refresh Loop ---
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
     setInterval(() => refreshData(false), 30000);
-
-    ui.requestLocation(latInput, lngInput, locationStatus);
-    auth.updateAuthUI();
-    refreshData(true);
+    
+    // Initial Data Load
+    (async () => {
+        const config = await api.fetchConfig();
+        ui.renderDrinkOptions(config);
+        
+        ui.requestLocation(latInput, lngInput, locationStatus);
+        auth.updateAuthUI();
+        refreshData(true);
+    })();
 });
+

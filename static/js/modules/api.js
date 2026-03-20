@@ -8,7 +8,18 @@ export async function fetchLeaderboard() {
     }
 }
 
+export async function fetchConfig() {
+    try {
+        const response = await fetch('/api/config');
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching config:", error);
+        return { types: [], quantities: [] };
+    }
+}
+
 export async function fetchEntries(username = "") {
+
     try {
         const url = username ? `/api/entries?username=${encodeURIComponent(username)}` : '/api/entries';
         const response = await fetch(url);

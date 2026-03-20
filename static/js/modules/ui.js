@@ -55,7 +55,33 @@ export function showMapHint() {
 }
 
 // --- Log Form Logic ---
+export function renderDrinkOptions(config) {
+    const drinkTypeSelect = document.getElementById('drink_type_select');
+    const quantitySelect = document.getElementById('quantity_select');
+    
+    // Clear and populate Drink Types
+    if (config.types && config.types.length > 0) {
+        let typeHtml = '';
+        config.types.forEach(type => {
+            typeHtml += `<option value="${type}">${type}</option>`;
+        });
+        typeHtml += `<option value="Other">Other...</option>`;
+        drinkTypeSelect.innerHTML = typeHtml;
+    }
+
+    // Clear and populate Quantities
+    if (config.quantities && config.quantities.length > 0) {
+        let qtyHtml = '';
+        config.quantities.forEach(qty => {
+            qtyHtml += `<option value="${qty.value}">${qty.label}</option>`;
+        });
+        qtyHtml += `<option value="custom">Custom...</option>`;
+        quantitySelect.innerHTML = qtyHtml;
+    }
+}
+
 export function updateFormToggles() {
+
     const drinkTypeSelect = document.getElementById('drink_type_select');
     const customDrinkType = document.getElementById('custom_drink_type');
     const quantitySelect = document.getElementById('quantity_select');

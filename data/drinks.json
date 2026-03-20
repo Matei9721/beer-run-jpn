@@ -1,0 +1,18 @@
+{
+    "types": [
+        "Beer",
+        "Strong Zero",
+        "Sake",
+        "Highball",
+        "Ume-shu",
+        "Whiskey"
+    ],
+    "quantities": [
+        {"label": "1 shot (50ml)", "value": 0.05},
+        {"label": "330ml", "value": 0.33},
+        {"label": "350ml", "value": 0.35},
+        {"label": "500ml", "value": 0.5},
+        {"label": "750ml", "value": 0.75},
+        {"label": "1L", "value": 1.0}
+    ]
+}

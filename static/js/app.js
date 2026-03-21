@@ -6,6 +6,8 @@ import * as ui from './modules/ui.js?v=2';
 document.addEventListener('DOMContentLoaded', () => {
     // --- Global State ---
     let lastRefreshTime = new Date();
+    let currentLeaderboard = [];
+    let currentEntries = [];
 
     // --- Core Refresh Logic ---
     async function refreshData(isManual = false) {
@@ -21,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
             api.fetchLeaderboard(),
             api.fetchEntries(userFilter.value)
         ]);
+        
+        currentLeaderboard = leaderboard;
+        currentEntries = entries;
         
         // Update Leaderboard UI
         ui.renderLeaderboard(leaderboard, leaderboardData);
@@ -70,10 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
         auth.updateAuthUI();
     });
     document.getElementById('close-login').addEventListener('click', auth.closeLoginModal);
+    document.getElementById('close-user-modal').addEventListener('click', () => {
+        document.getElementById('user-modal').style.display = 'none';
+    });
     
     window.addEventListener('click', (event) => {
         const loginModal = document.getElementById('login-modal');
+        const userModal = document.getElementById('user-modal');
         if (event.target == loginModal) auth.closeLoginModal();
+        if (event.target == userModal) userModal.style.display = 'none';
     });
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -118,6 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
          } else {
             ui.removeTooltip();
          }
+    });
+
+    // --- Leaderboard Card Clicks ---
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.rank-card');
+        if (card) {
+            const username = card.getAttribute('data-username');
+            if (username) {
+                ui.showUserModal(username, currentLeaderboard, currentEntries);
+            }
+        }
     });
 
     // --- Map Actions ---

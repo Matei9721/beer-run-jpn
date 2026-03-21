@@ -39,7 +39,7 @@
 
         <section id="leaderboard-tab" class="tab-content active">
             <h2>Leaderboard</h2>
-            <div id="leaderboard-data" class="card">
+            <div id="leaderboard-data">
                 <p>Syncing statistics...</p>
             </div>
         </section>
@@ -147,6 +147,16 @@
                 <button type="submit">LOGIN</button>
                 <p id="login-error" style="color: red; display: none; margin-top: 10px;">Invalid credentials</p>
             </form>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content card">
+            <span id="close-user-modal" class="close">&times;</span>
+            <div id="user-modal-content">
+                <!-- Data injected via JS -->
+            </div>
         </div>
     </div>
 

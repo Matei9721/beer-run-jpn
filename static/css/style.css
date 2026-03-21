@@ -4,8 +4,10 @@
     --glass-border: rgba(255, 255, 255, 0.1);
     --text-primary: #e0e0e0;
     --text-secondary: #a0a0a0;
-    --accent-primary: #00f2ff; /* Cyber Cyan */
-    --accent-secondary: #ff007a; /* Neon Pink */
+    --accent-primary: #00f2ff;
+    /* Cyber Cyan */
+    --accent-secondary: #ff007a;
+    /* Neon Pink */
     --success-color: #39ff14;
     --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
 }
@@ -18,7 +20,7 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: 
+    background-image:
         radial-gradient(circle at 20% 20%, rgba(0, 242, 255, 0.05) 0%, transparent 40%),
         radial-gradient(circle at 80% 80%, rgba(255, 0, 122, 0.05) 0%, transparent 40%);
     background-attachment: fixed;
@@ -89,7 +91,8 @@ body {
     color: var(--accent-primary) !important;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
-    width: auto !important; /* Override global button width */
+    width: auto !important;
+    /* Override global button width */
 }
 
 .nav-auth-btn:hover {
@@ -156,8 +159,15 @@ body {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Glass Cards */
@@ -205,7 +215,8 @@ label {
     margin-bottom: 8px;
 }
 
-input, select {
+input,
+select {
     width: 100%;
     padding: 14px;
     background: rgba(0, 0, 0, 0.3);
@@ -216,7 +227,8 @@ input, select {
     transition: all 0.2s;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
     outline: none;
     border-color: var(--accent-primary);
     background: rgba(0, 0, 0, 0.5);
@@ -264,29 +276,130 @@ button {
     background: rgba(255, 255, 255, 0.1);
 }
 
-/* Leaderboard Table */
-.leaderboard-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0 10px;
+/* Leaderboard Cards */
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
-.leaderboard-table th {
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
+.rank-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px;
+    margin-bottom: 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.rank-card:active {
+    transform: scale(0.98);
+}
+
+.rank-user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rank-number {
+    font-size: 14px;
+    font-weight: 800;
     color: var(--text-secondary);
-    padding: 0 8px;
-    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px 10px;
+    border-radius: 8px;
+    min-width: 45px;
+    text-align: center;
+    border: 1px solid var(--glass-border);
 }
 
-.leaderboard-table td {
-    padding: 15px 10px;
-    background: rgba(255, 255, 255, 0.03);
+.rank-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
-.leaderboard-table tr td:first-child { border-radius: 10px 0 0 10px; font-weight: 700; }
-.leaderboard-table tr td:last-child { border-radius: 0 10px 10px 0; text-align: right; color: var(--accent-primary); }
+.rank-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.stat-value.highlight {
+    color: var(--accent-primary);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.stat-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--glass-border);
+}
+
+/* Podium Styles */
+.rank-card.rank-1 {
+    background: rgba(0, 242, 255, 0.08);
+    /* slight cyan tint */
+    border-color: rgba(0, 242, 255, 0.4);
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.15);
+}
+
+.rank-card.rank-1 .rank-number {
+    background: rgba(0, 242, 255, 0.15);
+    color: var(--accent-primary);
+    border-color: rgba(0, 242, 255, 0.3);
+    min-width: auto;
+}
+
+.rank-card.rank-1 .rank-name {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+}
+
+.rank-card.rank-2 {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rank-card.rank-2 .rank-number {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rank-card.rank-3 {
+    background: rgba(255, 140, 0, 0.05);
+    border-color: rgba(255, 140, 0, 0.2);
+}
+
+.rank-card.rank-3 .rank-number {
+    background: rgba(255, 140, 0, 0.1);
+    color: #ff9800;
+    /* bronze accent */
+    border-color: rgba(255, 140, 0, 0.2);
+}
 
 /* Map Styling */
 #map {
@@ -314,7 +427,7 @@ button {
     will-change: transform;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.8);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
 }
 
 .detail-sheet.active {
@@ -375,7 +488,8 @@ button {
 }
 
 /* Custom Leaflet Popup Styling */
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
     background: rgba(15, 20, 30, 0.95) !important;
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
@@ -465,7 +579,7 @@ button {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     z-index: 1000;
     cursor: pointer;
     transition: all 0.3s;
@@ -499,8 +613,13 @@ button {
 }
 
 @keyframes pulse {
-    from { opacity: 0.4; }
-    to { opacity: 1; }
+    from {
+        opacity: 0.4;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .sync-btn-label {
@@ -517,7 +636,10 @@ button {
     text-align: center;
 }
 
-.success-msg { color: var(--success-color); font-weight: 700; }
+.success-msg {
+    color: var(--success-color);
+    font-weight: 700;
+}
 
 /* Tooltips */
 .custom-tooltip {
@@ -596,7 +718,8 @@ button {
     align-items: center;
     gap: 12px;
     box-shadow: 0 5px 20px rgba(0, 242, 255, 0.2);
-    z-index: 2000; /* Above map controls */
+    z-index: 2000;
+    /* Above map controls */
     opacity: 0;
     pointer-events: none;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -630,29 +753,49 @@ button {
     .main-header {
         padding: 40px 0 20px 0;
     }
+
     .brand-logo {
         font-size: 22px;
         margin: 0 5px;
     }
+
     .btn-text {
         display: none;
     }
+
     .nav-auth-btn {
         padding: 10px !important;
-        border-radius: 12px !important; /* Clearly non-circular but compact */
+        border-radius: 12px !important;
+        /* Clearly non-circular but compact */
     }
+
     .container {
         padding: 0 12px 80px 12px;
         padding-top: env(safe-area-inset-top, 0px);
     }
-    .leaderboard-table th {
-        font-size: 9px;
-        padding: 0 5px;
-        letter-spacing: 0.2px;
+
+    .rank-card {
+        padding: 15px;
     }
-    .leaderboard-table td {
-        padding: 12px 6px;
-        font-size: 13px;
+
+    .rank-user-info {
+        gap: 10px;
+    }
+
+    .rank-name {
+        font-size: 16px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+
+    .stat-label {
+        font-size: 9px;
+    }
+
+    .rank-number {
+        font-size: 12px;
+        padding: 4px 8px;
     }
 }
-

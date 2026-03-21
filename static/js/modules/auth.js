@@ -18,10 +18,10 @@ export function updateAuthUI() {
     const token = getToken();
     if (token) {
         loginBtn.style.display = 'none';
-        logoutBtn.style.display = 'block';
-        authRestrictedElements.forEach(el => el.style.display = 'block');
+        logoutBtn.style.display = '';
+        authRestrictedElements.forEach(el => el.style.display = '');
     } else {
-        loginBtn.style.display = 'block';
+        loginBtn.style.display = '';
         logoutBtn.style.display = 'none';
         authRestrictedElements.forEach(el => el.style.display = 'none');
         

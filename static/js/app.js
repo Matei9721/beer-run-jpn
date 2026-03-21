@@ -1,7 +1,7 @@
-import * as api from './modules/api.js';
-import * as auth from './modules/auth.js';
-import * as mapMod from './modules/map.js';
-import * as ui from './modules/ui.js';
+import * as api from './modules/api.js?v=2';
+import * as auth from './modules/auth.js?v=2';
+import * as mapMod from './modules/map.js?v=2';
+import * as ui from './modules/ui.js?v=2';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Global State ---

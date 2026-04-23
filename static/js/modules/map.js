@@ -10,6 +10,9 @@ export const markerGroup = L.markerClusterGroup({
     zoomToBoundsOnClick: true
 }).addTo(map);
 
+const markersByEntryId = new Map();
+let highlightLayer = null;
+
 // Leaflet icon setup
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -23,12 +26,17 @@ const detailTitle = document.getElementById('detail-title');
 const detailMeta = document.getElementById('detail-meta');
 const detailImg = document.getElementById('detail-img');
 
+function formatEntryTime(entry) {
+    const timeCode = entry.timezone_code ? ` (${entry.timezone_code})` : '';
+    return `${new Date(entry.timestamp).toLocaleTimeString()}${timeCode}`;
+}
+
 export function openDetail(entry) {
     detailTitle.innerText = `${entry.username}`;
     detailMeta.innerHTML = `
         <strong>${entry.drink_type}</strong> ${entry.brand ? `(${entry.brand})` : ''}<br>
         ${entry.abv}% ABV | ${entry.quantity}L<br>
-        <span style="font-size: 12px; opacity: 0.7;">Logged at ${new Date(entry.timestamp).toLocaleTimeString()}</span>
+        <span style="font-size: 12px; opacity: 0.7;">Logged at ${formatEntryTime(entry)}</span>
     `;
     
     if (entry.image_path) {
@@ -45,6 +53,43 @@ export function closeDetail() {
     detailSheet.classList.remove('active');
 }
 
+export function focusEntry(entry) {
+    const marker = markersByEntryId.get(Number(entry.id));
+    if (!marker) return false;
+
+    markerGroup.zoomToShowLayer(marker, () => {
+        const latLng = marker.getLatLng();
+        const targetZoom = Math.max(map.getZoom(), 16);
+
+        map.setView(latLng, targetZoom, { animate: true });
+        marker.openPopup();
+        openDetail(entry);
+
+        if (highlightLayer) {
+            map.removeLayer(highlightLayer);
+        }
+
+        highlightLayer = L.circleMarker(latLng, {
+            radius: 22,
+            color: '#00f2ff',
+            weight: 3,
+            opacity: 0.95,
+            fillColor: '#ff2a6d',
+            fillOpacity: 0.18,
+            interactive: false
+        }).addTo(map);
+
+        setTimeout(() => {
+            if (highlightLayer) {
+                map.removeLayer(highlightLayer);
+                highlightLayer = null;
+            }
+        }, 3500);
+    });
+
+    return true;
+}
+
 // Global exposure for onclick handlers in Leaflet popups
 window.openDetail = function(entryJson) {
     const entry = JSON.parse(decodeURIComponent(entryJson));
@@ -53,6 +98,7 @@ window.openDetail = function(entryJson) {
 
 export function updateMarkers(entries, shouldZoom = true) {
     markerGroup.clearLayers();
+    markersByEntryId.clear();
     entries.forEach(entry => {
         const entryJson = encodeURIComponent(JSON.stringify(entry));
         const popupContent = `
@@ -66,9 +112,11 @@ export function updateMarkers(entries, shouldZoom = true) {
             </div>
         `;
         
-        L.marker([entry.latitude, entry.longitude])
-            .bindPopup(popupContent)
-            .addTo(markerGroup);
+        const marker = L.marker([entry.latitude, entry.longitude])
+            .bindPopup(popupContent);
+
+        markersByEntryId.set(Number(entry.id), marker);
+        marker.addTo(markerGroup);
     });
 
     if (shouldZoom && entries.length > 0) {

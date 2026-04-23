@@ -1,9 +1,11 @@
-import * as api from './modules/api.js?v=2';
-import * as auth from './modules/auth.js?v=2';
-import * as mapMod from './modules/map.js?v=2';
-import * as ui from './modules/ui.js?v=2';
+import * as api from './modules/api.js?v=9';
+import * as auth from './modules/auth.js?v=9';
+import * as mapMod from './modules/map.js?v=9';
+import * as ui from './modules/ui.js?v=9';
 
 document.addEventListener('DOMContentLoaded', () => {
+    const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
+
     // --- Global State ---
     let lastRefreshTime = new Date();
     let currentLeaderboard = [];
@@ -47,16 +49,62 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDot.classList.remove('syncing');
     }
 
+    function activateTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    async function focusEntryOnMap(entry) {
+        document.getElementById('user-modal').style.display = 'none';
+        activateTab('map-tab');
+
+        const userFilter = document.getElementById('user-filter');
+        if (userFilter.value) {
+            userFilter.value = '';
+            await refreshData(false);
+        }
+
+        setTimeout(() => {
+            mapMod.map.invalidateSize();
+            if (!mapMod.focusEntry(entry)) {
+                refreshData(false).then(() => mapMod.focusEntry(entry));
+            }
+        }, 200);
+    }
+
+    function closeInstructionsModal() {
+        const instructionsModal = document.getElementById('instructions-modal');
+        const hideInstructions = document.getElementById('hide-instructions');
+
+        if (hideInstructions.checked) {
+            localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, 'true');
+        }
+
+        instructionsModal.style.display = 'none';
+    }
+
+    function initInstructionsModal() {
+        const instructionsModal = document.getElementById('instructions-modal');
+        const closeInstructions = document.getElementById('close-instructions');
+        const instructionsDone = document.getElementById('instructions-done');
+
+        closeInstructions.addEventListener('click', closeInstructionsModal);
+        instructionsDone.addEventListener('click', closeInstructionsModal);
+
+        if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
+            instructionsModal.style.display = 'flex';
+        }
+    }
+
     // --- Tab Switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.getAttribute('data-tab');
             
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            btn.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            activateTab(tabId);
 
             if (tabId === 'map-tab') {
                 setTimeout(() => {
@@ -82,8 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('click', (event) => {
         const loginModal = document.getElementById('login-modal');
         const userModal = document.getElementById('user-modal');
+        const instructionsModal = document.getElementById('instructions-modal');
         if (event.target == loginModal) auth.closeLoginModal();
         if (event.target == userModal) userModal.style.display = 'none';
+        if (event.target == instructionsModal) closeInstructionsModal();
     });
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -136,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (card) {
             const username = card.getAttribute('data-username');
             if (username) {
-                ui.showUserModal(username, currentLeaderboard, currentEntries);
+                ui.showUserModal(username, currentLeaderboard, currentEntries, focusEntryOnMap);
             }
         }
     });
@@ -190,6 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         formData.set('drink_type', finalType);
         formData.set('quantity', finalQuantity);
+        formData.set('client_timestamp', ui.getLocalTimestamp());
+        formData.set('client_timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        formData.set('client_timezone_code', ui.getLocalTimeZoneCode());
         if(formData.has('username')) formData.delete('username');
 
         const submitBtn = document.getElementById('submit-btn');
@@ -226,6 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Init & Refresh Loop ---
+    initInstructionsModal();
+
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
     setInterval(() => refreshData(false), 30000);
     
@@ -239,4 +294,3 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshData(true);
     })();
 });
-

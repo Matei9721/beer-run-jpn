@@ -15,6 +15,8 @@ class Entry(EntryBase):
     username: str
     image_path: Optional[str] = None
     timestamp: datetime
+    timezone: Optional[str] = None
+    timezone_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

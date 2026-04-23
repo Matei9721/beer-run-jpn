@@ -1,6 +1,7 @@
 // --- Tooltip & Hint System ---
 let tooltipElem = null;
 let mapHintShown = false;
+const USER_MODAL_BATCH_SIZE = 15;
 
 export function createTooltip(target, text) {
     if (tooltipElem) tooltipElem.remove();
@@ -119,6 +120,67 @@ export function requestLocation(latInput, lngInput, locationStatus) {
     );
 }
 
+export function getLocalTimestamp(date = new Date()) {
+    const pad = (value, length = 2) => String(value).padStart(length, '0');
+    return [
+        date.getFullYear(),
+        pad(date.getMonth() + 1),
+        pad(date.getDate())
+    ].join('-') + 'T' + [
+        pad(date.getHours()),
+        pad(date.getMinutes()),
+        pad(date.getSeconds())
+    ].join(':') + `.${pad(date.getMilliseconds(), 3)}`;
+}
+
+export function getLocalTimeZoneCode(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(date);
+    const timeZonePart = parts.find(part => part.type === 'timeZoneName');
+    return timeZonePart ? timeZonePart.value : '';
+}
+
+export function formatEntryDateTime(entry, options = {}) {
+    const date = new Date(entry.timestamp);
+    const timeCode = entry.timezone_code ? ` (${entry.timezone_code})` : '';
+    return `${date.toLocaleString([], options)}${timeCode}`;
+}
+
+function renderUserDrinkItem(entry) {
+    const date = formatEntryDateTime(entry, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+        <div class="user-drink-item" data-entry-id="${entry.id}" role="button" tabindex="0">
+            <div class="drink-row-main">
+                <span class="drink-row-name">${entry.drink_type} ${entry.brand ? `<span class="drink-row-brand">(${entry.brand})</span>` : ''}</span>
+                <span class="drink-row-quantity">${entry.quantity}L</span>
+            </div>
+            <div class="drink-row-meta">
+                <span>ABV: ${entry.abv}%</span>
+                <span>${date}</span>
+            </div>
+            <div class="drink-row-action">
+                <span>View on map</span>
+                <span aria-hidden="true">&rsaquo;</span>
+            </div>
+        </div>
+    `;
+}
+
+function appendUserDrinkBatch(userEntries, list, button) {
+    const renderedCount = Number(list.dataset.renderedCount || 0);
+    const nextEntries = userEntries.slice(renderedCount, renderedCount + USER_MODAL_BATCH_SIZE);
+
+    list.insertAdjacentHTML('beforeend', nextEntries.map(renderUserDrinkItem).join(''));
+
+    const nextRenderedCount = renderedCount + nextEntries.length;
+    list.dataset.renderedCount = String(nextRenderedCount);
+
+    if (nextRenderedCount >= userEntries.length) {
+        button.style.display = 'none';
+    } else {
+        button.innerText = `LOAD ${Math.min(USER_MODAL_BATCH_SIZE, userEntries.length - nextRenderedCount)} MORE`;
+    }
+}
+
 // --- Leaderboard Render ---
 export function renderLeaderboard(data, leaderboardContainer) {
     if (data.length === 0) {
@@ -163,7 +225,7 @@ export function renderLeaderboard(data, leaderboardContainer) {
 }
 
 // --- User Profile Modal ---
-export function showUserModal(username, leaderboard, entries) {
+export function showUserModal(username, leaderboard, entries, onEntrySelect = null) {
     const modal = document.getElementById('user-modal');
     const content = document.getElementById('user-modal-content');
 
@@ -175,23 +237,11 @@ export function showUserModal(username, leaderboard, entries) {
 
     let recentDrinksHtml = '';
     if (userEntries.length > 0) {
-        recentDrinksHtml = '<h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--accent-primary);">Recent Drinks</h4><div class="recent-drinks-list" style="max-height: 250px; overflow-y: auto; text-align: left; padding-right: 5px;">';
-        userEntries.slice(0, 15).forEach(entry => {
-            const date = new Date(entry.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            recentDrinksHtml += `
-                <div style="padding: 12px; margin-bottom: 8px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid var(--glass-border);">
-                    <div style="font-weight: bold; color: white; display: flex; justify-content: space-between;">
-                        <span>${entry.drink_type} ${entry.brand ? `<span style="color: var(--text-secondary); font-weight: normal;">(${entry.brand})</span>` : ''}</span>
-                        <span style="color: var(--success-color);">${entry.quantity}L</span>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; margin-top: 5px;">
-                        <span>ABV: ${entry.abv}%</span>
-                        <span>${date}</span>
-                    </div>
-                </div>
-            `;
-        });
-        recentDrinksHtml += '</div>';
+        recentDrinksHtml = `
+            <h4 class="drink-history-title">Drink History</h4>
+            <div id="recent-drinks-list" class="recent-drinks-list" data-rendered-count="0"></div>
+            <button id="load-more-drinks" type="button" style="width: 100%; margin-top: 10px;">LOAD MORE</button>
+        `;
     } else {
         recentDrinksHtml = '<p style="color: var(--text-secondary); margin-top: 20px;">No drinks logged yet.</p>';
     }
@@ -226,5 +276,31 @@ export function showUserModal(username, leaderboard, entries) {
         ${recentDrinksHtml}
     `;
 
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
+
+    const recentDrinksList = document.getElementById('recent-drinks-list');
+    const loadMoreButton = document.getElementById('load-more-drinks');
+    if (recentDrinksList && loadMoreButton) {
+        appendUserDrinkBatch(userEntries, recentDrinksList, loadMoreButton);
+        loadMoreButton.addEventListener('click', () => appendUserDrinkBatch(userEntries, recentDrinksList, loadMoreButton));
+        recentDrinksList.addEventListener('click', (event) => {
+            const item = event.target.closest('.user-drink-item');
+            if (!item || !onEntrySelect) return;
+
+            const entryId = Number(item.dataset.entryId);
+            const entry = userEntries.find(drink => Number(drink.id) === entryId);
+            if (entry) onEntrySelect(entry);
+        });
+        recentDrinksList.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+
+            const item = event.target.closest('.user-drink-item');
+            if (!item || !onEntrySelect) return;
+
+            event.preventDefault();
+            const entryId = Number(item.dataset.entryId);
+            const entry = userEntries.find(drink => Number(drink.id) === entryId);
+            if (entry) onEntrySelect(entry);
+        });
+    }
 }

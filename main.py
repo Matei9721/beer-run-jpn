@@ -2,6 +2,7 @@ import os
 import io
 import json
 from functools import lru_cache
+from datetime import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -9,7 +10,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Dict, Any
-from PIL import Image
+from PIL import Image, ImageOps
 
 import models
 import schemas
@@ -37,6 +38,37 @@ def get_drink_config() -> Dict[str, Any]:
             return json.load(f)
     except FileNotFoundError:
         return {"types": [], "quantities": []}
+
+def parse_client_timestamp(value: str | None) -> datetime:
+    if not value:
+        return datetime.now().astimezone().replace(tzinfo=None)
+
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return datetime.now().astimezone().replace(tzinfo=None)
+
+    return parsed.replace(tzinfo=None)
+
+def save_optimized_image(contents: bytes, image_path: str) -> None:
+    img = Image.open(io.BytesIO(contents))
+    img = ImageOps.exif_transpose(img)
+
+    # Convert to RGB (in case of RGBA/PNG)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+
+    # Resize if too large (max 1080px on longest side)
+    max_size = 1080
+    if max(img.size) > max_size:
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+    # Save as optimized JPEG with the orientation baked into the pixels.
+    img.save(image_path, "JPEG", quality=85, optimize=True)
 
 @app.get("/")
 async def root():
@@ -107,7 +139,9 @@ async def get_entries(username: str = None, db: Session = Depends(get_db)):
         "latitude": e.latitude,
         "longitude": e.longitude,
         "image_path": e.image_path,
-        "timestamp": e.timestamp.isoformat()
+        "timestamp": e.timestamp.isoformat(),
+        "timezone": e.timezone,
+        "timezone_code": e.timezone_code
     } for e in entries]
 
 @app.post("/api/entries")
@@ -118,6 +152,9 @@ async def create_entry(
     brand: str = Form(None),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    client_timestamp: str = Form(None),
+    client_timezone: str = Form(None),
+    client_timezone_code: str = Form(None),
     image: UploadFile = File(None),
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
@@ -138,19 +175,7 @@ async def create_entry(
                 safe_filename = f"{timestamp}.jpg"
                 image_path = os.path.join("static/uploads", safe_filename)
                 
-                img = Image.open(io.BytesIO(contents))
-                
-                # Convert to RGB (in case of RGBA/PNG)
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-                    
-                # Resize if too large (max 1080px on longest side)
-                max_size = 1080
-                if max(img.size) > max_size:
-                    img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-                    
-                # Save as optimized JPEG
-                img.save(image_path, "JPEG", quality=85, optimize=True)
+                save_optimized_image(contents, image_path)
                 print(f"Image saved to: {image_path}")
         except Exception as e:
             print(f"Image processing failed: {e}")
@@ -165,6 +190,9 @@ async def create_entry(
             latitude=latitude,
             longitude=longitude,
             image_path=image_path,
+            timestamp=parse_client_timestamp(client_timestamp),
+            timezone=client_timezone,
+            timezone_code=client_timezone_code,
             user_id=current_user.id
         )
         db.add(new_entry)

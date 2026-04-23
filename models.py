@@ -23,6 +23,8 @@ class Entry(Base):
     longitude = Column(Float)
     image_path = Column(String, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(UTC))
+    timezone = Column(String, nullable=True)
+    timezone_code = Column(String, nullable=True)
     
     user_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="entries")

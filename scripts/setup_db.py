@@ -25,15 +25,31 @@ def migrate():
     cursor = conn.cursor()
     try:
         cursor.execute("PRAGMA table_info(users)")
-        columns = [info[1] for info in cursor.fetchall()]
+        user_columns = [info[1] for info in cursor.fetchall()]
         
-        if "hashed_password" not in columns:
+        if "hashed_password" not in user_columns:
             print("Adding 'hashed_password' column to 'users' table...")
             cursor.execute("ALTER TABLE users ADD COLUMN hashed_password TEXT")
-            conn.commit()
-            print("Migration successful.")
         else:
             print("'hashed_password' column already exists.")
+
+        cursor.execute("PRAGMA table_info(entries)")
+        entry_columns = [info[1] for info in cursor.fetchall()]
+
+        if "timezone" not in entry_columns:
+            print("Adding 'timezone' column to 'entries' table...")
+            cursor.execute("ALTER TABLE entries ADD COLUMN timezone TEXT")
+        else:
+            print("'timezone' column already exists.")
+
+        if "timezone_code" not in entry_columns:
+            print("Adding 'timezone_code' column to 'entries' table...")
+            cursor.execute("ALTER TABLE entries ADD COLUMN timezone_code TEXT")
+        else:
+            print("'timezone_code' column already exists.")
+
+        conn.commit()
+        print("Migration successful.")
     except Exception as e:
         print(f"Migration failed: {e}")
     finally:

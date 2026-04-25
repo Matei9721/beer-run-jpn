@@ -1,0 +1,427 @@
+{
+  "meta": {
+    "title": "BeerRunJPN Wrapped",
+    "subtitle": "The final trip recap",
+    "generated_at": "2026-04-25T20:13:39.360414+00:00",
+    "audio_path": "/static/audio/wrapped.mp3",
+    "slide_duration_ms": 8500
+  },
+  "stats": {
+    "total_entries": 173,
+    "total_photos": 169,
+    "total_liters": 63.69,
+    "total_pure_alcohol": 4.403,
+    "start_date": "2026-03-24T01:23:03.620738",
+    "end_date": "2026-04-22T09:54:58.260595",
+    "top_drink": "Strong Zero",
+    "top_drink_count": 42
+  },
+  "slides": [
+    {
+      "id": "intro",
+      "layout": "intro",
+      "kicker": "BeerRunJPN presents",
+      "title": "Wrapped",
+      "body": "One month in Japan, logged one drink at a time.",
+      "image": {
+        "src": "/static/uploads/1776613707.jpg",
+        "alt": "Strong Zero - Suntory Mango",
+        "caption": "Strong Zero - Suntory Mango"
+      },
+      "stats": [
+        {
+          "label": "entries",
+          "value": 173
+        },
+        {
+          "label": "photos",
+          "value": 169
+        }
+      ]
+    },
+    {
+      "id": "trip-span",
+      "layout": "date-range",
+      "kicker": "Trip window",
+      "title": "30 days on record",
+      "body": "The log starts in late March and ends at the airport. Sensible boundaries, somehow.",
+      "image": {
+        "src": "/static/uploads/1776226747.jpg",
+        "alt": "Strong Zero - Kirin",
+        "caption": "Jorkormorkor - Strong Zero - Kirin"
+      },
+      "date_range": {
+        "start": "Mar 24, 2026",
+        "end": "Apr 22, 2026",
+        "start_short": "Mar 24",
+        "end_short": "Apr 22"
+      },
+      "stats": [
+        {
+          "label": "liters logged",
+          "value": 63.69
+        },
+        {
+          "label": "pure alcohol L",
+          "value": 4.403
+        }
+      ]
+    },
+    {
+      "id": "leaderboard-setup",
+      "layout": "stat",
+      "kicker": "The race",
+      "title": "It stayed annoyingly close",
+      "body": "Three people, one shared spreadsheet energy, and no comfortable lead.",
+      "image": {
+        "src": "/static/uploads/1776436405.jpg",
+        "alt": "Strong Zero - Suntory",
+        "caption": "Tamei - Strong Zero - Suntory"
+      },
+      "stats": [
+        {
+          "label": "logged entries",
+          "value": 173
+        },
+        {
+          "label": "final lead",
+          "value": "0.057L"
+        }
+      ]
+    },
+    {
+      "id": "leaderboard-timeline",
+      "layout": "timeline",
+      "kicker": "Leaderboard over time",
+      "title": "The lead moved late",
+      "body": "Jorkormorkor led the early record. Tamei took the official line near the end.",
+      "timeline": {
+        "unit": "L pure alcohol",
+        "series": [
+          {
+            "username": "Jorkormorkor",
+            "values": [
+              0.076,
+              0.349,
+              0.534,
+              0.594,
+              0.684,
+              0.904,
+              1.066,
+              1.178,
+              1.43
+            ]
+          },
+          {
+            "username": "Tamei",
+            "values": [
+              0.056,
+              0.25,
+              0.463,
+              0.48,
+              0.582,
+              0.833,
+              1.061,
+              1.301,
+              1.515
+            ]
+          },
+          {
+            "username": "\u03bclca",
+            "values": [
+              0.049,
+              0.308,
+              0.473,
+              0.564,
+              0.671,
+              0.864,
+              1.02,
+              1.196,
+              1.458
+            ]
+          }
+        ],
+        "checkpoints": [
+          {
+            "date": "2026-03-24",
+            "label": "Mar 24"
+          },
+          {
+            "date": "2026-03-27",
+            "label": "Mar 27"
+          },
+          {
+            "date": "2026-03-31",
+            "label": "Mar 31"
+          },
+          {
+            "date": "2026-04-04",
+            "label": "Apr 4"
+          },
+          {
+            "date": "2026-04-09",
+            "label": "Apr 9"
+          },
+          {
+            "date": "2026-04-12",
+            "label": "Apr 12"
+          },
+          {
+            "date": "2026-04-15",
+            "label": "Apr 15"
+          },
+          {
+            "date": "2026-04-19",
+            "label": "Apr 19"
+          },
+          {
+            "date": "2026-04-22",
+            "label": "Apr 22"
+          }
+        ]
+      }
+    },
+    {
+      "id": "logged-ranking",
+      "layout": "leaderboard",
+      "kicker": "Official logged result",
+      "title": "Tamei by a sip",
+      "body": "The recorded lead was 0.057L of pure alcohol. Close enough to inspect the formulas.",
+      "image": {
+        "src": "/static/uploads/1776589969.jpg",
+        "alt": "Lemon Sour - Restaurant",
+        "caption": "Tamei - Lemon Sour - Restaurant"
+      },
+      "leaderboard": [
+        {
+          "username": "Tamei",
+          "entries": 63,
+          "liters": 22.91,
+          "pure_alcohol": 1.515
+        },
+        {
+          "username": "\u03bclca",
+          "entries": 57,
+          "liters": 21.09,
+          "pure_alcohol": 1.458
+        },
+        {
+          "username": "Jorkormorkor",
+          "entries": 53,
+          "liters": 19.69,
+          "pure_alcohol": 1.43
+        }
+      ]
+    },
+    {
+      "id": "plot-twist",
+      "layout": "hero",
+      "kicker": "Plot twist",
+      "title": "The unofficial winner: Jorkormorkor",
+      "body": "The database says third. Eyewitnesses remember a few drinks that never made it into the app.",
+      "badge": "Claim only. No correction math.",
+      "image": {
+        "src": "/static/uploads/1774539078.jpg",
+        "alt": "Strong Zero - Suntory Mango",
+        "caption": "Jorkormorkor - Strong Zero - Suntory Mango"
+      }
+    },
+    {
+      "id": "drink-of-trip",
+      "layout": "hero",
+      "kicker": "Drink of the trip",
+      "title": "Strong Zero kept showing up",
+      "body": "42 logged appearances. Reliable, available, and rarely subtle.",
+      "image": {
+        "src": "/static/uploads/1776613707.jpg",
+        "alt": "Strong Zero - Suntory",
+        "caption": "Tamei - Strong Zero - Suntory"
+      },
+      "stats": [
+        {
+          "label": "appearances",
+          "value": 42
+        }
+      ]
+    },
+    {
+      "id": "strongest-pour",
+      "layout": "hero",
+      "kicker": "Strongest pour",
+      "title": "Whiskey - Nikka Yoichi",
+      "body": "55% ABV. Small glass, clear message.",
+      "image": {
+        "src": "/static/uploads/1774871464.jpg",
+        "alt": "Whiskey - Nikka Yoichi",
+        "caption": "Jorkormorkor - Whiskey - Nikka Yoichi"
+      },
+      "stats": [
+        {
+          "label": "ABV",
+          "value": "55%"
+        },
+        {
+          "label": "logged by",
+          "value": "Jorkormorkor"
+        }
+      ]
+    },
+    {
+      "id": "elegant-drink",
+      "layout": "hero",
+      "kicker": "Most elegant drink",
+      "title": "A brief appearance of polish",
+      "body": "Stemware helped. So did the lighting.",
+      "image": {
+        "src": "/static/uploads/1776081068.jpg",
+        "alt": "Sparkling cocktail - Nishi our amazing waiter",
+        "caption": "Tamei - Sparkling cocktail - Nishi our amazing waiter"
+      }
+    },
+    {
+      "id": "scenic-drink",
+      "layout": "hero",
+      "kicker": "Most scenic drink",
+      "title": "Good view. Better receipt.",
+      "body": "One of the few proof photos that also works as a postcard.",
+      "image": {
+        "src": "/static/uploads/1775033883.jpg",
+        "alt": "Strong Zero - Kirin",
+        "caption": "Jorkormorkor - Strong Zero - Kirin"
+      }
+    },
+    {
+      "id": "group-toast",
+      "layout": "multi-image",
+      "kicker": "Group record",
+      "title": "Group proof",
+      "body": "Everyone appears in the evidence eventually.",
+      "images": [
+        {
+          "src": "/static/uploads/1774456727.jpg",
+          "alt": "Somaek - Self made"
+        },
+        {
+          "src": "/static/uploads/1774456744.jpg",
+          "alt": "Somaek - Self made"
+        },
+        {
+          "src": "/static/uploads/1776165266.jpg",
+          "alt": "Sparkling cocktail - _"
+        },
+        {
+          "src": "/static/uploads/1776589969.jpg",
+          "alt": "Lemon Sour - Restaurant"
+        }
+      ]
+    },
+    {
+      "id": "locations",
+      "layout": "locations",
+      "kicker": "Location journey",
+      "title": "Tokyo carried it",
+      "body": "Side quests still made the map.",
+      "image": {
+        "src": "/static/uploads/1776658445.jpg",
+        "alt": "Sake - Fair",
+        "caption": "Tamei - Sake - Fair"
+      },
+      "locations": [
+        {
+          "name": "Tokyo",
+          "entries": 121,
+          "pure_alcohol": 3.47
+        },
+        {
+          "name": "Kusatsu",
+          "entries": 21,
+          "pure_alcohol": 0.369
+        },
+        {
+          "name": "Sapporo",
+          "entries": 15,
+          "pure_alcohol": 0.288
+        },
+        {
+          "name": "Kansai",
+          "entries": 13,
+          "pure_alcohol": 0.228
+        },
+        {
+          "name": "Fuji area",
+          "entries": 2,
+          "pure_alcohol": 0.024
+        }
+      ]
+    },
+    {
+      "id": "photo-wall",
+      "layout": "gallery",
+      "kicker": "Camera roll evidence",
+      "title": "The archive survived",
+      "body": "A short scroll through the receipts that made the cut.",
+      "images": [
+        {
+          "src": "/static/uploads/1774323958.jpg",
+          "alt": "Strong Zero - Suntory"
+        },
+        {
+          "src": "/static/uploads/1774617291.jpg",
+          "alt": "Between the Sheets - Barmade"
+        },
+        {
+          "src": "/static/uploads/1774690644.jpg",
+          "alt": "Beer - Asahi"
+        },
+        {
+          "src": "/static/uploads/1775032905.jpg",
+          "alt": "Strong Zero - Kirin"
+        },
+        {
+          "src": "/static/uploads/1776346527.jpg",
+          "alt": "Beer - Nikka"
+        },
+        {
+          "src": "/static/uploads/1775753823.jpg",
+          "alt": "Beer - The Choya"
+        },
+        {
+          "src": "/static/uploads/1775828755.jpg",
+          "alt": "Highball - Mercian"
+        },
+        {
+          "src": "/static/uploads/1776164871.jpg",
+          "alt": "Sparkling cocktail - Made by our waiter Saiki"
+        },
+        {
+          "src": "/static/uploads/1776165266.jpg",
+          "alt": "Sparkling cocktail - _"
+        },
+        {
+          "src": "/static/uploads/1776403333.jpg",
+          "alt": "Beer - Asahi (zero alcohol because of bike)"
+        },
+        {
+          "src": "/static/uploads/1776492877.jpg",
+          "alt": "Sake - Fair"
+        },
+        {
+          "src": "/static/uploads/1776605202.jpg",
+          "alt": "Beer - Sapporo"
+        }
+      ]
+    },
+    {
+      "id": "finale",
+      "layout": "finale",
+      "kicker": "Final boarding call",
+      "title": "One last Strong Zero",
+      "body": "The trip ended here. The spreadsheet made it home.",
+      "image": {
+        "src": "/static/uploads/1776819297.jpg",
+        "alt": "Strong Zero - Suntory",
+        "caption": "\u03bclca - Strong Zero - Suntory"
+      }
+    }
+  ]
+}

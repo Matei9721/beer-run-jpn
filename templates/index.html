@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=2">
-    <link rel="stylesheet" href="/static/css/auth.css?v=7">
+    <link rel="stylesheet" href="/static/css/style.css?v=4">
+    <link rel="stylesheet" href="/static/css/auth.css?v=8">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -34,6 +34,7 @@
         <nav class="tabs">
             <button class="tab-btn active" data-tab="leaderboard-tab">RANKING</button>
             <button class="tab-btn" data-tab="map-tab">MAP</button>
+            <a class="tab-btn tab-link wrapped-tab-link" href="/wrapped">WRAPPED</a>
             <button class="tab-btn auth-restricted" data-tab="log-tab" style="display:none;">LOG DRINK</button>
         </nav>
 
@@ -195,9 +196,34 @@
         </div>
     </div>
 
+    <!-- Wrapped Available Modal -->
+    <div id="wrapped-ended-modal" class="modal">
+        <div class="modal-content card wrapped-ended-modal-content">
+            <span id="close-wrapped-ended" class="close">&times;</span>
+            <div class="wrapped-ended-orbit" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="instructions-header">
+                <div class="instructions-kicker">Trip Complete</div>
+                <h2>BeerRunJPN has ended</h2>
+                <p>No new drinks will be added to the log. The leaderboard is frozen, the receipts are in, and Wrapped is now available.</p>
+            </div>
+            <div class="wrapped-ended-actions">
+                <a id="wrapped-ended-open" class="wrapped-ended-primary" href="/wrapped">OPEN WRAPPED</a>
+                <button id="wrapped-ended-done" type="button" class="wrapped-ended-secondary">CLOSE</button>
+            </div>
+            <label class="instructions-checkbox">
+                <input type="checkbox" id="hide-wrapped-ended">
+                <span>Don't show this again</span>
+            </label>
+        </div>
+    </div>
+
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=9"></script>
+    <script type="module" src="/static/js/app.js?v=11"></script>
 </body>
 </html>

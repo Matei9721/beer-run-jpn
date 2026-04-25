@@ -5,6 +5,7 @@ import * as ui from './modules/ui.js?v=9';
 
 document.addEventListener('DOMContentLoaded', () => {
     const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
+    const WRAPPED_ENDED_STORAGE_KEY = 'beerRunJpn.hideWrappedEndedNotice';
 
     // --- Global State ---
     let lastRefreshTime = new Date();
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         instructionsModal.style.display = 'none';
+        showWrappedEndedModal();
     }
 
     function initInstructionsModal() {
@@ -96,6 +98,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
             instructionsModal.style.display = 'flex';
+            return true;
+        }
+
+        return false;
+    }
+
+    function closeWrappedEndedModal() {
+        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
+        const hideWrappedEnded = document.getElementById('hide-wrapped-ended');
+
+        if (hideWrappedEnded.checked) {
+            localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
+        }
+
+        wrappedEndedModal.style.display = 'none';
+    }
+
+    function showWrappedEndedModal() {
+        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
+        const instructionsModal = document.getElementById('instructions-modal');
+
+        if (localStorage.getItem(WRAPPED_ENDED_STORAGE_KEY) === 'true') return;
+        if (instructionsModal.style.display === 'flex') return;
+
+        wrappedEndedModal.style.display = 'flex';
+    }
+
+    function initWrappedEndedModal(holdForInstructions = false) {
+        const closeWrappedEnded = document.getElementById('close-wrapped-ended');
+        const wrappedEndedDone = document.getElementById('wrapped-ended-done');
+        const wrappedEndedOpen = document.getElementById('wrapped-ended-open');
+
+        closeWrappedEnded.addEventListener('click', closeWrappedEndedModal);
+        wrappedEndedDone.addEventListener('click', closeWrappedEndedModal);
+        wrappedEndedOpen.addEventListener('click', () => {
+            const hideWrappedEnded = document.getElementById('hide-wrapped-ended');
+            if (hideWrappedEnded.checked) {
+                localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
+            }
+        });
+
+        if (!holdForInstructions) {
+            showWrappedEndedModal();
         }
     }
 
@@ -103,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.getAttribute('data-tab');
+            if (!tabId) return;
             
             activateTab(tabId);
 
@@ -131,9 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const loginModal = document.getElementById('login-modal');
         const userModal = document.getElementById('user-modal');
         const instructionsModal = document.getElementById('instructions-modal');
+        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
         if (event.target == loginModal) auth.closeLoginModal();
         if (event.target == userModal) userModal.style.display = 'none';
         if (event.target == instructionsModal) closeInstructionsModal();
+        if (event.target == wrappedEndedModal) closeWrappedEndedModal();
     });
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -279,7 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Init & Refresh Loop ---
-    initInstructionsModal();
+    const instructionsShown = initInstructionsModal();
+    initWrappedEndedModal(instructionsShown);
 
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
     setInterval(() => refreshData(false), 30000);

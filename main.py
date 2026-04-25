@@ -5,7 +5,7 @@ from functools import lru_cache
 from datetime import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -24,6 +24,7 @@ app = FastAPI(title="BoozeRunJpn")
 
 # Ensure static directories exist
 os.makedirs("static/uploads", exist_ok=True)
+os.makedirs("static/audio", exist_ok=True)
 os.makedirs("static/css", exist_ok=True)
 os.makedirs("static/js", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
@@ -74,9 +75,23 @@ def save_optimized_image(contents: bytes, image_path: str) -> None:
 async def root():
     return FileResponse("templates/index.html")
 
+@app.get("/wrapped")
+async def wrapped():
+    return FileResponse("templates/wrapped.html")
+
 @app.get("/api/config")
 async def get_config():
     return get_drink_config()
+
+@app.get("/api/wrapped")
+async def get_wrapped():
+    try:
+        with open("data/wrapped.json", "r", encoding="utf-8") as f:
+            return JSONResponse(json.load(f))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Wrapped data has not been generated yet")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail=f"Wrapped data is invalid JSON: {exc}")
 
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

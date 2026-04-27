@@ -62,7 +62,7 @@ function escapeHtml(value) {
 }
 
 function slideDuration() {
-    return Number(wrapped?.meta?.slide_duration_ms || 8500);
+    return Number(wrapped?.meta?.slide_duration_ms || 10500);
 }
 
 function statMarkup(stats = []) {
@@ -371,16 +371,21 @@ function renderSlide(slide, index) {
 function renderProgress() {
     progressTrack.style.setProperty('--slide-duration', `${slideDuration()}ms`);
     progressTrack.innerHTML = slides.map((_, index) => `
-        <div class="progress-segment ${index < currentIndex ? 'complete' : ''} ${index === currentIndex ? 'active' : ''}">
+        <div class="progress-segment ${index < currentIndex ? 'complete' : ''} ${index === currentIndex ? 'active' : ''} ${index === currentIndex && !slideAutoAdvances(slides[index]) ? 'hold' : ''}">
             <div class="progress-fill"></div>
         </div>
     `).join('');
+}
+
+function slideAutoAdvances(slide) {
+    return slide?.layout !== 'gallery';
 }
 
 function scheduleNext() {
     clearTimeout(timer);
     if (!started || paused || slides.length <= 1) return;
     if (currentIndex >= slides.length - 1) return;
+    if (!slideAutoAdvances(slides[currentIndex])) return;
     timer = setTimeout(() => {
         goTo(currentIndex + 1);
     }, slideDuration());

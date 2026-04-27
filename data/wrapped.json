@@ -2,9 +2,9 @@
   "meta": {
     "title": "BeerRunJPN Wrapped",
     "subtitle": "The final trip recap",
-    "generated_at": "2026-04-27T20:25:05.364748+00:00",
+    "generated_at": "2026-04-27T20:57:04.435452+00:00",
     "audio_path": "/static/audio/wrapped.mp3",
-    "slide_duration_ms": 8500
+    "slide_duration_ms": 10500
   },
   "stats": {
     "total_entries": 173,
@@ -902,52 +902,52 @@
           "alt": "Beer - Sapporo"
         },
         {
-            "src": "/static/uploads/1775209046.jpg",
-            "alt": "Plum wine soda"
+          "src": "/static/uploads/1775209046.jpg",
+          "alt": "Plum wine soda"
         },
         {
-            "src": "/static/uploads/1775658438.jpg",
-            "alt": "Chinese strong zero calin"
+          "src": "/static/uploads/1775658438.jpg",
+          "alt": "Chinese strong zero calin"
         },
         {
-            "src": "/static/uploads/1776431530.jpg",
-            "alt": "Me hiding behind you"
+          "src": "/static/uploads/1776431530.jpg",
+          "alt": "Me hiding behind you"
         },
         {
-            "src": "/static/uploads/1776436405.jpg",
-            "alt": "Miulca"
+          "src": "/static/uploads/1776436405.jpg",
+          "alt": "Miulca"
         },
         {
-            "src": "/static/uploads/1776589969.jpg",
-            "alt": "Cheers"
+          "src": "/static/uploads/1776589969.jpg",
+          "alt": "Cheers"
         },
         {
-            "src": "/static/uploads/1776787688.jpg",
-            "alt": "Flamandul"
+          "src": "/static/uploads/1776787688.jpg",
+          "alt": "Flamandul"
         },
         {
-            "src": "/static/uploads/1776436614.jpg",
-            "alt": "Side eye"
+          "src": "/static/uploads/1776436614.jpg",
+          "alt": "Side eye"
         },
         {
-            "src": "/static/uploads/1776002775.jpg",
-            "alt": "The Choya"
-        },
-                {
-            "src": "/static/uploads/1776347702.jpg",
-            "alt": "Lucas"
+          "src": "/static/uploads/1776002775.jpg",
+          "alt": "The Choya"
         },
         {
-            "src": "/static/uploads/1774423548.jpg",
-            "alt": "sushi"
+          "src": "/static/uploads/1776347702.jpg",
+          "alt": "Lucas"
         },
         {
-            "src": "/static/uploads/1774794474.jpg",
-            "alt": "Noooo"
+          "src": "/static/uploads/1774423548.jpg",
+          "alt": "sushi"
         },
         {
-            "src": "/static/uploads/1774859713.jpg",
-            "alt": "Good food good drinks"
+          "src": "/static/uploads/1774794474.jpg",
+          "alt": "Noooo"
+        },
+        {
+          "src": "/static/uploads/1774859713.jpg",
+          "alt": "Good food good drinks"
         }
       ]
     },

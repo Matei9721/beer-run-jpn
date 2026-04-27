@@ -1229,6 +1229,11 @@ a {
     animation-duration: var(--slide-duration, 8500ms);
 }
 
+.progress-segment.hold .progress-fill {
+    width: 100%;
+    animation: none;
+}
+
 .paused .progress-segment.active .progress-fill {
     animation-play-state: paused;
 }

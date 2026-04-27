@@ -430,6 +430,34 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
                 used_gallery_urls.add(image["src"])
             if len(curated_gallery) >= 12:
                 break
+    gallery_source_overrides = {
+        "Strong Zero - Kirin": "/static/uploads/1776096694.jpg",
+        "Beer - Nikka": "/static/uploads/1774952384.jpg",
+    }
+    for image in curated_gallery:
+        override_src = gallery_source_overrides.get(image["alt"])
+        if override_src and image_exists(root, override_src):
+            image["src"] = override_src
+    used_gallery_urls = {image["src"] for image in curated_gallery}
+
+    extra_gallery_images = [
+        {"src": "/static/uploads/1775209046.jpg", "alt": "Plum wine soda"},
+        {"src": "/static/uploads/1775658438.jpg", "alt": "Chinese strong zero calin"},
+        {"src": "/static/uploads/1776431530.jpg", "alt": "Me hiding behind you"},
+        {"src": "/static/uploads/1776436405.jpg", "alt": "Miulca"},
+        {"src": "/static/uploads/1776589969.jpg", "alt": "Cheers"},
+        {"src": "/static/uploads/1776787688.jpg", "alt": "Flamandul"},
+        {"src": "/static/uploads/1776436614.jpg", "alt": "Side eye"},
+        {"src": "/static/uploads/1776002775.jpg", "alt": "The Choya"},
+        {"src": "/static/uploads/1776347702.jpg", "alt": "Lucas"},
+        {"src": "/static/uploads/1774423548.jpg", "alt": "sushi"},
+        {"src": "/static/uploads/1774794474.jpg", "alt": "Noooo"},
+        {"src": "/static/uploads/1774859713.jpg", "alt": "Good food good drinks"},
+    ]
+    for image in extra_gallery_images:
+        if image["src"] not in used_gallery_urls and image_exists(root, image["src"]):
+            curated_gallery.append(image)
+            used_gallery_urls.add(image["src"])
 
     group_images = images_from_ids(entries, [14, 15, 127, 159, 2, 95], 4)
     if len(group_images) < 2:
@@ -603,7 +631,7 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
             "subtitle": "The final trip recap",
             "generated_at": datetime.now(UTC).isoformat(),
             "audio_path": DEFAULT_AUDIO_PATH,
-            "slide_duration_ms": 8500,
+            "slide_duration_ms": 10500,
         },
         "stats": {
             "total_entries": len(entries),

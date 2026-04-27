@@ -317,7 +317,7 @@ function contentMarkup(slide) {
 
     const finale = slide.layout === 'finale'
         ? `<div class="finale-actions">
-                <button id="replay-btn" class="finale-btn" type="button">REPLAY</button>
+                <a id="go-app-btn" class="finale-btn" href="/">GO TO APP</a>
                 <button id="share-btn" class="finale-btn secondary" type="button">SHARE</button>
            </div>`
         : '';
@@ -398,12 +398,7 @@ function updateControls() {
 }
 
 function bindFinaleActions() {
-    const replayBtn = document.getElementById('replay-btn');
     const shareBtn = document.getElementById('share-btn');
-
-    if (replayBtn) {
-        replayBtn.onclick = () => goTo(0);
-    }
 
     if (!shareBtn) return;
 

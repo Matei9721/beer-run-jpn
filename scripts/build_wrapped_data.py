@@ -2,7 +2,7 @@ import argparse
 import json
 import sqlite3
 from collections import Counter, defaultdict
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
 
@@ -227,6 +227,112 @@ def build_timeline(entries):
     }
 
 
+def format_calendar_month_range(start_day, end_day):
+    if start_day.year == end_day.year and start_day.month == end_day.month:
+        return f"{start_day.strftime('%b')} {start_day.year}"
+    if start_day.year == end_day.year:
+        return f"{start_day.strftime('%b')} - {end_day.strftime('%b')} {end_day.year}"
+    return f"{start_day.strftime('%b')} {start_day.year} - {end_day.strftime('%b')} {end_day.year}"
+
+
+def format_calendar_day(day):
+    return f"{day.strftime('%b')} {day.day}"
+
+
+def build_calendar(entries):
+    dated_entries = [
+        entry
+        for entry in entries
+        if entry.get("timestamp_sort") and entry["timestamp_sort"] != datetime.min
+    ]
+    if not dated_entries:
+        return {
+            "month_label": "",
+            "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "weeks": [],
+            "active_days": 0,
+            "total_days": 0,
+            "max_entries": 0,
+            "max_liters": 0,
+            "highlights": [],
+        }
+
+    grouped = defaultdict(lambda: {"entries": 0, "liters": 0.0, "pure_alcohol": 0.0})
+    for entry in dated_entries:
+        day = entry["timestamp_sort"].date()
+        grouped[day]["entries"] += 1
+        grouped[day]["liters"] += entry["quantity"]
+        grouped[day]["pure_alcohol"] += entry["pure_alcohol"]
+
+    start_day = min(grouped)
+    end_day = max(grouped)
+    calendar_start = start_day - timedelta(days=start_day.weekday())
+    calendar_end = end_day
+    max_entries = max(day["entries"] for day in grouped.values())
+    max_liters = max(day["liters"] for day in grouped.values())
+    busiest_day, busiest_data = max(grouped.items(), key=lambda item: (item[1]["entries"], item[1]["liters"]))
+    thirstiest_day, thirstiest_data = max(grouped.items(), key=lambda item: (item[1]["liters"], item[1]["entries"]))
+
+    weeks = []
+    cursor = calendar_start
+    while cursor <= calendar_end:
+        week = []
+        for _ in range(7):
+            if cursor > calendar_end:
+                break
+            in_range = start_day <= cursor <= end_day
+            day_data = grouped.get(cursor, {"entries": 0, "liters": 0.0, "pure_alcohol": 0.0})
+            entries_count = day_data["entries"] if in_range else 0
+            liters = day_data["liters"] if in_range else 0.0
+            intensity = 0
+            if in_range and entries_count:
+                entry_intensity = entries_count / max(max_entries, 1)
+                liter_intensity = liters / max(max_liters, 0.001)
+                intensity = round(max(entry_intensity, liter_intensity), 3)
+            week.append(
+                {
+                    "date": cursor.isoformat(),
+                    "day": cursor.day,
+                    "month": cursor.strftime("%b"),
+                    "label": format_calendar_day(cursor),
+                    "weekday": cursor.strftime("%a"),
+                    "entries": entries_count,
+                    "liters": round(liters, 2),
+                    "pure_alcohol": round(day_data["pure_alcohol"] if in_range else 0, 3),
+                    "intensity": intensity,
+                    "in_range": in_range,
+                    "is_peak_entries": in_range and cursor == busiest_day,
+                    "is_peak_liters": in_range and cursor == thirstiest_day,
+                }
+            )
+            cursor += timedelta(days=1)
+        weeks.append(week)
+
+    total_days = (end_day - start_day).days + 1
+    active_days = sum(1 for data in grouped.values() if data["entries"] > 0)
+    return {
+        "month_label": format_calendar_month_range(start_day, end_day),
+        "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "weeks": weeks,
+        "active_days": active_days,
+        "total_days": total_days,
+        "max_entries": max_entries,
+        "max_liters": round(max_liters, 2),
+        "highlights": [
+            {
+                "label": "most drinks",
+                "date": format_calendar_day(busiest_day),
+                "value": f"{busiest_data['entries']} drinks",
+            },
+            {
+                "label": "most volume",
+                "date": format_calendar_day(thirstiest_day),
+                "value": f"{thirstiest_data['liters']:.2f}L",
+            },
+        ],
+    }
+
+
 def sample_photo_wall(entries, limit=12):
     images = [entry for entry in entries if entry.get("image_url")]
     if len(images) <= limit:
@@ -284,6 +390,7 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
     leaderboard = build_leaderboard(entries)
     locations = build_location_stats(entries)
     timeline = build_timeline(entries)
+    calendar = build_calendar(entries)
 
     drink_counter = Counter(entry["drink_type"] or "Unknown" for entry in entries)
     top_drink, top_drink_count = drink_counter.most_common(1)[0] if drink_counter else ("Nothing", 0)
@@ -363,6 +470,19 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
             "stats": [
                 {"label": "liters logged", "value": round(total_liters, 2)},
                 {"label": "pure alcohol L", "value": round(total_alcohol, 3)},
+            ],
+        },
+        {
+            "id": "daily-calendar",
+            "layout": "calendar",
+            "kicker": "Daily damage report",
+            "title": "The calendar did not get many nights off",
+            "body": "Each square is one day: drinks logged up top, liters underneath, brighter when the table got busy.",
+            "badge": f"{calendar['active_days']} active days of {calendar['total_days']}",
+            "calendar": calendar,
+            "stats": [
+                {"label": "most drinks", "value": calendar["highlights"][0]["value"] if calendar["highlights"] else "0 drinks"},
+                {"label": "biggest day", "value": calendar["highlights"][1]["value"] if len(calendar["highlights"]) > 1 else "0L"},
             ],
         },
         {

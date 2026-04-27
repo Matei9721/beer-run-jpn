@@ -2,7 +2,7 @@
   "meta": {
     "title": "BeerRunJPN Wrapped",
     "subtitle": "The final trip recap",
-    "generated_at": "2026-04-25T20:13:39.360414+00:00",
+    "generated_at": "2026-04-27T20:25:05.364748+00:00",
     "audio_path": "/static/audio/wrapped.mp3",
     "slide_duration_ms": 8500
   },
@@ -24,9 +24,9 @@
       "title": "Wrapped",
       "body": "One month in Japan, logged one drink at a time.",
       "image": {
-        "src": "/static/uploads/1776613707.jpg",
+        "src": "/static/uploads/1774453522.jpg",
         "alt": "Strong Zero - Suntory Mango",
-        "caption": "Strong Zero - Suntory Mango"
+        "caption": "Jorkormorkor - Strong Zero - Suntory Mango"
       },
       "stats": [
         {
@@ -64,6 +64,498 @@
         {
           "label": "pure alcohol L",
           "value": 4.403
+        }
+      ]
+    },
+    {
+      "id": "daily-calendar",
+      "layout": "calendar",
+      "kicker": "Daily damage report",
+      "title": "The calendar did not get many nights off",
+      "body": "Each square is one day: drinks logged up top, liters underneath, brighter when the table got busy.",
+      "badge": "28 active days of 30",
+      "calendar": {
+        "month_label": "Mar - Apr 2026",
+        "weekdays": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "weeks": [
+          [
+            {
+              "date": "2026-03-23",
+              "day": 23,
+              "month": "Mar",
+              "label": "Mar 23",
+              "weekday": "Mon",
+              "entries": 0,
+              "liters": 0.0,
+              "pure_alcohol": 0,
+              "intensity": 0,
+              "in_range": false,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-24",
+              "day": 24,
+              "month": "Mar",
+              "label": "Mar 24",
+              "weekday": "Tue",
+              "entries": 6,
+              "liters": 2.25,
+              "pure_alcohol": 0.181,
+              "intensity": 0.353,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-25",
+              "day": 25,
+              "month": "Mar",
+              "label": "Mar 25",
+              "weekday": "Wed",
+              "entries": 3,
+              "liters": 1.5,
+              "pure_alcohol": 0.075,
+              "intensity": 0.223,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-26",
+              "day": 26,
+              "month": "Mar",
+              "label": "Mar 26",
+              "weekday": "Thu",
+              "entries": 17,
+              "liters": 5.63,
+              "pure_alcohol": 0.462,
+              "intensity": 1.0,
+              "in_range": true,
+              "is_peak_entries": true,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-27",
+              "day": 27,
+              "month": "Mar",
+              "label": "Mar 27",
+              "weekday": "Fri",
+              "entries": 6,
+              "liters": 1.62,
+              "pure_alcohol": 0.189,
+              "intensity": 0.353,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-28",
+              "day": 28,
+              "month": "Mar",
+              "label": "Mar 28",
+              "weekday": "Sat",
+              "entries": 4,
+              "liters": 1.7,
+              "pure_alcohol": 0.085,
+              "intensity": 0.252,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-29",
+              "day": 29,
+              "month": "Mar",
+              "label": "Mar 29",
+              "weekday": "Sun",
+              "entries": 10,
+              "liters": 4.4,
+              "pure_alcohol": 0.27,
+              "intensity": 0.653,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            }
+          ],
+          [
+            {
+              "date": "2026-03-30",
+              "day": 30,
+              "month": "Mar",
+              "label": "Mar 30",
+              "weekday": "Mon",
+              "entries": 5,
+              "liters": 1.15,
+              "pure_alcohol": 0.133,
+              "intensity": 0.294,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-03-31",
+              "day": 31,
+              "month": "Mar",
+              "label": "Mar 31",
+              "weekday": "Tue",
+              "entries": 3,
+              "liters": 1.5,
+              "pure_alcohol": 0.075,
+              "intensity": 0.223,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-01",
+              "day": 1,
+              "month": "Apr",
+              "label": "Apr 1",
+              "weekday": "Wed",
+              "entries": 7,
+              "liters": 2.43,
+              "pure_alcohol": 0.081,
+              "intensity": 0.412,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-02",
+              "day": 2,
+              "month": "Apr",
+              "label": "Apr 2",
+              "weekday": "Thu",
+              "entries": 0,
+              "liters": 0.0,
+              "pure_alcohol": 0.0,
+              "intensity": 0,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-03",
+              "day": 3,
+              "month": "Apr",
+              "label": "Apr 3",
+              "weekday": "Fri",
+              "entries": 3,
+              "liters": 1.05,
+              "pure_alcohol": 0.053,
+              "intensity": 0.176,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-04",
+              "day": 4,
+              "month": "Apr",
+              "label": "Apr 4",
+              "weekday": "Sat",
+              "entries": 2,
+              "liters": 0.7,
+              "pure_alcohol": 0.035,
+              "intensity": 0.118,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-05",
+              "day": 5,
+              "month": "Apr",
+              "label": "Apr 5",
+              "weekday": "Sun",
+              "entries": 4,
+              "liters": 1.4,
+              "pure_alcohol": 0.07,
+              "intensity": 0.235,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            }
+          ],
+          [
+            {
+              "date": "2026-04-06",
+              "day": 6,
+              "month": "Apr",
+              "label": "Apr 6",
+              "weekday": "Mon",
+              "entries": 4,
+              "liters": 1.4,
+              "pure_alcohol": 0.07,
+              "intensity": 0.235,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-07",
+              "day": 7,
+              "month": "Apr",
+              "label": "Apr 7",
+              "weekday": "Tue",
+              "entries": 0,
+              "liters": 0.0,
+              "pure_alcohol": 0.0,
+              "intensity": 0,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-08",
+              "day": 8,
+              "month": "Apr",
+              "label": "Apr 8",
+              "weekday": "Wed",
+              "entries": 5,
+              "liters": 1.55,
+              "pure_alcohol": 0.134,
+              "intensity": 0.294,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-09",
+              "day": 9,
+              "month": "Apr",
+              "label": "Apr 9",
+              "weekday": "Thu",
+              "entries": 1,
+              "liters": 0.35,
+              "pure_alcohol": 0.024,
+              "intensity": 0.059,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-10",
+              "day": 10,
+              "month": "Apr",
+              "label": "Apr 10",
+              "weekday": "Fri",
+              "entries": 15,
+              "liters": 6.74,
+              "pure_alcohol": 0.319,
+              "intensity": 1.0,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": true
+            },
+            {
+              "date": "2026-04-11",
+              "day": 11,
+              "month": "Apr",
+              "label": "Apr 11",
+              "weekday": "Sat",
+              "entries": 2,
+              "liters": 0.67,
+              "pure_alcohol": 0.04,
+              "intensity": 0.118,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-12",
+              "day": 12,
+              "month": "Apr",
+              "label": "Apr 12",
+              "weekday": "Sun",
+              "entries": 12,
+              "liters": 4.42,
+              "pure_alcohol": 0.306,
+              "intensity": 0.706,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            }
+          ],
+          [
+            {
+              "date": "2026-04-13",
+              "day": 13,
+              "month": "Apr",
+              "label": "Apr 13",
+              "weekday": "Mon",
+              "entries": 6,
+              "liters": 1.9,
+              "pure_alcohol": 0.118,
+              "intensity": 0.353,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-14",
+              "day": 14,
+              "month": "Apr",
+              "label": "Apr 14",
+              "weekday": "Tue",
+              "entries": 17,
+              "liters": 3.93,
+              "pure_alcohol": 0.31,
+              "intensity": 1.0,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-15",
+              "day": 15,
+              "month": "Apr",
+              "label": "Apr 15",
+              "weekday": "Wed",
+              "entries": 4,
+              "liters": 1.33,
+              "pure_alcohol": 0.117,
+              "intensity": 0.235,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-16",
+              "day": 16,
+              "month": "Apr",
+              "label": "Apr 16",
+              "weekday": "Thu",
+              "entries": 8,
+              "liters": 1.95,
+              "pure_alcohol": 0.185,
+              "intensity": 0.471,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-17",
+              "day": 17,
+              "month": "Apr",
+              "label": "Apr 17",
+              "weekday": "Fri",
+              "entries": 6,
+              "liters": 2.21,
+              "pure_alcohol": 0.121,
+              "intensity": 0.353,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-18",
+              "day": 18,
+              "month": "Apr",
+              "label": "Apr 18",
+              "weekday": "Sat",
+              "entries": 7,
+              "liters": 1.38,
+              "pure_alcohol": 0.111,
+              "intensity": 0.412,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-19",
+              "day": 19,
+              "month": "Apr",
+              "label": "Apr 19",
+              "weekday": "Sun",
+              "entries": 4,
+              "liters": 1.38,
+              "pure_alcohol": 0.111,
+              "intensity": 0.235,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            }
+          ],
+          [
+            {
+              "date": "2026-04-20",
+              "day": 20,
+              "month": "Apr",
+              "label": "Apr 20",
+              "weekday": "Mon",
+              "entries": 2,
+              "liters": 0.55,
+              "pure_alcohol": 0.053,
+              "intensity": 0.118,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-21",
+              "day": 21,
+              "month": "Apr",
+              "label": "Apr 21",
+              "weekday": "Tue",
+              "entries": 5,
+              "liters": 6.6,
+              "pure_alcohol": 0.514,
+              "intensity": 0.979,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            },
+            {
+              "date": "2026-04-22",
+              "day": 22,
+              "month": "Apr",
+              "label": "Apr 22",
+              "weekday": "Wed",
+              "entries": 5,
+              "liters": 2.0,
+              "pure_alcohol": 0.16,
+              "intensity": 0.297,
+              "in_range": true,
+              "is_peak_entries": false,
+              "is_peak_liters": false
+            }
+          ]
+        ],
+        "active_days": 28,
+        "total_days": 30,
+        "max_entries": 17,
+        "max_liters": 6.74,
+        "highlights": [
+          {
+            "label": "most drinks",
+            "date": "Mar 26",
+            "value": "17 drinks"
+          },
+          {
+            "label": "most volume",
+            "date": "Apr 10",
+            "value": "6.74L"
+          }
+        ]
+      },
+      "stats": [
+        {
+          "label": "most drinks",
+          "value": "17 drinks"
+        },
+        {
+          "label": "biggest day",
+          "value": "6.74L"
         }
       ]
     },
@@ -221,7 +713,7 @@
       "body": "The database says third. Eyewitnesses remember a few drinks that never made it into the app.",
       "badge": "Claim only. No correction math.",
       "image": {
-        "src": "/static/uploads/1774539078.jpg",
+        "src": "/static/uploads/1774453522.jpg",
         "alt": "Strong Zero - Suntory Mango",
         "caption": "Jorkormorkor - Strong Zero - Suntory Mango"
       }
@@ -374,11 +866,11 @@
           "alt": "Beer - Asahi"
         },
         {
-          "src": "/static/uploads/1775032905.jpg",
+          "src": "/static/uploads/1776096694.jpg",
           "alt": "Strong Zero - Kirin"
         },
         {
-          "src": "/static/uploads/1776346527.jpg",
+          "src": "/static/uploads/1774952384.jpg",
           "alt": "Beer - Nikka"
         },
         {
@@ -408,6 +900,54 @@
         {
           "src": "/static/uploads/1776605202.jpg",
           "alt": "Beer - Sapporo"
+        },
+        {
+            "src": "/static/uploads/1775209046.jpg",
+            "alt": "Plum wine soda"
+        },
+        {
+            "src": "/static/uploads/1775658438.jpg",
+            "alt": "Chinese strong zero calin"
+        },
+        {
+            "src": "/static/uploads/1776431530.jpg",
+            "alt": "Me hiding behind you"
+        },
+        {
+            "src": "/static/uploads/1776436405.jpg",
+            "alt": "Miulca"
+        },
+        {
+            "src": "/static/uploads/1776589969.jpg",
+            "alt": "Cheers"
+        },
+        {
+            "src": "/static/uploads/1776787688.jpg",
+            "alt": "Flamandul"
+        },
+        {
+            "src": "/static/uploads/1776436614.jpg",
+            "alt": "Side eye"
+        },
+        {
+            "src": "/static/uploads/1776002775.jpg",
+            "alt": "The Choya"
+        },
+                {
+            "src": "/static/uploads/1776347702.jpg",
+            "alt": "Lucas"
+        },
+        {
+            "src": "/static/uploads/1774423548.jpg",
+            "alt": "sushi"
+        },
+        {
+            "src": "/static/uploads/1774794474.jpg",
+            "alt": "Noooo"
+        },
+        {
+            "src": "/static/uploads/1774859713.jpg",
+            "alt": "Good food good drinks"
         }
       ]
     },

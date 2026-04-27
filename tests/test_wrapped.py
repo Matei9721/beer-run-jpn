@@ -75,11 +75,18 @@ def test_build_wrapped_data_skips_empty_images(tmp_path):
     assert "/static/uploads/empty.jpg" not in rendered
 
     layouts = {slide["layout"] for slide in data["slides"]}
-    assert {"date-range", "timeline", "multi-image"}.issubset(layouts)
+    assert {"date-range", "timeline", "calendar", "multi-image"}.issubset(layouts)
 
     timeline = next(slide for slide in data["slides"] if slide["layout"] == "timeline")
     assert len(timeline["timeline"]["checkpoints"]) >= 2
     assert timeline["timeline"]["series"]
+
+    calendar = next(slide for slide in data["slides"] if slide["layout"] == "calendar")
+    calendar_days = [day for week in calendar["calendar"]["weeks"] for day in week]
+    assert calendar["calendar"]["active_days"] == 2
+    assert calendar_days[-1]["date"] == "2026-03-25"
+    assert any(day["entries"] == 2 and day["liters"] == 0.55 for day in calendar_days)
+    assert any(day["entries"] == 1 and day["liters"] == 0.35 for day in calendar_days)
 
     multi_image = next(slide for slide in data["slides"] if slide["layout"] == "multi-image")
     assert multi_image["images"]

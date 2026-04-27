@@ -218,6 +218,74 @@ function timelineMarkup(timeline) {
     `;
 }
 
+function calendarMarkup(calendar) {
+    const weeks = Array.isArray(calendar?.weeks) ? calendar.weeks : [];
+    if (!weeks.length) return '';
+
+    const weekdays = Array.isArray(calendar.weekdays) && calendar.weekdays.length
+        ? calendar.weekdays
+        : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const highlights = Array.isArray(calendar.highlights) ? calendar.highlights : [];
+    const dayCells = weeks.flatMap(week => week).map((day, index) => {
+        const entries = Number(day.entries || 0);
+        const liters = Number(day.liters || 0);
+        const level = Math.max(0, Math.min(1, Number(day.intensity || 0)));
+        const classes = [
+            'calendar-day',
+            day.in_range ? '' : 'is-outside',
+            entries ? 'is-active-day' : 'is-quiet-day',
+            day.is_peak_entries ? 'is-peak-entries' : '',
+            day.is_peak_liters ? 'is-peak-liters' : '',
+        ].filter(Boolean).join(' ');
+        const title = `${day.label || day.date}: ${entries} drinks, ${liters.toFixed(2)}L`;
+
+        return `
+            <div class="${classes}" style="--day-level: ${level.toFixed(3)}; --day-order: ${index}" title="${escapeHtml(title)}">
+                <div class="calendar-day-top">
+                    <span class="calendar-day-number">${escapeHtml(day.day)}</span>
+                    <span class="calendar-day-month">${escapeHtml(day.month || '')}</span>
+                </div>
+                <div class="calendar-day-metric">
+                    <strong>${escapeHtml(entries)}</strong>
+                    <span>drinks</span>
+                </div>
+                <div class="calendar-day-liters">${escapeHtml(liters.toFixed(2))}L</div>
+            </div>
+        `;
+    }).join('');
+
+    const highlightMarkup = highlights.map(item => `
+        <div class="calendar-highlight">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+            <em>${escapeHtml(item.date)}</em>
+        </div>
+    `).join('');
+
+    return `
+        <div class="calendar-panel">
+            <div class="calendar-panel-head">
+                <div>
+                    <span>Trip calendar</span>
+                    <strong>${escapeHtml(calendar.month_label || '')}</strong>
+                </div>
+                <div class="calendar-legend" aria-label="Daily intensity">
+                    <i></i><i></i><i></i><i></i>
+                </div>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+                ${weekdays.map(day => `<span>${escapeHtml(day)}</span>`).join('')}
+            </div>
+            <div class="calendar-grid" aria-label="Drinks and liters by day">
+                ${dayCells}
+            </div>
+            <div class="calendar-highlights">
+                ${highlightMarkup}
+            </div>
+        </div>
+    `;
+}
+
 function galleryMarkup(images = []) {
     if (!images.length) return '';
     return `
@@ -283,6 +351,11 @@ function renderSlide(slide, index) {
 
     if (slide.layout === 'timeline') {
         article.innerHTML = contentMarkup(slide) + timelineMarkup(slide.timeline);
+        return article;
+    }
+
+    if (slide.layout === 'calendar') {
+        article.innerHTML = contentMarkup(slide) + calendarMarkup(slide.calendar);
         return article;
     }
 
@@ -436,7 +509,7 @@ function updateGalleryMotion() {
         const scrollDistance = Math.max(0, grid.scrollHeight - windowNode.clientHeight);
         const canScroll = scrollDistance > 8 && !reduceMotion;
         grid.style.setProperty('--gallery-scroll-distance', `${Math.ceil(scrollDistance)}px`);
-        grid.style.setProperty('--gallery-scroll-duration', `${Math.max(5200, slideDuration() - 900)}ms`);
+        grid.style.setProperty('--gallery-scroll-duration', `${Math.max(20000, slideDuration())}ms`);
         grid.classList.toggle('is-scrollable', canScroll);
     });
 }

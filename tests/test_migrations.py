@@ -19,6 +19,16 @@ def column_names(db_path: Path, table: str) -> set[str]:
         return {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
 
 
+def index_names(db_path: Path, table: str) -> set[str]:
+    with sqlite3.connect(db_path) as conn:
+        return {row[1] for row in conn.execute(f"PRAGMA index_list({table})")}
+
+
+def foreign_key_targets(db_path: Path, table: str) -> set[tuple[str, str]]:
+    with sqlite3.connect(db_path) as conn:
+        return {(row[3], row[2]) for row in conn.execute(f"PRAGMA foreign_key_list({table})")}
+
+
 def migration_versions(db_path: Path) -> list[str]:
     with sqlite3.connect(db_path) as conn:
         return [row[0] for row in conn.execute("SELECT version FROM schema_migrations ORDER BY version")]
@@ -81,8 +91,8 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
     result = apply_migrations(db_path)
 
     assert result.baselined == ("001_initial_schema",)
-    assert result.applied == ()
-    assert migration_versions(db_path) == ["001_initial_schema"]
+    assert result.applied == ("002_add_beer_run_schema",)
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
 
@@ -94,8 +104,8 @@ def test_migrations_are_idempotent_for_migrated_database(tmp_path):
     apply_migrations(db_path)
     result = apply_migrations(db_path)
 
-    assert result.skipped == ("001_initial_schema",)
-    assert migration_versions(db_path) == ["001_initial_schema"]
+    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema")
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
 
@@ -121,11 +131,49 @@ def test_fresh_database_is_created_from_migrations(tmp_path):
 
     result = apply_migrations(db_path)
 
-    assert result.applied == ("001_initial_schema",)
-    assert {"users", "entries", "schema_migrations"}.issubset(table_names(db_path))
+    assert result.applied == ("001_initial_schema", "002_add_beer_run_schema")
+    assert {"users", "entries", "schema_migrations", "beer_runs", "beer_run_members"}.issubset(table_names(db_path))
     assert {"id", "username", "hashed_password"}.issubset(column_names(db_path, "users"))
-    assert {"timezone", "timezone_code", "user_id"}.issubset(column_names(db_path, "entries"))
-    assert migration_versions(db_path) == ["001_initial_schema"]
+    assert {"timezone", "timezone_code", "user_id", "beer_run_id"}.issubset(column_names(db_path, "entries"))
+    assert {"id", "name", "is_public", "created_at"}.issubset(column_names(db_path, "beer_runs"))
+    assert {"id", "beer_run_id", "user_id", "role", "created_at"}.issubset(column_names(db_path, "beer_run_members"))
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
+
+
+def test_beer_run_schema_migration_adds_lookup_indexes_and_foreign_keys(tmp_path):
+    db_path = tmp_path / "fresh.db"
+
+    apply_migrations(db_path)
+
+    assert "ix_entries_beer_run_id" in index_names(db_path, "entries")
+    assert "ix_beer_runs_is_public" in index_names(db_path, "beer_runs")
+    assert "ix_beer_run_members_user_id" in index_names(db_path, "beer_run_members")
+    assert "ix_beer_run_members_beer_run_id" in index_names(db_path, "beer_run_members")
+    assert ("beer_run_id", "beer_runs") in foreign_key_targets(db_path, "entries")
+    assert ("beer_run_id", "beer_runs") in foreign_key_targets(db_path, "beer_run_members")
+    assert ("user_id", "users") in foreign_key_targets(db_path, "beer_run_members")
+
+
+def test_beer_run_schema_migration_preserves_existing_rows(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_current_schema_without_history(db_path)
+
+    apply_migrations(db_path)
+
+    assert row_count(db_path, "users") == 1
+    assert row_count(db_path, "entries") == 1
+    assert row_count(db_path, "beer_runs") == 0
+    assert row_count(db_path, "beer_run_members") == 0
+
+
+def test_beer_run_schema_migration_is_idempotent(tmp_path):
+    db_path = tmp_path / "fresh.db"
+
+    apply_migrations(db_path)
+    result = apply_migrations(db_path)
+
+    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema")
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
 
 
 def test_check_mode_accepts_migrated_database(tmp_path):

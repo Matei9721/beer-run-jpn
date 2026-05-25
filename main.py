@@ -15,10 +15,13 @@ from PIL import Image, ImageOps
 import models
 import schemas
 import auth
-from database import engine, get_db
+from database import get_db
+from migrations.runner import MigrationRequired, validate_database_ready
 
-# Create the database tables
-models.Base.metadata.create_all(bind=engine)
+try:
+    validate_database_ready()
+except MigrationRequired as exc:
+    raise RuntimeError(f"Database migration required: {exc}") from exc
 
 app = FastAPI(title="BoozeRunJpn")
 

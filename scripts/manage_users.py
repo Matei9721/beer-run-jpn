@@ -9,9 +9,10 @@ sys.path.append(BASE_DIR)
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import SessionLocal, engine
+from database import SessionLocal
 import models
 from auth import get_password_hash
+from migrations.runner import validate_database_ready
 
 def _normalize_username(username: str) -> str:
     normalized = (username or "").strip()
@@ -32,7 +33,7 @@ def _find_user(db: Session, username: str):
 
 
 def _ensure_tables_exist():
-    models.Base.metadata.create_all(bind=engine)
+    validate_database_ready()
 
 
 def add_user(username: str, password: str, session_factory: Callable[[], Session] = SessionLocal) -> int:

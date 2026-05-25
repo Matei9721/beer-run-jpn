@@ -19,7 +19,7 @@
 ## Backend Rules
 
 - `database.py` points the app at root `boozerun.db`; tests override this with root `test.db`.
-- Schema changes need to account for three places: `models.py`, API serialization in `main.py`, and the simple migration path in `scripts/setup_db.py`.
+- Schema changes need to account for `models.py`, API serialization in `main.py`, and the migration path in `migrations/` plus `scripts/migrate_db.py`.
 - Keep the API response shapes stable unless tests and frontend consumers are updated together.
 - For auth changes, update both `auth.py` and the `/token` flow in `main.py`; the frontend stores the access token in `localStorage` under `access_token`.
 - Uploaded image handling belongs in `main.py` unless it grows enough to justify extracting a helper.
@@ -51,7 +51,7 @@ uv --cache-dir .uv-cache run pytest
 ```
 
 - Expected current result: 10 tests pass with one Argon2 deprecation warning.
-- Tests create and drop tables in `test.db`. Do not point tests at `boozerun.db`.
+- Tests initialize schema through the migration runner against an isolated test database. Do not point tests at `boozerun.db`.
 - For frontend or Wrapped changes, pair pytest with `@browser-use` inspection of the running app. Check both desktop and mobile-sized views when layout changed.
 - Add or update tests when changing:
   - auth behavior,
@@ -84,7 +84,19 @@ uv --cache-dir .uv-cache run uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## Data And User Management
 
-- To sync users from `users.json` and run the current manual migrations:
+- To apply database migrations explicitly:
+
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_db.py
+```
+
+- To check migration readiness without applying changes:
+
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
+```
+
+- To sync users from `users.json` after migrations:
 
 ```powershell
 uv --cache-dir .uv-cache run python scripts/setup_db.py

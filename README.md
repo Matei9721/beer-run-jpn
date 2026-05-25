@@ -24,13 +24,24 @@ Ensure you have `uv` installed, then run:
 uv sync
 ```
 
-### 2. Start the Backend
+### 2. Apply Database Migrations
+Before starting the app, bring the local database to the expected schema:
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_db.py
+```
+
+For an existing database with the current `users` and `entries` tables, this records the baseline migration without recreating those tables. To check readiness without applying changes:
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
+```
+
+### 3. Start the Backend
 Run the FastAPI server on all interfaces:
 ```powershell
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 3. Expose with HTTPS (Caddy)
+### 4. Expose with HTTPS (Caddy)
 To use Geolocation on mobile phones outside your local network, you **must** use HTTPS. Install [Caddy](https://caddyserver.com/) and run:
 
 ```powershell
@@ -41,5 +52,5 @@ To use Geolocation on mobile phones outside your local network, you **must** use
 ## Testing
 To verify API and database integrity:
 ```powershell
-uv run pytest test_main.py
+uv --cache-dir .uv-cache run pytest
 ```

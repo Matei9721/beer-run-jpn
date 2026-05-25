@@ -1,3 +1,8 @@
+import pytest
+
+from migrations.runner import MigrationRequired, validate_database_ready
+
+
 def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -30,3 +35,11 @@ def test_create_entry_and_leaderboard(client):
     assert data[0]["username"] == "user"
     assert data[0]["total_liters"] == 0.5
     assert data[0]["total_alcohol"] == 0.5 * (5.0 / 100.0)
+
+
+def test_startup_readiness_blocks_missing_migration_history(tmp_path):
+    db_path = tmp_path / "outdated.db"
+    db_path.touch()
+
+    with pytest.raises(MigrationRequired):
+        validate_database_ready(db_path)

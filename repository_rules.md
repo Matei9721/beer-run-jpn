@@ -128,7 +128,7 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py
 ## Known Current State
 
 - The app and test suite currently run on Python 3.13.
-- `uv --cache-dir .uv-cache run pytest` passes with 10 tests.
+- `uv --cache-dir .uv-cache run pytest` passes with 46 tests.
 - The repository contains tracked generated Wrapped data and untracked live trip artifacts.
-- README and older docs may contain mojibake in places; prefer `GEMINI.md` and this file for current working guidance.
+- README and older docs may contain mojibake in places; prefer `AGENTS.md` and this file for current working guidance.
 - `README.md` still has an outdated test command (`pytest test_main.py`); the reliable command is the full `pytest` suite above.

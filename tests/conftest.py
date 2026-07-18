@@ -54,6 +54,21 @@ def reset_test_database():
     apply_migrations(TEST_DB_PATH)
 
 
+def add_default_user_fixture():
+    db = TestingSessionLocal()
+    try:
+        user = models.User(username="user", hashed_password=auth.get_password_hash("password"))
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        beer_run = db.query(models.BeerRun).filter(models.BeerRun.name == "BeerRunJPN").one()
+        db.add(models.BeerRunMember(beer_run_id=beer_run.id, user_id=user.id, role="member"))
+        db.commit()
+    finally:
+        db.close()
+
+
 @pytest.fixture(autouse=True)
 def setup_db(request):
     if "client" not in request.fixturenames:
@@ -62,11 +77,7 @@ def setup_db(request):
 
     engine.dispose()
     reset_test_database()
-
-    db = TestingSessionLocal()
-    db.add(models.User(username="user", hashed_password=auth.get_password_hash("password")))
-    db.commit()
-    db.close()
+    add_default_user_fixture()
 
     yield
     engine.dispose()

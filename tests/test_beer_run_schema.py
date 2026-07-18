@@ -32,6 +32,13 @@ def add_user(session, username):
 
 
 def add_beer_run(session, name="BeerRunJPN", is_public=False):
+    existing = session.query(models.BeerRun).filter(models.BeerRun.name == name).first()
+    if existing:
+        existing.is_public = is_public
+        session.commit()
+        session.refresh(existing)
+        return existing
+
     beer_run = models.BeerRun(name=name, is_public=is_public)
     session.add(beer_run)
     session.commit()

@@ -1,3 +1,4 @@
+import importlib
 import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
@@ -79,9 +80,80 @@ def create_current_schema_without_history(db_path: Path) -> None:
         )
 
 
+def create_pre_backfill_schema_with_history(db_path: Path, include_tamei: bool = True) -> None:
+    create_current_schema_without_history(db_path)
+    with sqlite3.connect(db_path) as conn:
+        if include_tamei:
+            conn.execute(
+                "INSERT INTO users (id, username, hashed_password) VALUES (2, 'Tamei', 'tamei-hash')"
+            )
+            conn.execute(
+                """
+                INSERT INTO entries
+                    (id, drink_type, abv, quantity, brand, latitude, longitude, image_path, timestamp, timezone, timezone_code, user_id)
+                VALUES
+                    (2, 'Sake', 15.0, 0.2, 'Owner Drink', 3.0, 4.0, 'static/uploads/tamei.jpg', '2026-05-25 13:00:00', 'Europe/Amsterdam', 'CEST', 2)
+                """
+            )
+
+
+def create_schema_with_partial_backfill_state(db_path: Path) -> None:
+    create_pre_backfill_schema_with_history(db_path)
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version = '003_backfill_existing_trip'")
+
+
 def row_count(db_path: Path, table: str) -> int:
     with sqlite3.connect(db_path) as conn:
         return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+
+def scalar(db_path: Path, sql: str, params: tuple = ()):
+    with sqlite3.connect(db_path) as conn:
+        return conn.execute(sql, params).fetchone()[0]
+
+
+def beer_run_jpn_id(db_path: Path) -> int:
+    return scalar(db_path, "SELECT id FROM beer_runs WHERE name = 'BeerRunJPN'")
+
+
+def membership_roles(db_path: Path) -> dict[str, str]:
+    with sqlite3.connect(db_path) as conn:
+        return {
+            row[0]: row[1]
+            for row in conn.execute(
+                """
+                SELECT users.username, beer_run_members.role
+                FROM beer_run_members
+                JOIN users ON users.id = beer_run_members.user_id
+                JOIN beer_runs ON beer_runs.id = beer_run_members.beer_run_id
+                WHERE beer_runs.name = 'BeerRunJPN'
+                ORDER BY users.username
+                """
+            )
+        }
+
+
+def entry_beer_run_ids(db_path: Path) -> set[int | None]:
+    with sqlite3.connect(db_path) as conn:
+        return {row[0] for row in conn.execute("SELECT beer_run_id FROM entries ORDER BY id")}
+
+
+def global_total_alcohol(db_path: Path) -> float:
+    return scalar(db_path, "SELECT SUM(quantity * (abv / 100.0)) FROM entries")
+
+
+def beer_run_jpn_total_alcohol(db_path: Path) -> float:
+    return scalar(
+        db_path,
+        """
+        SELECT SUM(entries.quantity * (entries.abv / 100.0))
+        FROM entries
+        JOIN beer_runs ON beer_runs.id = entries.beer_run_id
+        WHERE beer_runs.name = 'BeerRunJPN'
+        """,
+    )
 
 
 def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
@@ -91,8 +163,8 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
     result = apply_migrations(db_path)
 
     assert result.baselined == ("001_initial_schema",)
-    assert result.applied == ("002_add_beer_run_schema",)
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
+    assert result.applied == ("002_add_beer_run_schema", "003_backfill_existing_trip")
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
 
@@ -104,8 +176,8 @@ def test_migrations_are_idempotent_for_migrated_database(tmp_path):
     apply_migrations(db_path)
     result = apply_migrations(db_path)
 
-    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema")
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
+    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
 
@@ -131,13 +203,13 @@ def test_fresh_database_is_created_from_migrations(tmp_path):
 
     result = apply_migrations(db_path)
 
-    assert result.applied == ("001_initial_schema", "002_add_beer_run_schema")
+    assert result.applied == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
     assert {"users", "entries", "schema_migrations", "beer_runs", "beer_run_members"}.issubset(table_names(db_path))
     assert {"id", "username", "hashed_password"}.issubset(column_names(db_path, "users"))
     assert {"timezone", "timezone_code", "user_id", "beer_run_id"}.issubset(column_names(db_path, "entries"))
     assert {"id", "name", "is_public", "created_at"}.issubset(column_names(db_path, "beer_runs"))
     assert {"id", "beer_run_id", "user_id", "role", "created_at"}.issubset(column_names(db_path, "beer_run_members"))
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
 
 
 def test_beer_run_schema_migration_adds_lookup_indexes_and_foreign_keys(tmp_path):
@@ -162,8 +234,8 @@ def test_beer_run_schema_migration_preserves_existing_rows(tmp_path):
 
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
-    assert row_count(db_path, "beer_runs") == 0
-    assert row_count(db_path, "beer_run_members") == 0
+    assert row_count(db_path, "beer_runs") == 1
+    assert row_count(db_path, "beer_run_members") == 1
 
 
 def test_beer_run_schema_migration_is_idempotent(tmp_path):
@@ -172,8 +244,8 @@ def test_beer_run_schema_migration_is_idempotent(tmp_path):
     apply_migrations(db_path)
     result = apply_migrations(db_path)
 
-    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema")
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema"]
+    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
+    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
 
 
 def test_check_mode_accepts_migrated_database(tmp_path):
@@ -203,3 +275,141 @@ def test_migrate_command_check_mode_returns_expected_status(tmp_path, capsys):
 
     assert migrate_main(["--database", str(outdated_path), "--check"]) == 1
     assert "Migration required" in capsys.readouterr().err
+
+
+def test_backfill_creates_public_beer_run_jpn_from_existing_data(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+
+    assert row_count(db_path, "beer_runs") == 1
+    assert scalar(db_path, "SELECT is_public FROM beer_runs WHERE name = 'BeerRunJPN'") == 1
+
+
+def test_backfill_adds_every_existing_user_as_member(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+
+    assert membership_roles(db_path) == {"Tamei": "owner", "user": "member"}
+    assert row_count(db_path, "beer_run_members") == 2
+
+
+def test_backfill_assigns_existing_unassigned_entries_to_beer_run_jpn(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+
+    assert entry_beer_run_ids(db_path) == {beer_run_jpn_id(db_path)}
+
+
+def test_backfill_sets_tamei_owner_and_only_public_run(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+
+    assert membership_roles(db_path)["Tamei"] == "owner"
+    assert scalar(db_path, "SELECT COUNT(*) FROM beer_runs WHERE is_public = 1") == 1
+
+
+def test_backfill_preserves_credentials_and_entry_fields(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+    before_total = global_total_alcohol(db_path)
+
+    apply_migrations(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT hashed_password FROM users WHERE username = 'Tamei'").fetchone()[0] == "tamei-hash"
+        row = conn.execute(
+            """
+            SELECT drink_type, abv, quantity, brand, latitude, longitude, image_path, timestamp, timezone, timezone_code
+            FROM entries WHERE id = 2
+            """
+        ).fetchone()
+    assert row == ("Sake", 15.0, 0.2, "Owner Drink", 3.0, 4.0, "static/uploads/tamei.jpg", "2026-05-25 13:00:00", "Europe/Amsterdam", "CEST")
+    assert beer_run_jpn_total_alcohol(db_path) == before_total
+
+
+def test_backfill_three_runs_leave_one_beer_run_jpn(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+    apply_migrations(db_path)
+    apply_migrations(db_path)
+
+    assert scalar(db_path, "SELECT COUNT(*) FROM beer_runs WHERE name = 'BeerRunJPN'") == 1
+
+
+def test_backfill_rerun_leaves_one_membership_per_user(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_schema_with_partial_backfill_state(db_path)
+
+    apply_migrations(db_path)
+
+    assert scalar(
+        db_path,
+        """
+        SELECT COUNT(*)
+        FROM (
+            SELECT user_id, COUNT(*) AS memberships
+            FROM beer_run_members
+            JOIN beer_runs ON beer_runs.id = beer_run_members.beer_run_id
+            WHERE beer_runs.name = 'BeerRunJPN'
+            GROUP BY user_id
+            HAVING memberships != 1
+        )
+        """,
+    ) == 0
+
+
+def test_backfill_rerun_preserves_assignments_and_totals(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_schema_with_partial_backfill_state(db_path)
+    before_assignments = entry_beer_run_ids(db_path)
+    before_total = beer_run_jpn_total_alcohol(db_path)
+
+    apply_migrations(db_path)
+
+    assert entry_beer_run_ids(db_path) == before_assignments
+    assert beer_run_jpn_total_alcohol(db_path) == before_total
+
+
+def test_backfill_preserves_entries_assigned_to_other_runs(tmp_path, monkeypatch):
+    db_path = tmp_path / "existing.db"
+    create_current_schema_without_history(db_path)
+    beer_run_schema_module = importlib.import_module("migrations.versions.002_add_beer_run_schema")
+    monkeypatch.setattr(
+        runner,
+        "MIGRATIONS",
+        (
+            Migration(runner.initial_schema.ID, runner.initial_schema.DESCRIPTION, runner.initial_schema),
+            Migration(beer_run_schema_module.ID, beer_run_schema_module.DESCRIPTION, beer_run_schema_module),
+        ),
+    )
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO beer_runs (name, is_public) VALUES ('Other Run', 0)")
+        other_run_id = conn.execute("SELECT id FROM beer_runs WHERE name = 'Other Run'").fetchone()[0]
+        conn.execute("UPDATE entries SET beer_run_id = ? WHERE id = 1", (other_run_id,))
+
+    monkeypatch.setattr(runner, "MIGRATIONS", runner.MIGRATIONS + (Migration("003_backfill_existing_trip", "Backfill existing trip into BeerRunJPN", importlib.import_module("migrations.versions.003_backfill_existing_trip")),))
+    apply_migrations(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT beer_run_id FROM entries WHERE id = 1").fetchone()[0] == other_run_id
+
+
+def test_backfill_missing_tamei_warns_without_creating_user(tmp_path, capsys):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path, include_tamei=False)
+
+    apply_migrations(db_path)
+
+    assert "Tamei user not found" in capsys.readouterr().out
+    assert scalar(db_path, "SELECT COUNT(*) FROM users WHERE username = 'Tamei'") == 0

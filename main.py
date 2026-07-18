@@ -35,6 +35,8 @@ os.makedirs("templates", exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+DEFAULT_BEER_RUN_NAME = "BeerRunJPN"
+
 @lru_cache()
 def get_drink_config() -> Dict[str, Any]:
     try:
@@ -73,6 +75,14 @@ def save_optimized_image(contents: bytes, image_path: str) -> None:
 
     # Save as optimized JPEG with the orientation baked into the pixels.
     img.save(image_path, "JPEG", quality=85, optimize=True)
+
+
+def get_default_beer_run(db: Session) -> models.BeerRun:
+    beer_run = db.query(models.BeerRun).filter(models.BeerRun.name == DEFAULT_BEER_RUN_NAME).first()
+    if not beer_run:
+        raise HTTPException(status_code=500, detail=f"Default beer-run {DEFAULT_BEER_RUN_NAME} is not available")
+    return beer_run
+
 
 @app.get("/")
 async def root():
@@ -123,14 +133,18 @@ async def read_users_me(current_user: models.User = Depends(auth.get_current_use
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(db: Session = Depends(get_db)):
-    # Basic leaderboard logic: sum of quantity and total alcohol consumed
-    # (Simplified for now, will expand in Phase 2)
-    users = db.query(models.User).all()
+    beer_run = get_default_beer_run(db)
+    users = (
+        db.query(models.User)
+        .join(models.BeerRunMember)
+        .filter(models.BeerRunMember.beer_run_id == beer_run.id)
+        .all()
+    )
     leaderboard = []
     for user in users:
-        total_liters = sum(e.quantity for e in user.entries)
-        # Total pure alcohol: quantity * (abv/100)
-        total_alcohol = sum(e.quantity * (e.abv / 100.0) for e in user.entries)
+        entries = [entry for entry in user.entries if entry.beer_run_id == beer_run.id]
+        total_liters = sum(e.quantity for e in entries)
+        total_alcohol = sum(e.quantity * (e.abv / 100.0) for e in entries)
         leaderboard.append({
             "username": user.username,
             "total_liters": total_liters,
@@ -142,7 +156,8 @@ async def get_leaderboard(db: Session = Depends(get_db)):
 
 @app.get("/api/entries")
 async def get_entries(username: str = None, db: Session = Depends(get_db)):
-    query = db.query(models.Entry)
+    beer_run = get_default_beer_run(db)
+    query = db.query(models.Entry).filter(models.Entry.beer_run_id == beer_run.id)
     if username:
         query = query.join(models.User).filter(models.User.username == username)
     entries = query.order_by(models.Entry.timestamp.desc()).all()
@@ -178,6 +193,7 @@ async def create_entry(
     db: Session = Depends(get_db)
 ):
     print(f"Creating entry for {current_user.username}: {drink_type}, {abv}%, {quantity}L")
+    beer_run = get_default_beer_run(db)
     image_path = None
     if image and image.filename and image.filename.strip():
         print(f"Processing image: {image.filename}")
@@ -211,7 +227,8 @@ async def create_entry(
             timestamp=parse_client_timestamp(client_timestamp),
             timezone=client_timezone,
             timezone_code=client_timezone_code,
-            user_id=current_user.id
+            user_id=current_user.id,
+            beer_run_id=beer_run.id
         )
         db.add(new_entry)
         db.commit()

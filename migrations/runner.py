@@ -12,6 +12,7 @@ from database import DATABASE_PATH
 
 initial_schema = importlib.import_module("migrations.versions.001_initial_schema")
 beer_run_schema = importlib.import_module("migrations.versions.002_add_beer_run_schema")
+backfill_existing_trip = importlib.import_module("migrations.versions.003_backfill_existing_trip")
 
 
 class MigrationError(Exception):
@@ -39,6 +40,7 @@ class MigrationResult:
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(initial_schema.ID, initial_schema.DESCRIPTION, initial_schema),
     Migration(beer_run_schema.ID, beer_run_schema.DESCRIPTION, beer_run_schema),
+    Migration(backfill_existing_trip.ID, backfill_existing_trip.DESCRIPTION, backfill_existing_trip),
 )
 
 

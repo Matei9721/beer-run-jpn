@@ -18,6 +18,8 @@ import auth
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 
+auth.validate_auth_configuration()
+
 try:
     validate_database_ready()
 except MigrationRequired as exc:
@@ -108,23 +110,22 @@ async def get_wrapped():
 
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    print(f"Login attempt for user: {form_data.username}")
     # Case-insensitive search
     user = db.query(models.User).filter(func.lower(models.User.username) == func.lower(form_data.username)).first()
-    if not user:
-        print(f"User {form_data.username} not found")
-    elif not user.hashed_password:
-        print(f"User {form_data.username} has no hashed_password")
-    elif not auth.verify_password(form_data.password, user.hashed_password):
-        print(f"Password mismatch for user: {form_data.username}")
-    
-    if not user or not user.hashed_password or not auth.verify_password(form_data.password, user.hashed_password):
+    password_is_valid = False
+    if user and user.hashed_password:
+        try:
+            password_is_valid = auth.verify_password(form_data.password, user.hashed_password)
+        except (TypeError, ValueError):
+            password_is_valid = False
+
+    if not password_is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = auth.create_access_token(data={"sub": user.username})
+    access_token = auth.create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/api/me")

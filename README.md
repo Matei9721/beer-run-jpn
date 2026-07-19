@@ -24,7 +24,28 @@ Ensure you have `uv` installed, then run:
 uv sync
 ```
 
-### 2. Apply Database Migrations
+### 2. Configure the JWT signing secret
+
+Generate a cryptographically random secret with this cross-platform Python command:
+
+```powershell
+uv --cache-dir .uv-cache run python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Copy `.env.example` to a private repository-root `.env` file and replace its
+placeholder with the generated value:
+
+```dotenv
+SECRET_KEY=paste-the-generated-value-here
+```
+
+The application refuses to start when `SECRET_KEY` is missing, blank, padded
+with whitespace, too short, or still set to an example value. A `SECRET_KEY`
+already defined in the process environment takes precedence over `.env`. Keep
+the value private and stable: changing it invalidates every issued login token
+and requires users to log in again.
+
+### 3. Apply Database Migrations
 Before starting the app, bring the local database to the expected schema:
 ```powershell
 uv --cache-dir .uv-cache run python scripts/migrate_db.py
@@ -35,13 +56,13 @@ For an existing database with the current `users` and `entries` tables, this rec
 uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
 ```
 
-### 3. Start the Backend
+### 4. Start the Backend
 Run the FastAPI server on all interfaces:
 ```powershell
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+uv --cache-dir .uv-cache run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 4. Expose with HTTPS (Caddy)
+### 5. Expose with HTTPS (Caddy)
 To use Geolocation on mobile phones outside your local network, you **must** use HTTPS. Install [Caddy](https://caddyserver.com/) and run:
 
 ```powershell

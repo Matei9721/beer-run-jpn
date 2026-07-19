@@ -50,3 +50,4 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py
 - `templates/` and `static/`: browser-facing UI; no bundler
 - `tests/`: pytest coverage using an isolated database
 - `specs/`: durable feature specifications and design history
+- `specs/004-harden-auth-tokens/spec.md`: Release 1 auth-hardening contract for private JWT configuration, stable ID-based tokens, and forced legacy-session login

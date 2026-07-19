@@ -1,5 +1,5 @@
-import * as api from './modules/api.js?v=9';
-import * as auth from './modules/auth.js?v=9';
+import * as api from './modules/api.js?v=10';
+import * as auth from './modules/auth.js?v=10';
 import * as mapMod from './modules/map.js?v=9';
 import * as ui from './modules/ui.js?v=9';
 
@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRefreshTime = new Date();
     let currentLeaderboard = [];
     let currentEntries = [];
+    let startupModalsPending = true;
+    let authValidationComplete = false;
 
     // --- Core Refresh Logic ---
     async function refreshData(isManual = false) {
@@ -95,13 +97,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         closeInstructions.addEventListener('click', closeInstructionsModal);
         instructionsDone.addEventListener('click', closeInstructionsModal);
+    }
+
+    function showStartupModals() {
+        if (!authValidationComplete) return;
+        if (!startupModalsPending) return;
+        startupModalsPending = false;
 
         if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
-            instructionsModal.style.display = 'flex';
-            return true;
+            document.getElementById('instructions-modal').style.display = 'flex';
+            return;
         }
 
-        return false;
+        showWrappedEndedModal();
     }
 
     function closeWrappedEndedModal() {
@@ -125,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         wrappedEndedModal.style.display = 'flex';
     }
 
-    function initWrappedEndedModal(holdForInstructions = false) {
+    function initWrappedEndedModal() {
         const closeWrappedEnded = document.getElementById('close-wrapped-ended');
         const wrappedEndedDone = document.getElementById('wrapped-ended-done');
         const wrappedEndedOpen = document.getElementById('wrapped-ended-open');
@@ -138,9 +146,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
             }
         });
+    }
 
-        if (!holdForInstructions) {
-            showWrappedEndedModal();
+    function handleRejectedSession() {
+        auth.removeToken();
+        auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
+        auth.showLoginPrompt('Your session is no longer valid. Please log in again.');
+    }
+
+    async function validateStoredSession() {
+        try {
+            const token = auth.getToken();
+            if (!token) {
+                auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
+                return false;
+            }
+
+            auth.updateAuthUI(auth.AUTH_STATES.VALIDATING);
+            const response = await api.fetchCurrentUser(token);
+            if (response.ok) {
+                auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
+                return false;
+            }
+
+            if (response.status === 401) {
+                handleRejectedSession();
+                return true;
+            }
+
+            auth.updateAuthUI(auth.AUTH_STATES.VALIDATION_FAILED);
+            auth.showLoginPrompt('Could not verify your session. Check your connection and try again.');
+            return true;
+        } catch (error) {
+            console.error('Session validation error:', error);
+            auth.updateAuthUI(auth.AUTH_STATES.VALIDATION_FAILED);
+            auth.showLoginPrompt('Could not verify your session. Check your connection and try again.');
+            return true;
+        } finally {
+            authValidationComplete = true;
         }
     }
 
@@ -166,9 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('login-btn').addEventListener('click', auth.openLoginModal);
     document.getElementById('logout-btn').addEventListener('click', () => {
         auth.removeToken();
-        auth.updateAuthUI();
+        auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
     });
-    document.getElementById('close-login').addEventListener('click', auth.closeLoginModal);
+    document.getElementById('close-login').addEventListener('click', () => {
+        auth.closeLoginModal();
+        showStartupModals();
+    });
     document.getElementById('close-user-modal').addEventListener('click', () => {
         document.getElementById('user-modal').style.display = 'none';
     });
@@ -178,7 +224,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const userModal = document.getElementById('user-modal');
         const instructionsModal = document.getElementById('instructions-modal');
         const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
-        if (event.target == loginModal) auth.closeLoginModal();
+        if (event.target == loginModal) {
+            auth.closeLoginModal();
+            showStartupModals();
+        }
         if (event.target == userModal) userModal.style.display = 'none';
         if (event.target == instructionsModal) closeInstructionsModal();
         if (event.target == wrappedEndedModal) closeWrappedEndedModal();
@@ -197,9 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 auth.setToken(data.access_token);
                 auth.closeLoginModal();
                 document.getElementById('login-form').reset();
-                auth.updateAuthUI();
+                auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
+                showStartupModals();
                 refreshData(true);
             } else {
+                loginError.innerText = 'Invalid credentials';
                 loginError.style.display = 'block';
             }
         } catch (error) {
@@ -267,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = auth.getToken();
         if (!token) {
             alert("You must be logged in.");
-            auth.updateAuthUI();
+            auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
             return;
         }
 
@@ -308,9 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 refreshData(true);
             } else {
                 if (response.status === 401) {
-                    alert("Session expired. Please login again.");
-                    auth.removeToken();
-                    auth.updateAuthUI();
+                    handleRejectedSession();
                 } else {
                     const errorText = await response.text();
                     alert(`Upload failed: ${errorText || response.statusText}`);
@@ -327,19 +376,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Init & Refresh Loop ---
-    const instructionsShown = initInstructionsModal();
-    initWrappedEndedModal(instructionsShown);
+    initInstructionsModal();
+    initWrappedEndedModal();
 
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
     setInterval(() => refreshData(false), 30000);
     
     // Initial Data Load
     (async () => {
+        const authPromptShown = await validateStoredSession();
+        if (!authPromptShown) {
+            showStartupModals();
+        }
+
         const config = await api.fetchConfig();
         ui.renderDrinkOptions(config);
         
         ui.requestLocation(latInput, lngInput, locationStatus);
-        auth.updateAuthUI();
         refreshData(true);
     })();
 });

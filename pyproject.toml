@@ -11,6 +11,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "pillow>=12.1.1",
     "pytest>=9.0.2",
+    "python-dotenv>=1.1.1",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.22",
     "sqlalchemy>=2.0.48",

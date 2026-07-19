@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import secrets
 import sqlite3
 import tempfile
 
@@ -11,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 TEST_DB_PATH = Path(tempfile.gettempdir()) / "beer-run-jpn-test.db"
 os.environ["BOOZERUN_DATABASE_PATH"] = str(TEST_DB_PATH)
 os.environ["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
+os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
 
 import auth
 import models

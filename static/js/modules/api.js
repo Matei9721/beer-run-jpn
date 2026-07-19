@@ -41,6 +41,14 @@ export async function submitEntry(formData, token) {
     return response;
 }
 
+export async function fetchCurrentUser(token) {
+    return await fetch('/api/me', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+}
+
 export async function login(username, password) {
     const params = new URLSearchParams();
     params.append('username', username);

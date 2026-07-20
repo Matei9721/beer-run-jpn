@@ -42,7 +42,8 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py
 
 ## Architecture At A Glance
 
-- `main.py`: FastAPI routes, default BeerRunJPN behavior, and image handling
+- `main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
+- `auth_routes.py`: login, signup, current-user routes, and signup request error handling
 - `auth.py`: JWT creation/validation and password hashing
 - `database.py`: SQLite engine/session setup
 - `models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
@@ -51,3 +52,4 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py
 - `tests/`: pytest coverage using an isolated database
 - `specs/`: durable feature specifications and design history
 - `specs/004-harden-auth-tokens/spec.md`: Release 1 auth-hardening contract for private JWT configuration, stable ID-based tokens, and forced legacy-session login
+- `specs/005-add-signup-api/spec.md`: Release 1 signup API contract for private signup-code configuration, validated account creation, case-insensitive username identity, and immediate bearer tokens

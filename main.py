@@ -3,22 +3,22 @@ import io
 import json
 from functools import lru_cache
 from datetime import datetime
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List, Dict, Any
+from typing import Dict, Any
 from PIL import Image, ImageOps
 
 import models
-import schemas
 import auth
+import auth_routes
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 
 auth.validate_auth_configuration()
+auth.validate_signup_configuration()
 
 try:
     validate_database_ready()
@@ -26,6 +26,14 @@ except MigrationRequired as exc:
     raise RuntimeError(f"Database migration required: {exc}") from exc
 
 app = FastAPI(title="BoozeRunJpn")
+# Register the signup validation handler globally (FastAPI exception handlers
+# are route-agnostic — the filter inside the function ensures it only applies
+# to /api/signup, while other routes still use the default handler).
+app.add_exception_handler(
+    RequestValidationError,
+    auth_routes.sanitize_signup_validation_error,
+)
+app.include_router(auth_routes.router)
 
 # Ensure static directories exist
 os.makedirs("static/uploads", exist_ok=True)
@@ -107,30 +115,6 @@ async def get_wrapped():
         raise HTTPException(status_code=404, detail="Wrapped data has not been generated yet")
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=500, detail=f"Wrapped data is invalid JSON: {exc}")
-
-@app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # Case-insensitive search
-    user = db.query(models.User).filter(func.lower(models.User.username) == func.lower(form_data.username)).first()
-    password_is_valid = False
-    if user and user.hashed_password:
-        try:
-            password_is_valid = auth.verify_password(form_data.password, user.hashed_password)
-        except (TypeError, ValueError):
-            password_is_valid = False
-
-    if not password_is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = auth.create_access_token(data={"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.get("/api/me")
-async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    return {"username": current_user.username, "id": current_user.id}
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(db: Session = Depends(get_db)):

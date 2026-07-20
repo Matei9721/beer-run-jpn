@@ -13,6 +13,8 @@ TEST_DB_PATH = Path(tempfile.gettempdir()) / "beer-run-jpn-test.db"
 os.environ["BOOZERUN_DATABASE_PATH"] = str(TEST_DB_PATH)
 os.environ["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
+TEST_SIGNUP_CODE = "test-only-private-signup-code"
+os.environ["SIGNUP_CODE"] = TEST_SIGNUP_CODE
 
 import auth
 import models

@@ -10,6 +10,14 @@ from migrations.runner import Migration, MigrationRequired, apply_migrations, va
 from scripts.migrate_db import main as migrate_main
 
 
+MIGRATION_VERSIONS = [
+    "001_initial_schema",
+    "002_add_beer_run_schema",
+    "003_backfill_existing_trip",
+    "004_case_insensitive_usernames",
+]
+
+
 def table_names(db_path: Path) -> set[str]:
     with sqlite3.connect(db_path) as conn:
         return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -33,6 +41,39 @@ def foreign_key_targets(db_path: Path, table: str) -> set[tuple[str, str]]:
 def migration_versions(db_path: Path) -> list[str]:
     with sqlite3.connect(db_path) as conn:
         return [row[0] for row in conn.execute("SELECT version FROM schema_migrations ORDER BY version")]
+
+
+def username_index_details(
+    db_path: Path, index_name: str
+) -> tuple[bool, list[str]] | None:
+    with sqlite3.connect(db_path) as conn:
+        index_row = next(
+            (
+                row
+                for row in conn.execute("PRAGMA index_list(users)")
+                if row[1] == index_name
+            ),
+            None,
+        )
+        if index_row is None:
+            return None
+        collations = [
+            row[4]
+            for row in conn.execute(f"PRAGMA index_xinfo({index_name})")
+            if row[5] == 1
+        ]
+    return bool(index_row[2]), collations
+
+
+def assert_username_indexes(db_path: Path) -> None:
+    assert username_index_details(db_path, "ix_users_username") == (
+        True,
+        ["BINARY"],
+    )
+    assert username_index_details(db_path, "uq_users_username_nocase") == (
+        True,
+        ["NOCASE"],
+    )
 
 
 def create_current_schema_without_history(db_path: Path) -> None:
@@ -104,6 +145,19 @@ def create_schema_with_partial_backfill_state(db_path: Path) -> None:
         conn.execute("DELETE FROM schema_migrations WHERE version = '003_backfill_existing_trip'")
 
 
+def restore_pre_case_insensitive_username_schema(db_path: Path) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '004_case_insensitive_usernames'"
+        )
+        conn.execute("DROP INDEX uq_users_username_nocase")
+
+
+def table_rows(db_path: Path, table: str) -> list[tuple]:
+    with sqlite3.connect(db_path) as conn:
+        return conn.execute(f"SELECT * FROM {table} ORDER BY id").fetchall()
+
+
 def row_count(db_path: Path, table: str) -> int:
     with sqlite3.connect(db_path) as conn:
         return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
@@ -163,10 +217,15 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
     result = apply_migrations(db_path)
 
     assert result.baselined == ("001_initial_schema",)
-    assert result.applied == ("002_add_beer_run_schema", "003_backfill_existing_trip")
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
+    assert result.applied == (
+        "002_add_beer_run_schema",
+        "003_backfill_existing_trip",
+        "004_case_insensitive_usernames",
+    )
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
+    assert_username_indexes(db_path)
 
 
 def test_migrations_are_idempotent_for_migrated_database(tmp_path):
@@ -176,10 +235,11 @@ def test_migrations_are_idempotent_for_migrated_database(tmp_path):
     apply_migrations(db_path)
     result = apply_migrations(db_path)
 
-    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
+    assert result.skipped == tuple(MIGRATION_VERSIONS)
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
     assert row_count(db_path, "entries") == 1
+    assert_username_indexes(db_path)
 
 
 def test_failed_migration_is_not_recorded(tmp_path, monkeypatch):
@@ -203,13 +263,13 @@ def test_fresh_database_is_created_from_migrations(tmp_path):
 
     result = apply_migrations(db_path)
 
-    assert result.applied == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
+    assert result.applied == tuple(MIGRATION_VERSIONS)
     assert {"users", "entries", "schema_migrations", "beer_runs", "beer_run_members"}.issubset(table_names(db_path))
     assert {"id", "username", "hashed_password"}.issubset(column_names(db_path, "users"))
     assert {"timezone", "timezone_code", "user_id", "beer_run_id"}.issubset(column_names(db_path, "entries"))
     assert {"id", "name", "is_public", "created_at"}.issubset(column_names(db_path, "beer_runs"))
     assert {"id", "beer_run_id", "user_id", "role", "created_at"}.issubset(column_names(db_path, "beer_run_members"))
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
 
 
 def test_beer_run_schema_migration_adds_lookup_indexes_and_foreign_keys(tmp_path):
@@ -244,8 +304,114 @@ def test_beer_run_schema_migration_is_idempotent(tmp_path):
     apply_migrations(db_path)
     result = apply_migrations(db_path)
 
-    assert result.skipped == ("001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip")
-    assert migration_versions(db_path) == ["001_initial_schema", "002_add_beer_run_schema", "003_backfill_existing_trip"]
+    assert result.skipped == tuple(MIGRATION_VERSIONS)
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
+
+
+def test_case_insensitive_username_index_is_unique_and_uses_nocase(tmp_path):
+    db_path = tmp_path / "fresh.db"
+    apply_migrations(db_path)
+
+    assert_username_indexes(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO users (username, hashed_password) VALUES ('Alice', 'first-hash')"
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO users (username, hashed_password) VALUES ('alice', 'second-hash')"
+            )
+
+    assert scalar(
+        db_path,
+        "SELECT COUNT(*) FROM users WHERE username = 'Alice' COLLATE NOCASE",
+    ) == 1
+
+
+def test_case_insensitive_username_migration_refuses_legacy_collisions(tmp_path):
+    db_path = tmp_path / "collision.db"
+    apply_migrations(db_path)
+    restore_pre_case_insensitive_username_schema(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO users (id, username, hashed_password) VALUES (10, 'Alice', 'first-hash')"
+        )
+        conn.execute(
+            "INSERT INTO users (id, username, hashed_password) VALUES (11, 'alice', 'second-hash')"
+        )
+
+    before = {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    }
+
+    with pytest.raises(RuntimeError) as exc_info:
+        apply_migrations(db_path)
+
+    message = str(exc_info.value)
+    assert "case-insensitive username uniqueness" in message
+    assert "Resolve the duplicate account identities" in message
+    for private_value in ("Alice", "alice", "first-hash", "second-hash"):
+        assert private_value not in message
+    assert migration_versions(db_path) == MIGRATION_VERSIONS[:-1]
+    assert username_index_details(db_path, "ix_users_username") == (
+        True,
+        ["BINARY"],
+    )
+    assert username_index_details(db_path, "uq_users_username_nocase") is None
+    assert {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    } == before
+
+
+def test_case_insensitive_username_migration_preserves_beer_run_jpn_data(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+    apply_migrations(db_path)
+    restore_pre_case_insensitive_username_schema(db_path)
+    before = {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    }
+
+    result = apply_migrations(db_path)
+
+    assert result.applied == ("004_case_insensitive_usernames",)
+    assert {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    } == before
+    assert membership_roles(db_path) == {"Tamei": "owner", "user": "member"}
+    assert_username_indexes(db_path)
+
+
+def test_case_insensitive_username_migration_preserves_unusual_legacy_names(tmp_path):
+    db_path = tmp_path / "legacy.db"
+    apply_migrations(db_path)
+    restore_pre_case_insensitive_username_schema(db_path)
+    legacy_users = [
+        (10, " Legacy User! ", "space-hash"),
+        (11, "Ålice", "upper-hash"),
+        (12, "åLICE", "lower-hash"),
+    ]
+    with sqlite3.connect(db_path) as conn:
+        conn.executemany(
+            "INSERT INTO users (id, username, hashed_password) VALUES (?, ?, ?)",
+            legacy_users,
+        )
+
+    result = apply_migrations(db_path)
+
+    assert result.applied == ("004_case_insensitive_usernames",)
+    with sqlite3.connect(db_path) as conn:
+        preserved = conn.execute(
+            "SELECT id, username, hashed_password FROM users ORDER BY id"
+        ).fetchall()
+    assert preserved == legacy_users
+    assert_username_indexes(db_path)
 
 
 def test_check_mode_accepts_migrated_database(tmp_path):

@@ -1,5 +1,6 @@
 import os
 import re
+import secrets
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -16,11 +17,14 @@ from database import get_db
 # --- Configuration ---
 ENV_FILE_PATH = Path(__file__).resolve().parent / ".env"
 EXAMPLE_SECRET = "replace-with-output-from-secrets-token_urlsafe-32"
-FORMER_SECRET = "hidden-secret-but-not-really"
+EXAMPLE_SIGNUP_CODE = "replace-with-private-signup-code"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days
 TOKEN_VERSION = 2
 MAX_USER_ID = (2**63) - 1
+# Allow digits only, no leading zero — matches the auto-increment integer
+# primary key format SQLite produces, while rejecting ambiguous / padded
+# representations that might bypass a naive "is this numeric?" check.
 _CANONICAL_USER_ID = re.compile(r"[1-9][0-9]*\Z")
 
 
@@ -34,8 +38,8 @@ def validate_auth_configuration() -> str:
         problem = "is blank"
     elif secret_key != secret_key.strip():
         problem = "has leading or trailing whitespace"
-    elif secret_key in {FORMER_SECRET, EXAMPLE_SECRET}:
-        problem = "uses a prohibited example or former signing value"
+    elif secret_key == EXAMPLE_SECRET:
+        problem = "uses the example secret"
     elif len(secret_key.encode("utf-8")) < 32:
         problem = "is shorter than 32 UTF-8 bytes"
     else:
@@ -48,6 +52,46 @@ def validate_auth_configuration() -> str:
             "environment."
         )
     return secret_key
+
+
+def validate_signup_configuration() -> str:
+    """Load and validate the private signup code without exposing its value."""
+    load_dotenv(dotenv_path=ENV_FILE_PATH, override=False)
+    signup_code = os.environ.get("SIGNUP_CODE")
+    if signup_code is None:
+        problem = "is missing"
+    elif not signup_code.strip():
+        problem = "is blank"
+    elif signup_code != signup_code.strip():
+        problem = "has leading or trailing whitespace"
+    elif signup_code == EXAMPLE_SIGNUP_CODE:
+        problem = "uses the example signup code"
+    else:
+        problem = None
+
+    if problem:
+        raise RuntimeError(
+            f"SIGNUP_CODE {problem}. Set a private value in the repository-root "
+            ".env file or the process environment."
+        )
+    return signup_code
+
+
+def signup_code_matches(submitted_code: str) -> bool:
+    """Compare a submitted signup code exactly using constant-time equality.
+
+    We use secrets.compare_digest instead of a plain == comparison to prevent
+    timing side-channels: a naive string comparison short-circuits on the
+    first mismatched character, revealing how many characters matched.  An
+    attacker close to the server could measure response times to brute-force
+    the code character by character.  compare_digest always takes the same
+    amount of time regardless of how much of the input differs.
+    """
+    configured_code = validate_signup_configuration()
+    return secrets.compare_digest(
+        submitted_code.encode("utf-8"),
+        configured_code.encode("utf-8"),
+    )
 
 # --- Password Hashing ---
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
@@ -92,10 +136,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             algorithms=[ALGORITHM],
             options={"require_exp": True, "require_sub": True},
         )
+        # Token-version check: allows us to invalidate all existing tokens
+        # by bumping TOKEN_VERSION in the source.  Old tokens with a stale
+        # version number are rejected even if their signature is valid.
+        # We also enforce type() is int to reject non-integer values that
+        # could slip past a naive != comparison.
         if type(payload.get("token_version")) is not int or payload["token_version"] != TOKEN_VERSION:
             raise ValueError("Invalid token version")
         user_id = _parse_user_id_subject(payload.get("sub"))
     except (JWTError, ValueError):
+        # from None = don't leak the JWT internals or ValueError traceback to
+        # the API client — the caller gets a clean 401 with a generic message.
         raise credentials_exception from None
 
     user = db.get(models.User, user_id)

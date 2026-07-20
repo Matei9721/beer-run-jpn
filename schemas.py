@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictStr
 from datetime import datetime
 from typing import Optional
 
@@ -28,3 +28,9 @@ class LeaderboardUser(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class SignupRequest(BaseModel):
+    username: StrictStr
+    password: StrictStr
+    signup_code: StrictStr

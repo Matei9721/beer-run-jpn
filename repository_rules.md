@@ -68,7 +68,8 @@ explicitly requests otherwise.
 - Python 3.13+, FastAPI, SQLAlchemy 2.x, SQLite, Pydantic, Pillow, pytest, and `uv`
 - Vanilla HTML/CSS/ES modules with Leaflet CDN assets
 - Uvicorn for local serving and Caddy for local HTTPS
-- `main.py`: FastAPI routes, default BeerRunJPN behavior, and image handling
+- `main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
+- `auth_routes.py`: login, signup, current-user routes, and signup request error handling
 - `auth.py`: JWT creation/validation and password hashing
 - `database.py`: SQLite engine/session setup
 - `models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
@@ -100,7 +101,7 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
 
 ## Files And Runtime State
 
-- Treat `main.py`, `auth.py`, `database.py`, `models.py`, `schemas.py`,
+- Treat `main.py`, `auth_routes.py`, `auth.py`, `database.py`, `models.py`, `schemas.py`,
   `migrations/`, `scripts/`, `templates/`, `static/css`, `static/js`, tests,
   specifications, and project metadata as source or durable project material.
 - Treat `boozerun.db`, `boozerun_backup.db`, `test.db`, `users.json`,
@@ -124,8 +125,9 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
   later feature adds run selection.
 - Keep public API response shapes stable unless frontend consumers and tests are
   updated in the same change.
-- For auth changes, update both `auth.py` and the `/token` flow in `main.py`; the
-  frontend stores the access token in `localStorage` under `access_token`.
+- Keep JWT/password/configuration primitives in `auth.py` and auth-facing HTTP
+  flows in `auth_routes.py`; the frontend stores the access token in
+  `localStorage` under `access_token`.
 - Uploaded images are normalized and stored under `static/uploads/`. Keep image
   handling in `main.py` unless it grows enough to justify extraction.
 

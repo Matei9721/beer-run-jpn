@@ -24,7 +24,7 @@ Ensure you have `uv` installed, then run:
 uv sync
 ```
 
-### 2. Configure the JWT signing secret
+### 2. Configure private authentication values
 
 Generate a cryptographically random secret with this cross-platform Python command:
 
@@ -32,11 +32,13 @@ Generate a cryptographically random secret with this cross-platform Python comma
 uv --cache-dir .uv-cache run python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Copy `.env.example` to a private repository-root `.env` file and replace its
-placeholder with the generated value:
+Copy `.env.example` to a private repository-root `.env` file. Replace both
+placeholders: use the generated value for `SECRET_KEY` and choose a private
+signup code to share only with invited users.
 
 ```dotenv
 SECRET_KEY=paste-the-generated-value-here
+SIGNUP_CODE=replace-with-private-signup-code
 ```
 
 The application refuses to start when `SECRET_KEY` is missing, blank, padded
@@ -44,6 +46,13 @@ with whitespace, too short, or still set to an example value. A `SECRET_KEY`
 already defined in the process environment takes precedence over `.env`. Keep
 the value private and stable: changing it invalidates every issued login token
 and requires users to log in again.
+
+The application also refuses to start when `SIGNUP_CODE` is missing, blank,
+padded with whitespace, or still set to the tracked example placeholder. A
+`SIGNUP_CODE` already defined in the process environment takes precedence over
+`.env`. Keep the real code private and out of source control. Participants send
+it only in the JSON body of `POST /api/signup`; successful signup creates an
+account but does not add it to BeerRunJPN or any other beer run.
 
 ### 3. Apply Database Migrations
 Before starting the app, bring the local database to the expected schema:

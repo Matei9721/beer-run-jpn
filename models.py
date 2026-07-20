@@ -7,8 +7,12 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    username = Column(String(collation="NOCASE"))
     hashed_password = Column(String, nullable=True)
+    __table_args__ = (
+        Index("ix_users_username", username.collate("BINARY"), unique=True),
+        Index("uq_users_username_nocase", username, unique=True),
+    )
     entries = relationship("Entry", back_populates="owner")
     memberships = relationship("BeerRunMember", back_populates="user")
 

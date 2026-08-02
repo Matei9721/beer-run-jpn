@@ -91,3 +91,65 @@ def setup_db(request):
 def client():
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def owner_member_nonmember_run(client):
+    """Create a private and a public run with three distinct identities.
+
+    The three users reflect their persisted membership state in the runs:
+      - ``owner``: role = "owner" membership in both runs.
+      - ``member``: role = "member" membership in both runs (a genuine normal
+        member, not a mislabeled non-member).
+      - ``non_member``: no membership row in either run.
+
+    Yields a dict with an open ``db`` session (closed by this fixture), the two
+    runs, the three User objects, and a bearer token per identity so tests can
+    use the same setup for both direct policy calls and endpoint integration.
+    """
+    db = TestingSessionLocal()
+
+    def _user(username: str) -> models.User:
+        user = models.User(
+            username=username,
+            hashed_password=auth.get_password_hash("password"),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    owner = _user("RunOwner")
+    member = _user("RunMember")
+    non_member = _user("RunStranger")
+
+    private_run = models.BeerRun(name="Private Permission Run", is_public=False)
+    public_run = models.BeerRun(name="Public Permission Run", is_public=True)
+    db.add_all([private_run, public_run])
+    db.commit()
+    db.refresh(private_run)
+    db.refresh(public_run)
+
+    db.add_all([
+        models.BeerRunMember(beer_run_id=private_run.id, user_id=owner.id, role="owner"),
+        models.BeerRunMember(beer_run_id=private_run.id, user_id=member.id, role="member"),
+        models.BeerRunMember(beer_run_id=public_run.id, user_id=owner.id, role="owner"),
+        models.BeerRunMember(beer_run_id=public_run.id, user_id=member.id, role="member"),
+    ])
+    db.commit()
+
+    def _token(user: models.User) -> str:
+        return auth.create_access_token({"sub": str(user.id)})
+
+    yield {
+        "db": db,
+        "private_run": private_run,
+        "public_run": public_run,
+        "owner": owner,
+        "member": member,
+        "non_member": non_member,
+        "owner_token": _token(owner),
+        "member_token": _token(member),
+        "non_member_token": _token(non_member),
+    }
+    db.close()

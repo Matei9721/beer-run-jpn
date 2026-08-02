@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 import auth
 import models
+import permissions
 import schemas
 from database import get_db
 
@@ -47,16 +48,19 @@ def _is_beer_run_name_unique_violation(exc: IntegrityError) -> bool:
 
 # --- Response builder ---
 
-def _beer_run_response(beer_run: models.BeerRun, user: models.User | None) -> schemas.BeerRunResponse:
-    """Build a BeerRunResponse with computed member_count and caller role."""
+def _beer_run_response(
+    beer_run: models.BeerRun,
+    membership: models.BeerRunMember | None,
+) -> schemas.BeerRunResponse:
+    """Build a BeerRunResponse with computed member_count and caller role.
+
+    ``membership`` is the caller's membership in ``beer_run``, or None when the
+    caller is logged out or not a member. The caller role is read from that
+    membership rather than re-derived by scanning the run's memberships, so
+    authorization and response construction agree on one trusted source.
+    """
     member_count = len(beer_run.memberships)
-    if user is None:
-        role: str | None = None
-    else:
-        role = next(
-            (m.role for m in beer_run.memberships if m.user_id == user.id),
-            None,
-        )
+    role = membership.role if membership is not None else None
     return schemas.BeerRunResponse(
         id=beer_run.id,
         name=beer_run.name,
@@ -64,6 +68,19 @@ def _beer_run_response(beer_run: models.BeerRun, user: models.User | None) -> sc
         created_at=beer_run.created_at,
         member_count=member_count,
         current_user_role=role,
+    )
+
+
+def _caller_membership(
+    beer_run: models.BeerRun,
+    user: models.User | None,
+) -> models.BeerRunMember | None:
+    """Return the caller's membership in a run, or None when not a member."""
+    if user is None:
+        return None
+    return next(
+        (m for m in beer_run.memberships if m.user_id == user.id),
+        None,
     )
 
 # --- Visibility helper ---
@@ -104,13 +121,6 @@ def _visible_runs_query(db: Session, user: models.User | None):
 
 # ── Create (Feature 2) ──────────────────────────────────────────────
 
-_UNAUTHORIZED = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Could not validate credentials",
-    headers={"WWW-Authenticate": "Bearer"},
-)
-
-
 @router.post(
     "/api/beer-runs",
     response_model=schemas.BeerRunResponse,
@@ -123,7 +133,7 @@ async def create_beer_run(
 ):
     """Create a new beer-run with the authenticated user as owner."""
     if current_user is None:
-        raise _UNAUTHORIZED
+        raise permissions.unauthorized_error()
 
     # Validate name.
     name = request.name.strip()
@@ -188,7 +198,7 @@ async def create_beer_run(
             detail="Unable to create beer-run",
         ) from None
 
-    return _beer_run_response(beer_run, current_user)
+    return _beer_run_response(beer_run, membership)
 
 
 # ── List (Feature 3) ─────────────────────────────────────────────────
@@ -207,7 +217,7 @@ async def list_beer_runs(
     Logged-out callers see only public runs.
     """
     runs = _visible_runs_query(db, current_user).all()
-    return [_beer_run_response(r, current_user) for r in runs]
+    return [_beer_run_response(r, _caller_membership(r, current_user)) for r in runs]
 
 
 # ── Detail (Feature 3) ───────────────────────────────────────────────
@@ -217,28 +227,15 @@ async def list_beer_runs(
     response_model=schemas.BeerRunResponse,
 )
 async def get_beer_run(
-    beer_run_id: int,
-    current_user: models.User | None = Depends(auth.get_current_user),
-    db: Session = Depends(get_db),
+    access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
 ):
     """Return a single beer-run if visible to the caller.
 
-    Private runs return 404 for non-members (indistinguishable from
-    non-existent — no information leak).
+    Authorization is delegated to the shared public-read policy: public runs are
+    readable by any caller, and private runs return the shared 404 for
+    non-members, indistinguishable from non-existent runs.
     """
-    beer_run = db.get(models.BeerRun, beer_run_id)
-    if beer_run is None:
-        raise HTTPException(status_code=404, detail="Beer-run not found")
-
-    if not beer_run.is_public and (
-        current_user is None
-        or not any(
-            m.user_id == current_user.id for m in beer_run.memberships
-        )
-    ):
-        raise HTTPException(status_code=404, detail="Beer-run not found")
-
-    return _beer_run_response(beer_run, current_user)
+    return _beer_run_response(access.beer_run, access.membership)
 
 
 # ── Update (Feature 4) ───────────────────────────────────────────────
@@ -248,28 +245,17 @@ async def get_beer_run(
     response_model=schemas.BeerRunResponse,
 )
 async def update_beer_run(
-    beer_run_id: int,
     request: schemas.BeerRunUpdateRequest,
-    current_user: models.User | None = Depends(auth.get_current_user),
+    access: permissions.OwnerAccess = Depends(permissions.authorize_owner_access),
     db: Session = Depends(get_db),
 ):
-    """Update a beer-run's name and/or visibility.  Owner-only."""
-    if current_user is None:
-        raise _UNAUTHORIZED
+    """Update a beer-run's name and/or visibility.  Owner-only.
 
-    beer_run = db.get(models.BeerRun, beer_run_id)
-    if beer_run is None:
-        raise HTTPException(status_code=404, detail="Beer-run not found")
-
-    # Ownership check.
-    if not any(
-        m.user_id == current_user.id and m.role == "owner"
-        for m in beer_run.memberships
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the beer-run owner can update it",
-        )
+    Authorization is delegated to the shared owner policy, which returns the
+    already-authorized run and membership. Validation, duplicate-name handling,
+    and transaction behavior are unchanged.
+    """
+    beer_run = access.beer_run
 
     # At-least-one-field check.
     if request.name is None and request.is_public is None:
@@ -337,34 +323,23 @@ async def update_beer_run(
             detail="Unable to update beer-run",
         ) from None
 
-    return _beer_run_response(beer_run, current_user)
+    return _beer_run_response(beer_run, access.membership)
 
 
 # ── Delete (Feature 5) ───────────────────────────────────────────────
 
 @router.delete("/api/beer-runs/{beer_run_id}")
 async def delete_beer_run(
-    beer_run_id: int,
-    current_user: models.User | None = Depends(auth.get_current_user),
+    access: permissions.OwnerAccess = Depends(permissions.authorize_owner_access),
     db: Session = Depends(get_db),
 ):
-    """Delete a beer-run and all its entries + memberships.  Owner-only."""
-    if current_user is None:
-        raise _UNAUTHORIZED
+    """Delete a beer-run and all its entries + memberships.  Owner-only.
 
-    beer_run = db.get(models.BeerRun, beer_run_id)
-    if beer_run is None:
-        raise HTTPException(status_code=404, detail="Beer-run not found")
-
-    # Ownership check.
-    if not any(
-        m.user_id == current_user.id and m.role == "owner"
-        for m in beer_run.memberships
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the beer-run owner can delete it",
-        )
+    Authorization is delegated to the shared owner policy, which returns the
+    already-authorized run. The cascade delete transaction and rollback behavior
+    are unchanged.
+    """
+    beer_run = access.beer_run
 
     try:
         # Cascade delete in explicit order: entries first,

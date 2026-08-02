@@ -576,6 +576,113 @@ class TestDeleteBeerRun:
         assert response.status_code == 404
 
 
+# ── Shared Authorization Integration ─────────────────────────────────
+#
+# These tests use the owner_member_nonmember_run fixture so the "member" caller
+# has a genuine role="member" membership row and the "non_member" caller has
+# none (FR-3.4). They also cover actual missing/invalid bearer-token composition
+# through the dependency stack, since token decoding lives in auth.get_current_user
+# rather than in the permission policies (FR-3.2).
+
+class TestSharedAuthorizationIntegration:
+    def test_member_reads_private_detail(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.get(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer(owner_member_nonmember_run["member_token"]),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == run.name
+        assert data["current_user_role"] == "member"
+
+    def test_member_cannot_update(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.patch(
+            f"/api/beer-runs/{run.id}",
+            json={"name": "Member Hijack"},
+            headers=_bearer(owner_member_nonmember_run["member_token"]),
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Beer-run owner access required"
+
+    def test_member_cannot_delete(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.delete(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer(owner_member_nonmember_run["member_token"]),
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Beer-run owner access required"
+
+    def test_non_member_owner_rejection(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.patch(
+            f"/api/beer-runs/{run.id}",
+            json={"name": "Stranger Hijack"},
+            headers=_bearer(owner_member_nonmember_run["non_member_token"]),
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Beer-run owner access required"
+
+    def test_owner_update_and_delete(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        update = client.patch(
+            f"/api/beer-runs/{run.id}",
+            json={"name": "Owner Rename"},
+            headers=_bearer(owner_member_nonmember_run["owner_token"]),
+        )
+        assert update.status_code == 200
+        assert update.json()["name"] == "Owner Rename"
+        assert update.json()["current_user_role"] == "owner"
+
+        delete = client.delete(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer(owner_member_nonmember_run["owner_token"]),
+        )
+        assert delete.status_code == 200
+        assert client.get(f"/api/beer-runs/{run.id}").status_code == 404
+
+    def test_invalid_token_public_read_succeeds(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["public_run"]
+        response = client.get(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer("not-a-valid-token"),
+        )
+        assert response.status_code == 200
+        assert response.json()["current_user_role"] is None
+
+    def test_invalid_token_private_read_404(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.get(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer("not-a-valid-token"),
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Beer-run not found"
+
+    def test_invalid_token_update_401(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.patch(
+            f"/api/beer-runs/{run.id}",
+            json={"name": "No Auth"},
+            headers=_bearer("not-a-valid-token"),
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Could not validate credentials"
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
+
+    def test_invalid_token_delete_401(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.delete(
+            f"/api/beer-runs/{run.id}",
+            headers=_bearer("not-a-valid-token"),
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Could not validate credentials"
+        assert response.headers.get("WWW-Authenticate") == "Bearer"
+
+
 # ── Error Sanitization ───────────────────────────────────────────────
 
 class TestErrorSanitization:

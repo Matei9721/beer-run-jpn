@@ -1,4 +1,4 @@
-import * as api from './modules/api.js?v=10';
+import * as api from './modules/api.js?v=11';
 import * as auth from './modules/auth.js?v=10';
 import * as mapMod from './modules/map.js?v=9';
 import * as ui from './modules/ui.js?v=9';
@@ -6,6 +6,7 @@ import * as ui from './modules/ui.js?v=9';
 document.addEventListener('DOMContentLoaded', () => {
     const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
     const WRAPPED_ENDED_STORAGE_KEY = 'beerRunJpn.hideWrappedEndedNotice';
+    const DEFAULT_RUN_NAME = 'beerrunjpn';
 
     // --- Global State ---
     let lastRefreshTime = new Date();
@@ -13,40 +14,127 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEntries = [];
     let startupModalsPending = true;
     let authValidationComplete = false;
+    // Temporary default beer-run access state. Resolved in memory from the
+    // visible beer-runs list; never hard-coded or persisted. The later selector
+    // feature replaces this source without changing the scoped endpoint
+    // contracts.
+    let currentBeerRunId = null;
+    let currentUserRole = null;
+
+    // --- Default Beer-Run Discovery ---
+
+    async function resolveDefaultBeerRun() {
+        // Resolve the visible run named "BeerRunJPN" through the existing list
+        // API, retaining its id and current_user_role as the page's temporary
+        // default access state. Returns the outcome reason so callers can pick
+        // the right availability message.
+        const token = auth.getToken();
+        const result = await api.fetchBeerRuns(token);
+        if (!result.ok) {
+            return { reason: 'network' };
+        }
+        const run = result.data.find(r => (r.name || '').toLowerCase() === DEFAULT_RUN_NAME);
+        if (!run) {
+            currentBeerRunId = null;
+            currentUserRole = null;
+            return { reason: 'missing' };
+        }
+        currentBeerRunId = run.id;
+        currentUserRole = run.current_user_role || null;
+        return { reason: 'ready' };
+    }
 
     // --- Core Refresh Logic ---
+
+    async function loadTripData(allowRediscover = true) {
+        // Fetch leaderboard + entries for the resolved run. Never hands an
+        // error object to a renderer as if it were an array.
+        const token = auth.getToken();
+        const userFilter = document.getElementById('user-filter');
+        const [leaderboardResult, entriesResult] = await Promise.all([
+            api.fetchLeaderboard(currentBeerRunId, token),
+            api.fetchEntries(currentBeerRunId, userFilter.value, token)
+        ]);
+
+        const is404 = r => !r.ok && r.status === 404;
+        if (is404(leaderboardResult) || is404(entriesResult)) {
+            if (allowRediscover) {
+                // Run no longer accessible: clear it, re-run default discovery
+                // once, and retry the read once against a re-resolved ID.
+                currentBeerRunId = null;
+                currentUserRole = null;
+                const resolution = await resolveDefaultBeerRun();
+                if (currentBeerRunId) {
+                    return loadTripData(false);
+                }
+                return { state: 'unavailable', reason: resolution.reason };
+            }
+            return { state: 'unavailable', reason: 'missing' };
+        }
+
+        if (!leaderboardResult.ok || !entriesResult.ok) {
+            // Network or other non-404 failure: retain the run ID and the last
+            // successfully rendered data for a transient error.
+            return { state: 'transient' };
+        }
+
+        currentLeaderboard = leaderboardResult.data;
+        currentEntries = entriesResult.data;
+        return { state: 'ready' };
+    }
+
     async function refreshData(isManual = false) {
         const syncStatus = document.getElementById('sync-status');
         const syncDot = document.getElementById('sync-dot');
         const userFilter = document.getElementById('user-filter');
         const leaderboardData = document.getElementById('leaderboard-data');
 
+        // Ensure a default run is resolved before any trip-data request; while
+        // none is available, keep trip data empty and block submission.
+        if (!currentBeerRunId) {
+            const resolution = await resolveDefaultBeerRun();
+            if (!currentBeerRunId) {
+                syncStatus.innerText = resolution.reason === 'network'
+                    ? 'Connection unavailable; retrying'
+                    : 'BeerRunJPN is not available';
+                syncDot.classList.remove('syncing');
+                return;
+            }
+        }
+
         syncStatus.innerText = 'Syncing...';
         syncDot.classList.add('syncing');
-        
-        const [leaderboard, entries] = await Promise.all([
-            api.fetchLeaderboard(),
-            api.fetchEntries(userFilter.value)
-        ]);
-        
-        currentLeaderboard = leaderboard;
-        currentEntries = entries;
-        
+
+        const outcome = await loadTripData();
+        if (outcome.state === 'unavailable') {
+            syncStatus.innerText = outcome.reason === 'network'
+                ? 'Connection unavailable; retrying'
+                : 'BeerRunJPN is not available';
+            syncDot.classList.remove('syncing');
+            return;
+        }
+        if (outcome.state === 'transient') {
+            // Keep the resolved ID and the last known-good rendered data.
+            syncStatus.innerText = 'Connection unavailable; retrying';
+            syncDot.classList.remove('syncing');
+            return;
+        }
+
         // Update Leaderboard UI
-        ui.renderLeaderboard(leaderboard, leaderboardData);
-        
+        ui.renderLeaderboard(currentLeaderboard, leaderboardData);
+
         // Update Map Filter Dropdown
         const currentFilter = userFilter.value;
         const options = ['<option value="">All Users</option>'];
-        leaderboard.forEach(user => {
+        currentLeaderboard.forEach(user => {
             options.push(`<option value="${user.username}">${user.username}</option>`);
         });
         userFilter.innerHTML = options.join('');
         userFilter.value = currentFilter;
 
         // Update Map Markers
-        mapMod.updateMarkers(entries, isManual);
-        
+        mapMod.updateMarkers(currentEntries, isManual);
+
         lastRefreshTime = new Date();
         syncStatus.innerText = `Synced ${lastRefreshTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
         syncDot.classList.remove('syncing');
@@ -210,6 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logout-btn').addEventListener('click', () => {
         auth.removeToken();
         auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
+        // Logout changes who can resolve BeerRunJPN (public-only now), so drop
+        // the cached default and let the next refresh re-resolve it.
+        currentBeerRunId = null;
+        currentUserRole = null;
+        refreshData(true);
     });
     document.getElementById('close-login').addEventListener('click', () => {
         auth.closeLoginModal();
@@ -248,6 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('login-form').reset();
                 auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
                 showStartupModals();
+                // Identity changed, so re-resolve BeerRunJPN to refresh the
+                // stored role and pick up private-run membership.
+                currentBeerRunId = null;
+                currentUserRole = null;
                 refreshData(true);
             } else {
                 loginError.innerText = 'Invalid credentials';
@@ -324,6 +421,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!latInput.value) { alert("Pin location first."); return; }
 
+        // Block submission without an authorized target run.
+        if (!currentBeerRunId) {
+            alert("BeerRunJPN is not available.");
+            return;
+        }
+        if (currentUserRole !== 'owner' && currentUserRole !== 'member') {
+            alert("You are not a member of BeerRunJPN.");
+            return;
+        }
+
         const entryForm = document.getElementById('entry-form');
         const formData = new FormData(entryForm);
         
@@ -349,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.innerText = "SENDING...";
 
         try {
-            const response = await api.submitEntry(formData, token);
+            const response = await api.submitEntry(currentBeerRunId, formData, token);
             if (response.ok) {
                 entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;">
                     <h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2>
@@ -360,6 +467,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 if (response.status === 401) {
                     handleRejectedSession();
+                } else if (response.status === 404) {
+                    // Re-fetch visible runs without resubmitting the form.
+                    // Re-resolution refreshes currentUserRole; the gate above
+                    // blocks later creates when the role is absent.
+                    currentBeerRunId = null;
+                    currentUserRole = null;
+                    const resolution = await resolveDefaultBeerRun();
+                    if (!currentBeerRunId) {
+                        const syncStatusEl = document.getElementById('sync-status');
+                        syncStatusEl.innerText = resolution.reason === 'network'
+                            ? 'Connection unavailable; retrying'
+                            : 'BeerRunJPN is not available';
+                    }
                 } else {
                     const errorText = await response.text();
                     alert(`Upload failed: ${errorText || response.statusText}`);

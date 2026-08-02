@@ -2,11 +2,12 @@ import os
 import io
 import json
 from functools import lru_cache
-from datetime import datetime
+from datetime import datetime, UTC
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from PIL import Image, ImageOps
@@ -16,6 +17,8 @@ import auth
 import auth_routes
 import beer_run_routes
 import invite_routes
+import permissions
+import schemas
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 
@@ -48,8 +51,6 @@ os.makedirs("templates", exist_ok=True)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-DEFAULT_BEER_RUN_NAME = "BeerRunJPN"
 
 @lru_cache()
 def get_drink_config() -> Dict[str, Any]:
@@ -91,11 +92,20 @@ def save_optimized_image(contents: bytes, image_path: str) -> None:
     img.save(image_path, "JPEG", quality=85, optimize=True)
 
 
-def get_default_beer_run(db: Session) -> models.BeerRun:
-    beer_run = db.query(models.BeerRun).filter(models.BeerRun.name == DEFAULT_BEER_RUN_NAME).first()
-    if not beer_run:
-        raise HTTPException(status_code=500, detail=f"Default beer-run {DEFAULT_BEER_RUN_NAME} is not available")
-    return beer_run
+def write_upload_image(contents: bytes) -> str:
+    """Normalize and persist an uploaded image, returning its stored path.
+
+    This is the narrow image-writer seam that focused tests redirect or mock so
+    they never write into the repository's real ``static/uploads`` folder. The
+    returned value keeps the historical ``static/uploads/<name>`` form so
+    existing ``image_path`` values and ``/static/uploads`` URL serving remain
+    compatible. The timestamp-only filename is intentionally preserved;
+    collision-safe names and orphan cleanup remain out of scope here.
+    """
+    timestamp = int(datetime.now(UTC).timestamp())
+    image_path = os.path.join("static/uploads", f"{timestamp}.jpg")
+    save_optimized_image(contents, image_path)
+    return image_path
 
 
 @app.get("/")
@@ -120,37 +130,70 @@ async def get_wrapped():
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=500, detail=f"Wrapped data is invalid JSON: {exc}")
 
-@app.get("/api/leaderboard")
-async def get_leaderboard(db: Session = Depends(get_db)):
-    beer_run = get_default_beer_run(db)
-    users = (
-        db.query(models.User)
-        .join(models.BeerRunMember)
-        .filter(models.BeerRunMember.beer_run_id == beer_run.id)
+@app.get(
+    "/api/beer-runs/{beer_run_id}/leaderboard",
+    response_model=list[schemas.LeaderboardUser],
+)
+async def get_scoped_leaderboard(
+    access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
+    db: Session = Depends(get_db),
+):
+    """Return the leaderboard for a single authorized beer-run.
+
+    Only run members with at least one entry in this run appear, and totals
+    include only entries assigned to the requested run. The aggregation runs as
+    one run-scoped SQL query, so query count never grows with the number of
+    entrants. Rows are ordered by total alcohol, highest first.
+    """
+    rows = (
+        db.query(
+            models.User.username,
+            func.sum(models.Entry.quantity).label("total_liters"),
+            func.sum(models.Entry.quantity * (models.Entry.abv / 100.0)).label("total_alcohol"),
+        )
+        .join(models.BeerRunMember, models.BeerRunMember.user_id == models.User.id)
+        .join(models.Entry, models.Entry.user_id == models.User.id)
+        .filter(
+            models.BeerRunMember.beer_run_id == access.beer_run.id,
+            models.Entry.beer_run_id == access.beer_run.id,
+        )
+        .group_by(models.User.id)
+        .order_by(func.sum(models.Entry.quantity * (models.Entry.abv / 100.0)).desc())
         .all()
     )
-    leaderboard = []
-    for user in users:
-        entries = [entry for entry in user.entries if entry.beer_run_id == beer_run.id]
-        total_liters = sum(e.quantity for e in entries)
-        total_alcohol = sum(e.quantity * (e.abv / 100.0) for e in entries)
-        leaderboard.append({
-            "username": user.username,
+    return [
+        {
+            "username": username,
             "total_liters": total_liters,
-            "total_alcohol": total_alcohol
-        })
-    # Sort by total liters
-    leaderboard.sort(key=lambda x: x["total_alcohol"], reverse=True)
-    return leaderboard
+            "total_alcohol": total_alcohol,
+        }
+        for username, total_liters, total_alcohol in rows
+    ]
 
-@app.get("/api/entries")
-async def get_entries(username: str = None, db: Session = Depends(get_db)):
-    beer_run = get_default_beer_run(db)
-    query = db.query(models.Entry).filter(models.Entry.beer_run_id == beer_run.id)
+
+@app.get(
+    "/api/beer-runs/{beer_run_id}/entries",
+    response_model=list[schemas.Entry],
+)
+async def get_scoped_entries(
+    username: str = None,
+    access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
+    db: Session = Depends(get_db),
+):
+    """Return the entries of a single authorized beer-run, newest first.
+
+    The optional username filter is conjoined with the requested run scope
+    using the existing case-insensitive username semantics. Entries with a
+    NULL ``beer_run_id`` are excluded because the filter requires an exact run
+    match.
+    """
+    query = db.query(models.Entry).filter(models.Entry.beer_run_id == access.beer_run.id)
     if username:
-        query = query.join(models.User).filter(models.User.username == username)
+        query = query.join(models.User).filter(
+            func.lower(models.User.username) == func.lower(username)
+        )
     entries = query.order_by(models.Entry.timestamp.desc()).all()
-    
+
     return [{
         "id": e.id,
         "username": e.owner.username,
@@ -166,8 +209,9 @@ async def get_entries(username: str = None, db: Session = Depends(get_db)):
         "timezone_code": e.timezone_code
     } for e in entries]
 
-@app.post("/api/entries")
-async def create_entry(
+
+@app.post("/api/beer-runs/{beer_run_id}/entries")
+async def create_scoped_entry(
     drink_type: str = Form(...),
     abv: float = Form(...),
     quantity: float = Form(...),
@@ -178,37 +222,25 @@ async def create_entry(
     client_timezone: str = Form(None),
     client_timezone_code: str = Form(None),
     image: UploadFile = File(None),
-    current_user: models.User | None = Depends(auth.get_current_user),
-    db: Session = Depends(get_db)
+    access: permissions.MemberAccess = Depends(permissions.authorize_member_access),
+    db: Session = Depends(get_db),
 ):
-    if current_user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    print(f"Creating entry for {current_user.username}: {drink_type}, {abv}%, {quantity}L")
-    beer_run = get_default_beer_run(db)
+    """Create an entry in a single authorized beer-run (member-only).
+
+    Membership authorization completes before any upload is written or row is
+    created. The entry is bound to the authenticated user and the authorized
+    path run; caller-supplied ``user_id``/``username``/``beer_run_id`` form
+    fields are not part of the multipart contract and have no effect. Commit is
+    the final fallible boundary.
+    """
     image_path = None
     if image and image.filename and image.filename.strip():
-        print(f"Processing image: {image.filename}")
         try:
-            # Read image data first to check if it has content
             contents = await image.read()
-            if not contents:
-                print("Image field exists but is empty (0 bytes). Skipping processing.")
-            else:
-                # Generate filename
-                timestamp = int(models.datetime.now(models.UTC).timestamp())
-                # Ensure filename is safe or just use a generic name
-                safe_filename = f"{timestamp}.jpg"
-                image_path = os.path.join("static/uploads", safe_filename)
-                
-                save_optimized_image(contents, image_path)
-                print(f"Image saved to: {image_path}")
-        except Exception as e:
-            print(f"Image processing failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
+            if contents:
+                image_path = write_upload_image(contents)
+        except Exception:
+            raise HTTPException(status_code=500, detail="Unable to create entry")
 
     try:
         new_entry = models.Entry(
@@ -222,15 +254,15 @@ async def create_entry(
             timestamp=parse_client_timestamp(client_timestamp),
             timezone=client_timezone,
             timezone_code=client_timezone_code,
-            user_id=current_user.id,
-            beer_run_id=beer_run.id
+            user_id=access.membership.user_id,
+            beer_run_id=access.beer_run.id,
         )
         db.add(new_entry)
+        db.flush()  # assign the entry id before the final commit boundary
+        entry_id = new_entry.id
         db.commit()
-        db.refresh(new_entry)
-        print(f"Entry created with ID: {new_entry.id}")
-        return {"status": "success", "entry_id": new_entry.id}
-    except Exception as e:
-        print(f"Database error: {e}")
+    except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to create entry")
+
+    return {"status": "success", "entry_id": entry_id}

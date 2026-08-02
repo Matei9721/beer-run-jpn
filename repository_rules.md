@@ -89,6 +89,11 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
   untracked trip artifacts are common in this repository.
 - Keep edits scoped. Small direct changes are usually preferable to new
   abstraction layers in this compact app.
+- Code comments and test docstrings must not cite specification identifiers or
+  task numbers (for example `FR-1.5`, `AR-2.5`, `Spec 009`, or `Task 15`).
+  Comments describe the code's intent and behavior in the code's own terms;
+  requirement IDs belong in `specs/` documents and implementation summaries,
+  not in source.
 - Distinguish source files, generated data, specifications, and runtime state
   when planning a change. State explicitly when a task crosses those boundaries.
 - Treat existing `specs/` documents as durable project knowledge. Do not delete

@@ -44,6 +44,23 @@ def _assert_generic_unauthorized(response) -> None:
     assert response.headers["www-authenticate"] == "Bearer"
 
 
+def _beer_run_jpn_id() -> int:
+    with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+        row = conn.execute("SELECT id FROM beer_runs WHERE name = 'BeerRunJPN'").fetchone()
+    assert row is not None
+    return row[0]
+
+
+def _entry_form():
+    return {
+        "drink_type": "Beer",
+        "abv": 5.0,
+        "quantity": 0.5,
+        "latitude": 0.0,
+        "longitude": 0.0,
+    }
+
+
 def test_secret_loads_from_root_env_file(monkeypatch, tmp_path):
     env_path = tmp_path / ".env"
     configured_secret = secrets.token_urlsafe(32)
@@ -879,15 +896,10 @@ def test_access_token_creation_requires_canonical_positive_user_id(subject):
 
 
 def test_protected_route_fail(client):
+    beer_run_id = _beer_run_jpn_id()
     response = client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 0.0,
-            "longitude": 0.0,
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
     )
     assert response.status_code == 401
 
@@ -895,16 +907,11 @@ def test_protected_route_fail(client):
 def test_protected_route_success(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
 
     response = client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 0.0,
-            "longitude": 0.0,
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers=_bearer(token),
     )
     assert response.status_code == 200
@@ -914,16 +921,11 @@ def test_protected_route_success(client):
 def test_protected_route_success_no_image(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
 
     response = client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 0.0,
-            "longitude": 0.0,
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers=_bearer(token),
     )
     assert response.status_code == 200

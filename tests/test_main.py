@@ -5,6 +5,23 @@ import sqlite3
 from migrations.runner import MigrationRequired, validate_database_ready
 
 
+def _beer_run_jpn_id() -> int:
+    with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+        row = conn.execute("SELECT id FROM beer_runs WHERE name = 'BeerRunJPN'").fetchone()
+    assert row is not None
+    return row[0]
+
+
+def _entry_form():
+    return {
+        "drink_type": "Beer",
+        "abv": 5.0,
+        "quantity": 0.5,
+        "latitude": 35.6895,
+        "longitude": 139.6917,
+    }
+
+
 def test_login_and_me_response_shape_are_unchanged(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     assert login_res.status_code == 200
@@ -24,24 +41,19 @@ def test_root(client):
 def test_create_entry_and_leaderboard(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
 
-    # Create entry
+    # Create entry through the scoped route
     response = client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 35.6895,
-            "longitude": 139.6917
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 
-    # Check leaderboard
-    response = client.get("/api/leaderboard")
+    # Check scoped leaderboard
+    response = client.get(f"/api/beer-runs/{beer_run_id}/leaderboard")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -53,16 +65,11 @@ def test_create_entry_and_leaderboard(client):
 def test_create_entry_assigns_beer_run_jpn_without_run_field(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
 
     response = client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 35.6895,
-            "longitude": 139.6917
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers={"Authorization": f"Bearer {token}"}
     )
 
@@ -84,15 +91,10 @@ def test_create_entry_assigns_beer_run_jpn_without_run_field(client):
 def test_entries_endpoint_keeps_payload_shape_and_filters_to_beer_run_jpn(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
     client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 35.6895,
-            "longitude": 139.6917
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers={"Authorization": f"Bearer {token}"}
     )
     with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
@@ -108,7 +110,7 @@ def test_entries_endpoint_keeps_payload_shape_and_filters_to_beer_run_jpn(client
             (private_run_id,),
         )
 
-    response = client.get("/api/entries")
+    response = client.get(f"/api/beer-runs/{beer_run_id}/entries")
 
     assert response.status_code == 200
     data = response.json()
@@ -133,15 +135,10 @@ def test_entries_endpoint_keeps_payload_shape_and_filters_to_beer_run_jpn(client
 def test_leaderboard_totals_use_beer_run_jpn_entries_only(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})
     token = login_res.json()["access_token"]
+    beer_run_id = _beer_run_jpn_id()
     client.post(
-        "/api/entries",
-        data={
-            "drink_type": "Beer",
-            "abv": 5.0,
-            "quantity": 0.5,
-            "latitude": 35.6895,
-            "longitude": 139.6917
-        },
+        f"/api/beer-runs/{beer_run_id}/entries",
+        data=_entry_form(),
         headers={"Authorization": f"Bearer {token}"}
     )
     with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
@@ -157,7 +154,7 @@ def test_leaderboard_totals_use_beer_run_jpn_entries_only(client):
             (private_run_id,),
         )
 
-    response = client.get("/api/leaderboard")
+    response = client.get(f"/api/beer-runs/{beer_run_id}/leaderboard")
 
     assert response.status_code == 200
     assert response.json() == [

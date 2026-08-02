@@ -15,6 +15,7 @@ import models
 import auth
 import auth_routes
 import beer_run_routes
+import invite_routes
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 
@@ -36,6 +37,7 @@ app.add_exception_handler(
 )
 app.include_router(auth_routes.router)
 app.include_router(beer_run_routes.router)
+app.include_router(invite_routes.router)
 
 # Ensure static directories exist
 os.makedirs("static/uploads", exist_ok=True)

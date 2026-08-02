@@ -268,3 +268,110 @@ def test_sqlite_defaults_new_beer_run_to_private(tmp_path):
     with sqlite3.connect(db_path) as conn:
         conn.execute("INSERT INTO beer_runs (name) VALUES ('Default Private')")
         assert conn.execute("SELECT is_public FROM beer_runs WHERE name = 'Default Private'").fetchone()[0] == 0
+
+
+# ── Beer-run invites (Spec 008) ──────────────────────────────────────
+
+
+def add_invite(session, beer_run, code):
+    invite = models.BeerRunInvite(beer_run_id=beer_run.id, code=code)
+    session.add(invite)
+    session.commit()
+    session.refresh(invite)
+    return invite
+
+
+def test_beer_run_exposes_singular_invite_relationship(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        beer_run, owner = add_owner_backed_run(session)
+        invite = add_invite(session, beer_run, "A" * 43)
+
+        session.refresh(beer_run)
+
+        # FR-1.1: singular beer-run-to-invite relationship.
+        assert beer_run.invites.id == invite.id
+        assert beer_run.invites.code == "A" * 43
+        assert invite.beer_run.id == beer_run.id
+        assert invite.beer_run.name == "BeerRunJPN"
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_one_invite_per_run_is_enforced(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        beer_run, owner = add_owner_backed_run(session)
+        add_invite(session, beer_run, "A" * 43)
+        duplicate = models.BeerRunInvite(beer_run_id=beer_run.id, code="B" * 43)
+        session.add(duplicate)
+
+        with pytest.raises(IntegrityError):
+            session.commit()
+    finally:
+        session.rollback()
+        session.close()
+        engine.dispose()
+
+
+def test_invite_code_is_globally_unique(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        run_one, owner = add_owner_backed_run(session, name="Run One")
+        run_two = add_beer_run(session, name="Run Two")
+        add_invite(session, run_one, "A" * 43)
+        duplicate = models.BeerRunInvite(beer_run_id=run_two.id, code="A" * 43)
+        session.add(duplicate)
+
+        with pytest.raises(IntegrityError):
+            session.commit()
+    finally:
+        session.rollback()
+        session.close()
+        engine.dispose()
+
+
+def test_invite_must_reference_an_existing_run(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        session.add(models.BeerRunInvite(beer_run_id=9999, code="A" * 43))
+
+        with pytest.raises(IntegrityError):
+            session.commit()
+    finally:
+        session.rollback()
+        session.close()
+        engine.dispose()
+
+
+def test_invite_rejects_malformed_codes(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        beer_run, owner = add_owner_backed_run(session)
+        for bad_code in ("short", "A" * 44, "!" * 43, "A" * 42 + "!"):
+            session.add(models.BeerRunInvite(beer_run_id=beer_run.id, code=bad_code))
+            with pytest.raises(IntegrityError):
+                session.commit()
+            session.rollback()
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_invite_requires_code_and_run(tmp_path):
+    session, engine = make_session(tmp_path)
+    try:
+        beer_run, owner = add_owner_backed_run(session)
+        session.add(models.BeerRunInvite(beer_run_id=beer_run.id, code=None))
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()
+
+        session.add(models.BeerRunInvite(beer_run_id=None, code="A" * 43))
+        with pytest.raises(IntegrityError):
+            session.commit()
+    finally:
+        session.rollback()
+        session.close()
+        engine.dispose()

@@ -65,3 +65,29 @@ class BeerRunResponse(BaseModel):
     current_user_role: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Invite Schemas ---
+
+class InviteCreateResponse(BaseModel):
+    """Owner-only create-or-retrieve response for a run's permanent invite.
+
+    ``invite_url`` is an origin-independent root-relative URL in the form
+    ``/?invite=<code>``. The raw ``code`` is sensitive and appears only in this
+    owner-only response — never in preview, acceptance, logs, or errors.
+    """
+    code: str
+    invite_url: str
+    beer_run_id: int
+    beer_run_name: str
+    created_at: datetime
+
+
+class InvitePreviewResponse(BaseModel):
+    """Public minimal preview for a valid invite code.
+
+    Deliberately limited to run identity — no visibility, owner, membership,
+    entry, or other run data (FR-2.4).
+    """
+    beer_run_id: int
+    beer_run_name: str

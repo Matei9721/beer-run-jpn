@@ -16,6 +16,7 @@ MIGRATION_VERSIONS = [
     "003_backfill_existing_trip",
     "004_case_insensitive_usernames",
     "005_beer_run_name_nocase",
+    "006_add_beer_run_invites",
 ]
 
 
@@ -147,6 +148,11 @@ def create_schema_with_partial_backfill_state(db_path: Path) -> None:
 
 
 def restore_pre_case_insensitive_username_schema(db_path: Path) -> None:
+    """Return a fully migrated database to the pre-004 (username) state.
+
+    Also removes the downstream 006 invite migration so re-applying reaches a
+    genuinely ordered 004 -> 005 -> 006 chain.
+    """
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = '004_case_insensitive_usernames'"
@@ -154,8 +160,12 @@ def restore_pre_case_insensitive_username_schema(db_path: Path) -> None:
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = '005_beer_run_name_nocase'"
         )
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '006_add_beer_run_invites'"
+        )
         conn.execute("DROP INDEX IF EXISTS uq_users_username_nocase")
         conn.execute("DROP INDEX IF EXISTS uq_beer_runs_name_nocase")
+        conn.execute("DROP TABLE IF EXISTS beer_run_invites")
 
 
 def table_rows(db_path: Path, table: str) -> list[tuple]:
@@ -227,6 +237,7 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
         "003_backfill_existing_trip",
         "004_case_insensitive_usernames",
         "005_beer_run_name_nocase",
+        "006_add_beer_run_invites",
     )
     assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
@@ -389,6 +400,7 @@ def test_case_insensitive_username_migration_preserves_beer_run_jpn_data(tmp_pat
     assert result.applied == (
         "004_case_insensitive_usernames",
         "005_beer_run_name_nocase",
+        "006_add_beer_run_invites",
     )
     assert {
         table: table_rows(db_path, table)
@@ -418,6 +430,7 @@ def test_case_insensitive_username_migration_preserves_unusual_legacy_names(tmp_
     assert result.applied == (
         "004_case_insensitive_usernames",
         "005_beer_run_name_nocase",
+        "006_add_beer_run_invites",
     )
     with sqlite3.connect(db_path) as conn:
         preserved = conn.execute(
@@ -592,3 +605,191 @@ def test_backfill_missing_tamei_warns_without_creating_user(tmp_path, capsys):
 
     assert "Tamei user not found" in capsys.readouterr().out
     assert scalar(db_path, "SELECT COUNT(*) FROM users WHERE username = 'Tamei'") == 0
+
+
+# ── Invite migration (006) ──────────────────────────────────────────
+
+
+def restore_pre_invite_schema(db_path: Path) -> None:
+    """Return a fully migrated database to the pre-invite (005) state."""
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '006_add_beer_run_invites'"
+        )
+        conn.execute("DROP TABLE IF EXISTS beer_run_invites")
+
+
+def add_invite(db_path: Path, beer_run_id: int, code: str) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO beer_run_invites (beer_run_id, code) VALUES (?, ?)",
+            (beer_run_id, code),
+        )
+
+
+def test_invite_migration_creates_table_columns_fk_and_indexes(tmp_path):
+    db_path = tmp_path / "fresh.db"
+    apply_migrations(db_path)
+
+    assert "beer_run_invites" in table_names(db_path)
+    assert {"id", "beer_run_id", "code", "created_at"}.issubset(
+        column_names(db_path, "beer_run_invites")
+    )
+    assert ("beer_run_id", "beer_runs") in foreign_key_targets(db_path, "beer_run_invites")
+    indexes = index_names(db_path, "beer_run_invites")
+    assert "uq_beer_run_invites_beer_run_id" in indexes
+    assert "uq_beer_run_invites_code" in indexes
+    assert "ix_beer_run_invites_id" in indexes
+
+
+def test_invite_migration_applies_to_pre_invite_database_and_preserves_rows(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_current_schema_without_history(db_path)
+    apply_migrations(db_path)
+    restore_pre_invite_schema(db_path)
+
+    before = {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    }
+
+    result = apply_migrations(db_path)
+
+    assert result.applied == ("006_add_beer_run_invites",)
+    assert "beer_run_invites" in table_names(db_path)
+    assert {
+        table: table_rows(db_path, table)
+        for table in ("users", "entries", "beer_runs", "beer_run_members")
+    } == before
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
+
+
+def test_invite_migration_is_idempotent(tmp_path):
+    db_path = tmp_path / "fresh.db"
+    apply_migrations(db_path)
+
+    result = apply_migrations(db_path)
+
+    assert result.skipped == tuple(MIGRATION_VERSIONS)
+    assert row_count(db_path, "beer_run_invites") == 0
+
+
+def test_invite_migration_baselines_complete_existing_table(tmp_path):
+    db_path = tmp_path / "complete.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '006_add_beer_run_invites'"
+        )
+
+    result = apply_migrations(db_path)
+
+    assert result.baselined == ("006_add_beer_run_invites",)
+    assert migration_versions(db_path) == MIGRATION_VERSIONS
+
+
+def test_invite_migration_refuses_partial_existing_table(tmp_path):
+    db_path = tmp_path / "partial.db"
+    apply_migrations(db_path)
+    restore_pre_invite_schema(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE beer_run_invites (
+                id INTEGER PRIMARY KEY,
+                beer_run_id INTEGER NOT NULL,
+                code VARCHAR NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        apply_migrations(db_path)
+
+    message = str(exc_info.value)
+    assert "beer_run_invites already exists" in message
+    assert "Repair or remove the partial table deliberately" in message
+    assert migration_versions(db_path) == MIGRATION_VERSIONS[:5]
+    assert index_names(db_path, "beer_run_invites") == set()
+    assert foreign_key_targets(db_path, "beer_run_invites") == set()
+    assert row_count(db_path, "beer_run_invites") == 0
+
+
+def test_invite_migration_enforces_one_invite_per_run(tmp_path):
+    db_path = tmp_path / "enforce.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run A')")
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run B')")
+        run_a = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run A'").fetchone()[0]
+        run_b = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run B'").fetchone()[0]
+
+    add_invite(db_path, run_a, "A" * 43)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        add_invite(db_path, run_a, "B" * 43)
+
+    # The failed insert left the original invite untouched.
+    assert row_count(db_path, "beer_run_invites") == 1
+    assert scalar(db_path, "SELECT code FROM beer_run_invites") == "A" * 43
+
+
+def test_invite_migration_enforces_globally_unique_code(tmp_path):
+    db_path = tmp_path / "unique.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run A')")
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run B')")
+        run_a = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run A'").fetchone()[0]
+        run_b = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run B'").fetchone()[0]
+
+    add_invite(db_path, run_a, "A" * 43)
+
+    # Same code on another run must be rejected.
+    with pytest.raises(sqlite3.IntegrityError):
+        add_invite(db_path, run_b, "A" * 43)
+
+    assert row_count(db_path, "beer_run_invites") == 1
+
+
+def test_invite_migration_rejects_malformed_codes(tmp_path):
+    db_path = tmp_path / "format.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run A')")
+        run_a = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run A'").fetchone()[0]
+
+    for bad_code in ("short", "A" * 44, "!" * 43, "A" * 42 + "!"):
+        with pytest.raises(sqlite3.IntegrityError):
+            add_invite(db_path, run_a, bad_code)
+
+    assert row_count(db_path, "beer_run_invites") == 0
+
+
+def test_invite_migration_codes_are_case_sensitive(tmp_path):
+    db_path = tmp_path / "case.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run A')")
+        conn.execute("INSERT INTO beer_runs (name) VALUES ('Run B')")
+        run_a = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run A'").fetchone()[0]
+        run_b = conn.execute("SELECT id FROM beer_runs WHERE name = 'Run B'").fetchone()[0]
+
+    add_invite(db_path, run_a, "A" * 43)
+
+    # A case-changed variant is a different code and must be accepted on the
+    # other run without colliding with the original.
+    add_invite(db_path, run_b, "a" * 43)
+
+    # Lookup is case-sensitive: the original code resolves only to run_a.
+    with sqlite3.connect(db_path) as conn:
+        run_id = conn.execute(
+            "SELECT beer_run_id FROM beer_run_invites WHERE code = ?",
+            ("A" * 43,),
+        ).fetchone()[0]
+        assert run_id == run_a
+        assert conn.execute(
+            "SELECT beer_run_id FROM beer_run_invites WHERE code = ?",
+            ("a" * 43,),
+        ).fetchone()[0] == run_b

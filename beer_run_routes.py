@@ -342,9 +342,12 @@ async def delete_beer_run(
     beer_run = access.beer_run
 
     try:
-        # Cascade delete in explicit order: entries first,
+        # Cascade delete in explicit order: invites and entries first,
         # then memberships, then the run itself — all in one transaction.
         beer_run_id_val = beer_run.id
+        db.query(models.BeerRunInvite).filter(
+            models.BeerRunInvite.beer_run_id == beer_run_id_val
+        ).delete(synchronize_session="fetch")
         db.query(models.Entry).filter(
             models.Entry.beer_run_id == beer_run_id_val
         ).delete(synchronize_session="fetch")

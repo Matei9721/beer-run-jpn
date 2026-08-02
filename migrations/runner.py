@@ -19,6 +19,9 @@ case_insensitive_usernames = importlib.import_module(
 beer_run_name_nocase = importlib.import_module(
     "migrations.versions.005_beer_run_name_nocase"
 )
+beer_run_invites = importlib.import_module(
+    "migrations.versions.006_add_beer_run_invites"
+)
 
 
 class MigrationError(Exception):
@@ -56,6 +59,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         beer_run_name_nocase.ID,
         beer_run_name_nocase.DESCRIPTION,
         beer_run_name_nocase,
+    ),
+    Migration(
+        beer_run_invites.ID,
+        beer_run_invites.DESCRIPTION,
+        beer_run_invites,
     ),
 )
 

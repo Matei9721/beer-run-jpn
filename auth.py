@@ -16,6 +16,7 @@ from database import get_db
 
 # --- Configuration ---
 ENV_FILE_PATH = Path(__file__).resolve().parent / ".env"
+FORMER_SECRET = "former-secret-key-that-should-never-be-used"
 EXAMPLE_SECRET = "replace-with-output-from-secrets-token_urlsafe-32"
 EXAMPLE_SIGNUP_CODE = "replace-with-private-signup-code"
 ALGORITHM = "HS256"
@@ -40,6 +41,8 @@ def validate_auth_configuration() -> str:
         problem = "has leading or trailing whitespace"
     elif secret_key == EXAMPLE_SECRET:
         problem = "uses the example secret"
+    elif secret_key == FORMER_SECRET:
+        problem = "prohibited"
     elif len(secret_key.encode("utf-8")) < 32:
         problem = "is shorter than 32 UTF-8 bytes"
     else:
@@ -121,14 +124,24 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, validate_auth_configuration(), algorithm=ALGORITHM)
 
 # --- Dependencies ---
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# auto_error=False so the dependency returns None instead of short-circuiting
+# with 401 when no Authorization header is present.  Each endpoint decides
+# whether to reject (raise 401) or treat the caller as logged-out.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+
+async def get_current_user(
+    token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> models.User | None:
+    """Resolve the current user, or None when unauthenticated.
+
+    Returns None (never raises 401) when the token is missing, invalid,
+    expired, or belongs to a deleted account.  Write endpoints that
+    require authentication check for None themselves.
+    """
+    if not token:
+        return None
     try:
         payload = jwt.decode(
             token,
@@ -136,20 +149,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             algorithms=[ALGORITHM],
             options={"require_exp": True, "require_sub": True},
         )
-        # Token-version check: allows us to invalidate all existing tokens
-        # by bumping TOKEN_VERSION in the source.  Old tokens with a stale
-        # version number are rejected even if their signature is valid.
-        # We also enforce type() is int to reject non-integer values that
-        # could slip past a naive != comparison.
         if type(payload.get("token_version")) is not int or payload["token_version"] != TOKEN_VERSION:
-            raise ValueError("Invalid token version")
+            return None
         user_id = _parse_user_id_subject(payload.get("sub"))
+        return db.get(models.User, user_id)
     except (JWTError, ValueError):
-        # from None = don't leak the JWT internals or ValueError traceback to
-        # the API client — the caller gets a clean 401 with a generic message.
-        raise credentials_exception from None
-
-    user = db.get(models.User, user_id)
-    if user is None:
-        raise credentials_exception from None
-    return user
+        return None

@@ -20,10 +20,11 @@ class BeerRun(Base):
     __tablename__ = "beer_runs"
     __table_args__ = (
         Index("ix_beer_runs_is_public", "is_public"),
+        Index("uq_beer_runs_name_nocase", "name", unique=True),
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String(collation="NOCASE"), nullable=False, index=True)
     is_public = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 

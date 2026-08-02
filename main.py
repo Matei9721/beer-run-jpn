@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 import models
 import auth
 import auth_routes
+import beer_run_routes
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 
@@ -34,6 +35,7 @@ app.add_exception_handler(
     auth_routes.sanitize_signup_validation_error,
 )
 app.include_router(auth_routes.router)
+app.include_router(beer_run_routes.router)
 
 # Ensure static directories exist
 os.makedirs("static/uploads", exist_ok=True)
@@ -174,9 +176,15 @@ async def create_entry(
     client_timezone: str = Form(None),
     client_timezone_code: str = Form(None),
     image: UploadFile = File(None),
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User | None = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     print(f"Creating entry for {current_user.username}: {drink_type}, {abv}%, {quantity}L")
     beer_run = get_default_beer_run(db)
     image_path = None

@@ -15,6 +15,7 @@ MIGRATION_VERSIONS = [
     "002_add_beer_run_schema",
     "003_backfill_existing_trip",
     "004_case_insensitive_usernames",
+    "005_beer_run_name_nocase",
 ]
 
 
@@ -150,7 +151,11 @@ def restore_pre_case_insensitive_username_schema(db_path: Path) -> None:
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = '004_case_insensitive_usernames'"
         )
-        conn.execute("DROP INDEX uq_users_username_nocase")
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '005_beer_run_name_nocase'"
+        )
+        conn.execute("DROP INDEX IF EXISTS uq_users_username_nocase")
+        conn.execute("DROP INDEX IF EXISTS uq_beer_runs_name_nocase")
 
 
 def table_rows(db_path: Path, table: str) -> list[tuple]:
@@ -221,6 +226,7 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
         "002_add_beer_run_schema",
         "003_backfill_existing_trip",
         "004_case_insensitive_usernames",
+        "005_beer_run_name_nocase",
     )
     assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
@@ -355,7 +361,8 @@ def test_case_insensitive_username_migration_refuses_legacy_collisions(tmp_path)
     assert "Resolve the duplicate account identities" in message
     for private_value in ("Alice", "alice", "first-hash", "second-hash"):
         assert private_value not in message
-    assert migration_versions(db_path) == MIGRATION_VERSIONS[:-1]
+    # Only migrations before 004 (the one that should fail) are recorded.
+    assert migration_versions(db_path) == MIGRATION_VERSIONS[:3]
     assert username_index_details(db_path, "ix_users_username") == (
         True,
         ["BINARY"],
@@ -379,7 +386,10 @@ def test_case_insensitive_username_migration_preserves_beer_run_jpn_data(tmp_pat
 
     result = apply_migrations(db_path)
 
-    assert result.applied == ("004_case_insensitive_usernames",)
+    assert result.applied == (
+        "004_case_insensitive_usernames",
+        "005_beer_run_name_nocase",
+    )
     assert {
         table: table_rows(db_path, table)
         for table in ("users", "entries", "beer_runs", "beer_run_members")
@@ -405,7 +415,10 @@ def test_case_insensitive_username_migration_preserves_unusual_legacy_names(tmp_
 
     result = apply_migrations(db_path)
 
-    assert result.applied == ("004_case_insensitive_usernames",)
+    assert result.applied == (
+        "004_case_insensitive_usernames",
+        "005_beer_run_name_nocase",
+    )
     with sqlite3.connect(db_path) as conn:
         preserved = conn.execute(
             "SELECT id, username, hashed_password FROM users ORDER BY id"

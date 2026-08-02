@@ -184,6 +184,12 @@ async def signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
 
 @router.get("/api/me")
 async def read_users_me(
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User | None = Depends(auth.get_current_user),
 ):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return {"username": current_user.username, "id": current_user.id}

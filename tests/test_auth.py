@@ -96,7 +96,7 @@ def test_process_signup_code_takes_precedence_over_env_file(monkeypatch, tmp_pat
         ("", "blank"),
         ("   ", "blank"),
         ("padded-code ", "leading or trailing whitespace"),
-        (auth.EXAMPLE_SIGNUP_CODE, "prohibited"),
+        (auth.EXAMPLE_SIGNUP_CODE, "uses the example signup code"),
     ],
 )
 def test_invalid_signup_code_configuration_is_rejected_safely(
@@ -138,7 +138,7 @@ def test_signup_code_comparison_is_exact_and_supports_unicode(monkeypatch, tmp_p
         (f"{'x' * 32} ", "leading or trailing whitespace"),
         ("x" * 31, "shorter than 32 UTF-8 bytes"),
         (auth.FORMER_SECRET, "prohibited"),
-        (auth.EXAMPLE_SECRET, "prohibited"),
+        (auth.EXAMPLE_SECRET, "uses the example secret"),
     ],
 )
 def test_invalid_secret_is_rejected_without_echoing_value(monkeypatch, tmp_path, candidate, problem):
@@ -272,7 +272,7 @@ def test_main_import_refuses_missing_secret_with_safe_message(tmp_path):
         (None, "missing"),
         ("", "blank"),
         ("padded-code ", "leading or trailing whitespace"),
-        (auth.EXAMPLE_SIGNUP_CODE, "prohibited example value"),
+        (auth.EXAMPLE_SIGNUP_CODE, "uses the example signup code"),
     ],
 )
 def test_main_import_refuses_unsafe_signup_code_with_safe_message(

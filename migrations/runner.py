@@ -16,6 +16,9 @@ backfill_existing_trip = importlib.import_module("migrations.versions.003_backfi
 case_insensitive_usernames = importlib.import_module(
     "migrations.versions.004_case_insensitive_usernames"
 )
+beer_run_name_nocase = importlib.import_module(
+    "migrations.versions.005_beer_run_name_nocase"
+)
 
 
 class MigrationError(Exception):
@@ -48,6 +51,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         case_insensitive_usernames.ID,
         case_insensitive_usernames.DESCRIPTION,
         case_insensitive_usernames,
+    ),
+    Migration(
+        beer_run_name_nocase.ID,
+        beer_run_name_nocase.DESCRIPTION,
+        beer_run_name_nocase,
     ),
 )
 

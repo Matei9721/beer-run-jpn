@@ -45,10 +45,8 @@ export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED) {
 }
 
 export function openLoginModal() {
-    const loginModal = document.getElementById('login-modal');
-    resetLoginError();
-    loginModal.style.display = 'flex';
-    document.getElementById('login-username').focus();
+    document.getElementById('login-modal').style.display = 'flex';
+    setAuthMode('login');
 }
 
 export function showLoginPrompt(message) {
@@ -65,7 +63,50 @@ export function resetLoginError() {
 }
 
 export function closeLoginModal() {
-    const loginModal = document.getElementById('login-modal');
-    loginModal.style.display = 'none';
+    document.getElementById('login-modal').style.display = 'none';
     resetLoginError();
+    resetSignupForm();
+}
+
+/**
+ * Show the Login or Sign Up panel of the auth modal. Switching modes clears
+ * the previous mode's error message and never copies password or signup-code
+ * values between the two forms.
+ */
+export function setAuthMode(mode) {
+    const isLogin = mode === 'login';
+    document.getElementById('login-form').classList.toggle('active', isLogin);
+    document.getElementById('signup-form').classList.toggle('active', !isLogin);
+    document.getElementById('auth-mode-login').classList.toggle('active', isLogin);
+    document.getElementById('auth-mode-signup').classList.toggle('active', !isLogin);
+    document.getElementById('auth-mode-login').setAttribute('aria-pressed', String(isLogin));
+    document.getElementById('auth-mode-signup').setAttribute('aria-pressed', String(!isLogin));
+    document.getElementById('auth-modal-title').innerText = isLogin ? 'Login' : 'Sign Up';
+
+    resetLoginError();
+    clearSignupError();
+
+    const firstField = isLogin ? 'login-username' : 'signup-username';
+    document.getElementById(firstField).focus();
+}
+
+export function showSignupError(message) {
+    const errorEl = document.getElementById('signup-error');
+    errorEl.innerText = message;
+    errorEl.style.display = 'block';
+}
+
+export function clearSignupError() {
+    const errorEl = document.getElementById('signup-error');
+    errorEl.innerText = '';
+    errorEl.style.display = 'none';
+}
+
+export function resetSignupForm() {
+    const form = document.getElementById('signup-form');
+    form.reset();
+    // A successful signup leaves the submit button disabled from the in-flight
+    // request; form.reset() does not clear it, so re-enable it here.
+    document.getElementById('signup-submit').disabled = false;
+    clearSignupError();
 }

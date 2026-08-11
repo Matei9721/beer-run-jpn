@@ -1,5 +1,6 @@
-import * as api from './modules/api.js?v=11';
-import * as auth from './modules/auth.js?v=10';
+import * as api from './modules/api.js?v=12';
+import * as auth from './modules/auth.js?v=11';
+import * as signup from './modules/signup.js?v=1';
 import * as mapMod from './modules/map.js?v=9';
 import * as ui from './modules/ui.js?v=9';
 
@@ -326,26 +327,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target == wrappedEndedModal) closeWrappedEndedModal();
     });
 
+    // Shared post-authentication path used by successful login and signup:
+    // store the token, close and reset the modal, mark the UI authenticated,
+    // then re-resolve BeerRunJPN to refresh the stored role and pick up
+    // private-run membership.
+    function handleAuthenticated(data) {
+        auth.setToken(data.access_token);
+        auth.closeLoginModal();
+        document.getElementById('login-form').reset();
+        auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
+        showStartupModals();
+        currentBeerRunId = null;
+        currentUserRole = null;
+        refreshData(true);
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
         const loginError = document.getElementById('login-error');
-        
+
         try {
             const response = await api.login(username, password);
             if (response.ok) {
-                const data = await response.json();
-                auth.setToken(data.access_token);
-                auth.closeLoginModal();
-                document.getElementById('login-form').reset();
-                auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
-                showStartupModals();
-                // Identity changed, so re-resolve BeerRunJPN to refresh the
-                // stored role and pick up private-run membership.
-                currentBeerRunId = null;
-                currentUserRole = null;
-                refreshData(true);
+                handleAuthenticated(await response.json());
             } else {
                 loginError.innerText = 'Invalid credentials';
                 loginError.style.display = 'block';
@@ -354,6 +360,47 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Login error:", error);
             loginError.innerText = "Connection error";
             loginError.style.display = 'block';
+        }
+    });
+
+    // --- Mode Switching ---
+    document.getElementById('auth-mode-login').addEventListener('click', () => auth.setAuthMode('login'));
+    document.getElementById('auth-mode-signup').addEventListener('click', () => auth.setAuthMode('signup'));
+
+    // --- Signup Form ---
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const fields = {
+            username: document.getElementById('signup-username').value,
+            password: document.getElementById('signup-password').value,
+            confirmPassword: document.getElementById('signup-confirm').value,
+            signupCode: document.getElementById('signup-code').value,
+        };
+
+        const validation = signup.validateSignupFields(fields);
+        if (!validation.valid) {
+            auth.showSignupError(signup.formatValidationErrors(validation.errors));
+            return;
+        }
+
+        const submitBtn = document.getElementById('signup-submit');
+        submitBtn.disabled = true;
+
+        try {
+            const response = await api.signup(validation.username, fields.password, fields.signupCode);
+            if (response.status === 201) {
+                handleAuthenticated(await response.json());
+                return;
+            }
+            auth.showSignupError(await signup.getSignupFailureMessage(response));
+            submitBtn.disabled = false;
+        } catch (error) {
+            // Log only a generic category; request payloads, passwords, codes,
+            // and tokens stay out of the console.
+            console.error('Signup request failed');
+            auth.showSignupError('Connection error. Please check your connection and try again.');
+            submitBtn.disabled = false;
         }
     });
 

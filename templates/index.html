@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=7">
+    <link rel="stylesheet" href="/static/css/style.css?v=10">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -32,17 +32,12 @@
         </header>
 
         <section class="current-run-panel" aria-label="Current beer run">
-            <div class="current-run-heading">
-                <span class="current-run-label">Active beer run</span>
-                <span class="current-run-hint">Shared view</span>
-            </div>
             <button id="beer-run-trigger" class="beer-run-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" disabled>
                 <span class="beer-run-trigger-icon" aria-hidden="true">🍺</span>
                 <span class="beer-run-trigger-copy">
                     <span id="beer-run-trigger-name">Loading beer run...</span>
                     <span id="beer-run-trigger-meta"></span>
                 </span>
-                <span class="beer-run-trigger-chevron" aria-hidden="true">⌄</span>
             </button>
         </section>
 

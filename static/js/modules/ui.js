@@ -224,6 +224,14 @@ export function renderLeaderboard(data, leaderboardContainer) {
     leaderboardContainer.innerHTML = html;
 }
 
+export function renderRunLoading(leaderboardContainer) {
+    leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>Loading run data...</p></div>";
+}
+
+export function renderRunUnavailable(leaderboardContainer, message) {
+    leaderboardContainer.innerHTML = `<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>${message}</p></div>`;
+}
+
 // --- User Profile Modal ---
 export function showUserModal(username, leaderboard, entries, onEntrySelect = null) {
     const modal = document.getElementById('user-modal');
@@ -303,4 +311,9 @@ export function showUserModal(username, leaderboard, entries, onEntrySelect = nu
             if (entry) onEntrySelect(entry);
         });
     }
+}
+
+export function clearUserModal() {
+    document.getElementById('user-modal').style.display = 'none';
+    document.getElementById('user-modal-content').replaceChildren();
 }

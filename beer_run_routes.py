@@ -10,6 +10,7 @@ import re
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -117,6 +118,59 @@ def _visible_runs_query(db: Session, user: models.User | None):
         .order_by(models.BeerRun.created_at.desc())
     )
 
+
+def _selector_query_error() -> HTTPException:
+    """Return the shared sanitized validation error for selector query modes."""
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Invalid beer-run selector query",
+    )
+
+
+def _escape_like_prefix(value: str) -> str:
+    """Escape SQLite LIKE metacharacters for a literal prefix comparison."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _selector_runs_query(db: Session, user: models.User | None):
+    """Return beer-run rows with bounded member metadata for selector modes."""
+    member_count = (
+        db.query(func.count(models.BeerRunMember.id))
+        .filter(models.BeerRunMember.beer_run_id == models.BeerRun.id)
+        .correlate(models.BeerRun)
+        .scalar_subquery()
+    )
+    if user is None:
+        caller_role = literal(None)
+    else:
+        caller_role = (
+            db.query(models.BeerRunMember.role)
+            .filter(
+                models.BeerRunMember.beer_run_id == models.BeerRun.id,
+                models.BeerRunMember.user_id == user.id,
+            )
+            .correlate(models.BeerRun)
+            .scalar_subquery()
+        )
+    return db.query(
+        models.BeerRun,
+        member_count.label("member_count"),
+        caller_role.label("current_user_role"),
+    )
+
+
+def _selector_response(row) -> schemas.BeerRunResponse:
+    """Build a list response from the selector query's projected metadata."""
+    beer_run, member_count, current_user_role = row
+    return schemas.BeerRunResponse(
+        id=beer_run.id,
+        name=beer_run.name,
+        is_public=beer_run.is_public,
+        created_at=beer_run.created_at,
+        member_count=member_count,
+        current_user_role=current_user_role,
+    )
+
 # --- Routes ---
 
 # ── Create (Feature 2) ──────────────────────────────────────────────
@@ -208,6 +262,10 @@ async def create_beer_run(
     response_model=list[schemas.BeerRunResponse],
 )
 async def list_beer_runs(
+    view: str | None = None,
+    name: str | None = None,
+    q: str | None = None,
+    limit: int | None = None,
     current_user: models.User | None = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -216,8 +274,67 @@ async def list_beer_runs(
     Authenticated callers see their own private runs plus all public runs.
     Logged-out callers see only public runs.
     """
-    runs = _visible_runs_query(db, current_user).all()
-    return [_beer_run_response(r, _caller_membership(r, current_user)) for r in runs]
+    if view is None and name is None and q is None and limit is None:
+        runs = _visible_runs_query(db, current_user).all()
+        return [_beer_run_response(r, _caller_membership(r, current_user)) for r in runs]
+
+    if view not in {"mine", "public"}:
+        raise _selector_query_error()
+    if view == "mine":
+        if name is not None or q is not None or limit is not None:
+            raise _selector_query_error()
+        if current_user is None:
+            raise permissions.unauthorized_error()
+        rows = (
+            _selector_runs_query(db, current_user)
+            .filter(
+                models.BeerRunMember.user_id == current_user.id,
+                models.BeerRunMember.beer_run_id == models.BeerRun.id,
+            )
+            .order_by(models.BeerRun.name.collate("NOCASE"), models.BeerRun.id)
+            .all()
+        )
+        return [_selector_response(row) for row in rows]
+
+    if (name is None) == (q is None):
+        raise _selector_query_error()
+    if name is not None:
+        if limit is not None:
+            raise _selector_query_error()
+        exact_name = name.strip()
+        if not BEER_RUN_NAME_PATTERN.fullmatch(exact_name):
+            raise _selector_query_error()
+        rows = (
+            _selector_runs_query(db, current_user)
+            .filter(
+                models.BeerRun.is_public == True,  # noqa: E712
+                models.BeerRun.name.collate("NOCASE") == exact_name,
+            )
+            .all()
+        )
+        return [_selector_response(row) for row in rows]
+
+    search_query = q.strip()
+    if not 2 <= len(search_query) <= 64:
+        raise _selector_query_error()
+    if limit is None:
+        limit = 20
+    if not 1 <= limit <= 20:
+        raise _selector_query_error()
+    rows = (
+        _selector_runs_query(db, current_user)
+        .filter(
+            models.BeerRun.is_public == True,  # noqa: E712
+            models.BeerRun.name.collate("NOCASE").like(
+                f"{_escape_like_prefix(search_query)}%",
+                escape="\\",
+            ),
+        )
+        .order_by(models.BeerRun.name.collate("NOCASE"), models.BeerRun.id)
+        .limit(limit)
+        .all()
+    )
+    return [_selector_response(row) for row in rows]
 
 
 # ── Detail (Feature 3) ───────────────────────────────────────────────

@@ -1,565 +1,540 @@
-import * as api from './modules/api.js?v=12';
-import * as auth from './modules/auth.js?v=11';
+import * as api from './modules/api.js?v=13';
+import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as mapMod from './modules/map.js?v=9';
-import * as ui from './modules/ui.js?v=9';
+import * as beerRuns from './modules/beer-runs.js?v=2';
+import * as mapMod from './modules/map.js?v=10';
+import * as ui from './modules/ui.js?v=10';
 
 document.addEventListener('DOMContentLoaded', () => {
     const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
     const WRAPPED_ENDED_STORAGE_KEY = 'beerRunJpn.hideWrappedEndedNotice';
-    const DEFAULT_RUN_NAME = 'beerrunjpn';
+    const DEFAULT_RUN_NAME = 'BeerRunJPN';
 
-    // --- Global State ---
     let lastRefreshTime = new Date();
     let currentLeaderboard = [];
     let currentEntries = [];
+    let currentRun = null;
+    let currentUser = null;
     let startupModalsPending = true;
     let authValidationComplete = false;
-    // Temporary default beer-run access state. Resolved in memory from the
-    // visible beer-runs list; never hard-coded or persisted. The later selector
-    // feature replaces this source without changing the scoped endpoint
-    // contracts.
-    let currentBeerRunId = null;
-    let currentUserRole = null;
+    let contextGeneration = 0;
+    let refreshGeneration = 0;
+    let refreshController = null;
 
-    // --- Default Beer-Run Discovery ---
+    const picker = beerRuns.createBeerRunPicker({
+        onSelectRun: run => selectRun(run, { persist: Boolean(currentUser) }),
+        onSearchPublicRuns: (query, signal) => api.searchPublicBeerRuns(query, auth.getToken(), signal),
+    });
 
-    async function resolveDefaultBeerRun() {
-        // Resolve the visible run named "BeerRunJPN" through the existing list
-        // API, retaining its id and current_user_role as the page's temporary
-        // default access state. Returns the outcome reason so callers can pick
-        // the right availability message.
-        const token = auth.getToken();
-        const result = await api.fetchBeerRuns(token);
-        if (!result.ok) {
-            return { reason: 'network' };
-        }
-        const run = result.data.find(r => (r.name || '').toLowerCase() === DEFAULT_RUN_NAME);
-        if (!run) {
-            currentBeerRunId = null;
-            currentUserRole = null;
-            return { reason: 'missing' };
-        }
-        currentBeerRunId = run.id;
-        currentUserRole = run.current_user_role || null;
-        return { reason: 'ready' };
+    function canWriteCurrentRun() {
+        return currentRun?.current_user_role === 'owner' || currentRun?.current_user_role === 'member';
     }
 
-    // --- Core Refresh Logic ---
+    function updateAuthForContext() {
+        auth.updateAuthUI(
+            currentUser ? auth.AUTH_STATES.AUTHENTICATED : auth.AUTH_STATES.UNAUTHENTICATED,
+            canWriteCurrentRun(),
+        );
+    }
 
-    async function loadTripData(allowRediscover = true) {
-        // Fetch leaderboard + entries for the resolved run. Never hands an
-        // error object to a renderer as if it were an array.
-        const token = auth.getToken();
+    function clearTripState(message = 'Loading run data...') {
+        currentLeaderboard = [];
+        currentEntries = [];
         const userFilter = document.getElementById('user-filter');
-        const [leaderboardResult, entriesResult] = await Promise.all([
-            api.fetchLeaderboard(currentBeerRunId, token),
-            api.fetchEntries(currentBeerRunId, userFilter.value, token)
-        ]);
+        userFilter.innerHTML = '<option value="">All Users</option>';
+        userFilter.value = '';
+        mapMod.clearRunState();
+        ui.clearUserModal();
+        if (message) ui.renderRunLoading(document.getElementById('leaderboard-data'));
+    }
 
-        const is404 = r => !r.ok && r.status === 404;
-        if (is404(leaderboardResult) || is404(entriesResult)) {
-            if (allowRediscover) {
-                // Run no longer accessible: clear it, re-run default discovery
-                // once, and retry the read once against a re-resolved ID.
-                currentBeerRunId = null;
-                currentUserRole = null;
-                const resolution = await resolveDefaultBeerRun();
-                if (currentBeerRunId) {
-                    return loadTripData(false);
-                }
-                return { state: 'unavailable', reason: resolution.reason };
+    function cancelRefresh() {
+        refreshGeneration += 1;
+        if (refreshController) refreshController.abort();
+        refreshController = null;
+    }
+
+    function setCurrentRun(run, { persist = false, message = '' } = {}) {
+        const changed = Number(currentRun?.id) !== Number(run?.id);
+        if (changed) {
+            cancelRefresh();
+            clearTripState();
+        }
+        currentRun = run || null;
+        picker.setCurrentRun(currentRun);
+        if (persist && currentUser && currentRun) {
+            beerRuns.saveSelectedRunId(currentUser.id, currentRun.id);
+        }
+        updateAuthForContext();
+        if (message) picker.announce(message);
+    }
+
+    function setSyncStatus(message, syncing = false) {
+        document.getElementById('sync-status').innerText = message;
+        document.getElementById('sync-dot').classList.toggle('syncing', syncing);
+    }
+
+    async function resolveDefaultRun(signal = null) {
+        const result = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, auth.getToken(), signal);
+        if (!result.ok) return { run: null, reason: result.network ? 'network' : 'missing' };
+        return { run: result.data[0] || null, reason: result.data.length ? 'ready' : 'missing' };
+    }
+
+    async function initializeRunContext({ notice = '' } = {}) {
+        const generation = ++contextGeneration;
+        picker.setAvailability('loading');
+        picker.setIdentity(currentUser);
+        picker.setMemberships([]);
+
+        let myRuns = [];
+        if (currentUser) {
+            const mineResult = await api.fetchMyBeerRuns(auth.getToken());
+            if (generation !== contextGeneration) return;
+            if (mineResult.status === 401) {
+                handleRejectedSession();
+                return;
             }
-            return { state: 'unavailable', reason: 'missing' };
+            if (mineResult.ok) myRuns = mineResult.data;
+        }
+        picker.setMemberships(myRuns);
+
+        let selected = null;
+        if (currentUser) {
+            const storedRunId = beerRuns.readSelectedRunId(currentUser.id);
+            if (storedRunId) {
+                selected = myRuns.find(run => Number(run.id) === Number(storedRunId)) || null;
+                if (!selected) {
+                    const storedResult = await api.fetchBeerRun(storedRunId, auth.getToken());
+                    if (generation !== contextGeneration) return;
+                    if (storedResult.ok) selected = storedResult.data;
+                    else if (storedResult.status === 404) beerRuns.removeSelectedRunId(currentUser.id);
+                }
+            }
         }
 
-        if (!leaderboardResult.ok || !entriesResult.ok) {
-            // Network or other non-404 failure: retain the run ID and the last
-            // successfully rendered data for a transient error.
-            return { state: 'transient' };
-        }
-
-        currentLeaderboard = leaderboardResult.data;
-        currentEntries = entriesResult.data;
-        return { state: 'ready' };
-    }
-
-    async function refreshData(isManual = false) {
-        const syncStatus = document.getElementById('sync-status');
-        const syncDot = document.getElementById('sync-dot');
-        const userFilter = document.getElementById('user-filter');
-        const leaderboardData = document.getElementById('leaderboard-data');
-
-        // Ensure a default run is resolved before any trip-data request; while
-        // none is available, keep trip data empty and block submission.
-        if (!currentBeerRunId) {
-            const resolution = await resolveDefaultBeerRun();
-            if (!currentBeerRunId) {
-                syncStatus.innerText = resolution.reason === 'network'
-                    ? 'Connection unavailable; retrying'
-                    : 'BeerRunJPN is not available';
-                syncDot.classList.remove('syncing');
+        if (!selected) {
+            const fallback = await resolveDefaultRun();
+            if (generation !== contextGeneration) return;
+            selected = fallback.run;
+            if (!selected) {
+                currentRun = null;
+                picker.setCurrentRun(null);
+                picker.setAvailability('error', fallback.reason === 'network'
+                    ? 'Connection unavailable. Refresh to try again.'
+                    : 'BeerRunJPN is not available.');
+                clearTripState('No beer run is available right now.');
+                updateAuthForContext();
                 return;
             }
         }
 
-        syncStatus.innerText = 'Syncing...';
-        syncDot.classList.add('syncing');
+        setCurrentRun(selected, { persist: false, message: notice });
+        picker.setAvailability('ready');
+        await refreshData(true);
+    }
 
-        const outcome = await loadTripData();
-        if (outcome.state === 'unavailable') {
-            syncStatus.innerText = outcome.reason === 'network'
-                ? 'Connection unavailable; retrying'
-                : 'BeerRunJPN is not available';
-            syncDot.classList.remove('syncing');
+    async function selectRun(run, { persist = false } = {}) {
+        if (!run || Number(run.id) === Number(currentRun?.id)) return;
+        setCurrentRun(run, { persist, message: `Showing ${run.name}.` });
+        picker.setAvailability('ready');
+        await refreshData(true);
+    }
+
+    async function recoverFromAccessLoss(run) {
+        if (!currentRun || Number(currentRun.id) !== Number(run.id)) return;
+        if (currentUser) beerRuns.removeSelectedRunId(currentUser.id);
+        currentRun = null;
+        picker.setCurrentRun(null);
+        clearTripState('This beer run is no longer available.');
+        updateAuthForContext();
+        await initializeRunContext({ notice: 'Your selected run is no longer available. Showing BeerRunJPN instead.' });
+    }
+
+    async function refreshData(isManual = false, { allowFallback = true } = {}) {
+        const run = currentRun;
+        if (!run) return;
+
+        const requestContext = contextGeneration;
+        const requestGeneration = ++refreshGeneration;
+        if (refreshController) refreshController.abort();
+        refreshController = new AbortController();
+        const signal = refreshController.signal;
+        const userFilter = document.getElementById('user-filter');
+        const selectedUsername = userFilter.value;
+        setSyncStatus('Syncing...', true);
+
+        const [leaderboardResult, entriesResult] = await Promise.all([
+            api.fetchLeaderboard(run.id, auth.getToken(), signal),
+            api.fetchEntries(run.id, selectedUsername, auth.getToken(), signal),
+        ]);
+        if (requestGeneration !== refreshGeneration || requestContext !== contextGeneration || Number(currentRun?.id) !== Number(run.id)) return;
+
+        const missing = result => !result.ok && result.status === 404;
+        if (missing(leaderboardResult) || missing(entriesResult)) {
+            setSyncStatus('Selected run is no longer available.');
+            if (allowFallback) await recoverFromAccessLoss(run);
             return;
         }
-        if (outcome.state === 'transient') {
-            // Keep the resolved ID and the last known-good rendered data.
-            syncStatus.innerText = 'Connection unavailable; retrying';
-            syncDot.classList.remove('syncing');
+        if (!leaderboardResult.ok || !entriesResult.ok) {
+            setSyncStatus('Connection unavailable; retrying');
             return;
         }
 
-        // Update Leaderboard UI
-        ui.renderLeaderboard(currentLeaderboard, leaderboardData);
+        // Render this pair only after both scoped reads have succeeded for the
+        // same run and refresh generation.
+        currentLeaderboard = leaderboardResult.data;
+        currentEntries = entriesResult.data;
+        ui.renderLeaderboard(currentLeaderboard, document.getElementById('leaderboard-data'));
 
-        // Update Map Filter Dropdown
-        const currentFilter = userFilter.value;
         const options = ['<option value="">All Users</option>'];
         currentLeaderboard.forEach(user => {
             options.push(`<option value="${user.username}">${user.username}</option>`);
         });
         userFilter.innerHTML = options.join('');
-        userFilter.value = currentFilter;
-
-        // Update Map Markers
+        userFilter.value = selectedUsername;
         mapMod.updateMarkers(currentEntries, isManual);
 
         lastRefreshTime = new Date();
-        syncStatus.innerText = `Synced ${lastRefreshTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-        syncDot.classList.remove('syncing');
+        setSyncStatus(`Synced ${lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     }
 
     function activateTab(tabId) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-        document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-        document.getElementById(tabId).classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+        document.getElementById(tabId)?.classList.add('active');
     }
 
     async function focusEntryOnMap(entry) {
-        document.getElementById('user-modal').style.display = 'none';
+        const entryRunId = currentRun?.id;
+        ui.clearUserModal();
         activateTab('map-tab');
-
         const userFilter = document.getElementById('user-filter');
         if (userFilter.value) {
             userFilter.value = '';
             await refreshData(false);
         }
-
         setTimeout(() => {
+            if (Number(currentRun?.id) !== Number(entryRunId)) return;
             mapMod.map.invalidateSize();
             if (!mapMod.focusEntry(entry)) {
-                refreshData(false).then(() => mapMod.focusEntry(entry));
+                refreshData(false).then(() => {
+                    if (Number(currentRun?.id) === Number(entryRunId)) mapMod.focusEntry(entry);
+                });
             }
         }, 200);
     }
 
     function closeInstructionsModal() {
-        const instructionsModal = document.getElementById('instructions-modal');
-        const hideInstructions = document.getElementById('hide-instructions');
-
-        if (hideInstructions.checked) {
-            localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, 'true');
-        }
-
-        instructionsModal.style.display = 'none';
+        const modal = document.getElementById('instructions-modal');
+        if (document.getElementById('hide-instructions').checked) localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, 'true');
+        modal.style.display = 'none';
         showWrappedEndedModal();
     }
 
     function initInstructionsModal() {
-        const instructionsModal = document.getElementById('instructions-modal');
-        const closeInstructions = document.getElementById('close-instructions');
-        const instructionsDone = document.getElementById('instructions-done');
-
-        closeInstructions.addEventListener('click', closeInstructionsModal);
-        instructionsDone.addEventListener('click', closeInstructionsModal);
-    }
-
-    function showStartupModals() {
-        if (!authValidationComplete) return;
-        if (!startupModalsPending) return;
-        startupModalsPending = false;
-
-        if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
-            document.getElementById('instructions-modal').style.display = 'flex';
-            return;
-        }
-
-        showWrappedEndedModal();
+        document.getElementById('close-instructions').addEventListener('click', closeInstructionsModal);
+        document.getElementById('instructions-done').addEventListener('click', closeInstructionsModal);
     }
 
     function closeWrappedEndedModal() {
-        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
-        const hideWrappedEnded = document.getElementById('hide-wrapped-ended');
-
-        if (hideWrappedEnded.checked) {
-            localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
-        }
-
-        wrappedEndedModal.style.display = 'none';
+        const modal = document.getElementById('wrapped-ended-modal');
+        if (document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
+        modal.style.display = 'none';
     }
 
     function showWrappedEndedModal() {
-        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
-        const instructionsModal = document.getElementById('instructions-modal');
-
         if (localStorage.getItem(WRAPPED_ENDED_STORAGE_KEY) === 'true') return;
-        if (instructionsModal.style.display === 'flex') return;
-
-        wrappedEndedModal.style.display = 'flex';
+        if (document.getElementById('instructions-modal').style.display === 'flex') return;
+        document.getElementById('wrapped-ended-modal').style.display = 'flex';
     }
 
     function initWrappedEndedModal() {
-        const closeWrappedEnded = document.getElementById('close-wrapped-ended');
-        const wrappedEndedDone = document.getElementById('wrapped-ended-done');
-        const wrappedEndedOpen = document.getElementById('wrapped-ended-open');
-
-        closeWrappedEnded.addEventListener('click', closeWrappedEndedModal);
-        wrappedEndedDone.addEventListener('click', closeWrappedEndedModal);
-        wrappedEndedOpen.addEventListener('click', () => {
-            const hideWrappedEnded = document.getElementById('hide-wrapped-ended');
-            if (hideWrappedEnded.checked) {
-                localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
-            }
+        document.getElementById('close-wrapped-ended').addEventListener('click', closeWrappedEndedModal);
+        document.getElementById('wrapped-ended-done').addEventListener('click', closeWrappedEndedModal);
+        document.getElementById('wrapped-ended-open').addEventListener('click', () => {
+            if (document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
         });
+    }
+
+    function showStartupModals() {
+        if (!authValidationComplete || !startupModalsPending) return;
+        startupModalsPending = false;
+        if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
+            document.getElementById('instructions-modal').style.display = 'flex';
+        } else {
+            showWrappedEndedModal();
+        }
+    }
+
+    function resetIdentity() {
+        contextGeneration += 1;
+        cancelRefresh();
+        currentUser = null;
+        currentRun = null;
+        picker.setIdentity(null);
+        picker.setMemberships([]);
+        picker.setCurrentRun(null);
+        clearTripState();
+        updateAuthForContext();
     }
 
     function handleRejectedSession() {
         auth.removeToken();
-        auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
+        resetIdentity();
         auth.showLoginPrompt('Your session is no longer valid. Please log in again.');
+        void initializeRunContext();
     }
 
-    async function validateStoredSession() {
+    async function establishAuthenticatedContext() {
+        const token = auth.getToken();
+        if (!token) return false;
+        auth.updateAuthUI(auth.AUTH_STATES.VALIDATING);
         try {
-            const token = auth.getToken();
-            if (!token) {
-                auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
-                return false;
-            }
-
-            auth.updateAuthUI(auth.AUTH_STATES.VALIDATING);
             const response = await api.fetchCurrentUser(token);
             if (response.ok) {
-                auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
-                return false;
-            }
-
-            if (response.status === 401) {
-                handleRejectedSession();
+                currentUser = await response.json();
+                updateAuthForContext();
+                await initializeRunContext();
                 return true;
             }
-
-            auth.updateAuthUI(auth.AUTH_STATES.VALIDATION_FAILED);
-            auth.showLoginPrompt('Could not verify your session. Check your connection and try again.');
-            return true;
+            if (response.status === 401) handleRejectedSession();
+            else {
+                auth.updateAuthUI(auth.AUTH_STATES.VALIDATION_FAILED);
+                auth.showLoginPrompt('Could not verify your session. Check your connection and try again.');
+            }
         } catch (error) {
             console.error('Session validation error:', error);
             auth.updateAuthUI(auth.AUTH_STATES.VALIDATION_FAILED);
             auth.showLoginPrompt('Could not verify your session. Check your connection and try again.');
-            return true;
+        }
+        return false;
+    }
+
+    async function validateStoredSession() {
+        try {
+            if (!auth.getToken()) {
+                resetIdentity();
+                await initializeRunContext();
+                return false;
+            }
+            return !(await establishAuthenticatedContext());
         } finally {
             authValidationComplete = true;
         }
     }
 
-    // --- Tab Switching ---
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.getAttribute('data-tab');
+    document.querySelectorAll('.tab-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.getAttribute('data-tab');
             if (!tabId) return;
-            
             activateTab(tabId);
-
             if (tabId === 'map-tab') {
                 setTimeout(() => {
                     mapMod.map.invalidateSize();
-                    refreshData(true); // Ensure markers are fitted to bounds when switching to map
+                    refreshData(true);
                     ui.showMapHint();
                 }, 200);
             }
         });
     });
 
-    // --- Auth Event Listeners ---
     document.getElementById('login-btn').addEventListener('click', auth.openLoginModal);
     document.getElementById('logout-btn').addEventListener('click', () => {
         auth.removeToken();
-        auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
-        // Logout changes who can resolve BeerRunJPN (public-only now), so drop
-        // the cached default and let the next refresh re-resolve it.
-        currentBeerRunId = null;
-        currentUserRole = null;
-        refreshData(true);
+        resetIdentity();
+        void initializeRunContext();
     });
     document.getElementById('close-login').addEventListener('click', () => {
         auth.closeLoginModal();
         showStartupModals();
     });
-    document.getElementById('close-user-modal').addEventListener('click', () => {
-        document.getElementById('user-modal').style.display = 'none';
-    });
-    
-    window.addEventListener('click', (event) => {
+    document.getElementById('close-user-modal').addEventListener('click', ui.clearUserModal);
+
+    window.addEventListener('click', event => {
         const loginModal = document.getElementById('login-modal');
-        const userModal = document.getElementById('user-modal');
-        const instructionsModal = document.getElementById('instructions-modal');
-        const wrappedEndedModal = document.getElementById('wrapped-ended-modal');
-        if (event.target == loginModal) {
+        if (event.target === loginModal) {
             auth.closeLoginModal();
             showStartupModals();
         }
-        if (event.target == userModal) userModal.style.display = 'none';
-        if (event.target == instructionsModal) closeInstructionsModal();
-        if (event.target == wrappedEndedModal) closeWrappedEndedModal();
+        if (event.target === document.getElementById('user-modal')) ui.clearUserModal();
+        if (event.target === document.getElementById('instructions-modal')) closeInstructionsModal();
+        if (event.target === document.getElementById('wrapped-ended-modal')) closeWrappedEndedModal();
     });
 
-    // Shared post-authentication path used by successful login and signup:
-    // store the token, close and reset the modal, mark the UI authenticated,
-    // then re-resolve BeerRunJPN to refresh the stored role and pick up
-    // private-run membership.
-    function handleAuthenticated(data) {
+    async function handleAuthenticated(data) {
         auth.setToken(data.access_token);
         auth.closeLoginModal();
         document.getElementById('login-form').reset();
-        auth.updateAuthUI(auth.AUTH_STATES.AUTHENTICATED);
+        resetIdentity();
+        await establishAuthenticatedContext();
         showStartupModals();
-        currentBeerRunId = null;
-        currentUserRole = null;
-        refreshData(true);
     }
 
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('login-username').value;
-        const password = document.getElementById('login-password').value;
+    document.getElementById('login-form').addEventListener('submit', async event => {
+        event.preventDefault();
         const loginError = document.getElementById('login-error');
-
         try {
-            const response = await api.login(username, password);
-            if (response.ok) {
-                handleAuthenticated(await response.json());
-            } else {
+            const response = await api.login(
+                document.getElementById('login-username').value,
+                document.getElementById('login-password').value,
+            );
+            if (response.ok) await handleAuthenticated(await response.json());
+            else {
                 loginError.innerText = 'Invalid credentials';
                 loginError.style.display = 'block';
             }
         } catch (error) {
-            console.error("Login error:", error);
-            loginError.innerText = "Connection error";
+            console.error('Login error:', error);
+            loginError.innerText = 'Connection error';
             loginError.style.display = 'block';
         }
     });
 
-    // --- Mode Switching ---
     document.getElementById('auth-mode-login').addEventListener('click', () => auth.setAuthMode('login'));
     document.getElementById('auth-mode-signup').addEventListener('click', () => auth.setAuthMode('signup'));
-
-    // --- Signup Form ---
-    document.getElementById('signup-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
+    document.getElementById('signup-form').addEventListener('submit', async event => {
+        event.preventDefault();
         const fields = {
             username: document.getElementById('signup-username').value,
             password: document.getElementById('signup-password').value,
             confirmPassword: document.getElementById('signup-confirm').value,
             signupCode: document.getElementById('signup-code').value,
         };
-
         const validation = signup.validateSignupFields(fields);
         if (!validation.valid) {
             auth.showSignupError(signup.formatValidationErrors(validation.errors));
             return;
         }
-
-        const submitBtn = document.getElementById('signup-submit');
-        submitBtn.disabled = true;
-
+        const submitButton = document.getElementById('signup-submit');
+        submitButton.disabled = true;
         try {
             const response = await api.signup(validation.username, fields.password, fields.signupCode);
             if (response.status === 201) {
-                handleAuthenticated(await response.json());
+                await handleAuthenticated(await response.json());
                 return;
             }
             auth.showSignupError(await signup.getSignupFailureMessage(response));
-            submitBtn.disabled = false;
+            submitButton.disabled = false;
         } catch (error) {
-            // Log only a generic category; request payloads, passwords, codes,
-            // and tokens stay out of the console.
             console.error('Signup request failed');
             auth.showSignupError('Connection error. Please check your connection and try again.');
-            submitBtn.disabled = false;
+            submitButton.disabled = false;
         }
     });
 
-    // --- Tooltip Event Delegation ---
-    document.addEventListener('mouseover', (e) => {
-        const trigger = e.target.closest('.tooltip-trigger');
+    document.addEventListener('mouseover', event => {
+        const trigger = event.target.closest('.tooltip-trigger');
         if (trigger) ui.createTooltip(trigger, trigger.dataset.tooltip);
     });
-
-    document.addEventListener('mouseout', (e) => {
-        if (e.target.closest('.tooltip-trigger')) ui.removeTooltip();
+    document.addEventListener('mouseout', event => {
+        if (event.target.closest('.tooltip-trigger')) ui.removeTooltip();
     });
-    
-    document.addEventListener('click', (e) => {
-         const trigger = e.target.closest('.tooltip-trigger');
-         if (trigger) {
-            ui.createTooltip(trigger, trigger.dataset.tooltip);
-         } else {
-            ui.removeTooltip();
-         }
+    document.addEventListener('click', event => {
+        const trigger = event.target.closest('.tooltip-trigger');
+        if (trigger) ui.createTooltip(trigger, trigger.dataset.tooltip);
+        else ui.removeTooltip();
     });
-
-    // --- Leaderboard Card Clicks ---
-    document.addEventListener('click', (e) => {
-        const card = e.target.closest('.rank-card');
-        if (card) {
-            const username = card.getAttribute('data-username');
-            if (username) {
-                ui.showUserModal(username, currentLeaderboard, currentEntries, focusEntryOnMap);
-            }
-        }
+    document.addEventListener('click', event => {
+        const card = event.target.closest('.rank-card');
+        const username = card?.getAttribute('data-username');
+        if (username) ui.showUserModal(username, currentLeaderboard, currentEntries, focusEntryOnMap);
     });
 
-    // --- Map Actions ---
     document.getElementById('close-sheet').addEventListener('click', mapMod.closeDetail);
     mapMod.map.on('click', () => {
         mapMod.closeDetail();
         const hint = document.querySelector('.map-hint');
-        if(hint) {
+        if (hint) {
             hint.classList.remove('visible');
             setTimeout(() => hint.remove(), 400);
         }
     });
-
     document.getElementById('user-filter').addEventListener('change', () => refreshData(true));
 
-    // --- Form Actions ---
     document.getElementById('drink_type_select').addEventListener('change', ui.updateFormToggles);
     document.getElementById('quantity_select').addEventListener('change', ui.updateFormToggles);
-    
     const locationStatus = document.getElementById('location-status');
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
-    
     document.getElementById('get-location-btn').addEventListener('click', () => ui.requestLocation(latInput, lngInput, locationStatus));
 
-    document.getElementById('entry-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    document.getElementById('entry-form').addEventListener('submit', async event => {
+        event.preventDefault();
         const token = auth.getToken();
         if (!token) {
-            alert("You must be logged in.");
-            auth.updateAuthUI(auth.AUTH_STATES.UNAUTHENTICATED);
+            alert('You must be logged in.');
+            updateAuthForContext();
+            return;
+        }
+        if (!latInput.value) {
+            alert('Pin location first.');
+            return;
+        }
+        if (!currentRun) {
+            alert('Choose an available beer run first.');
+            return;
+        }
+        if (!canWriteCurrentRun()) {
+            alert(`You are not a member of ${currentRun.name}.`);
             return;
         }
 
-        if (!latInput.value) { alert("Pin location first."); return; }
-
-        // Block submission without an authorized target run.
-        if (!currentBeerRunId) {
-            alert("BeerRunJPN is not available.");
-            return;
-        }
-        if (currentUserRole !== 'owner' && currentUserRole !== 'member') {
-            alert("You are not a member of BeerRunJPN.");
-            return;
-        }
-
+        const targetRun = currentRun;
         const entryForm = document.getElementById('entry-form');
         const formData = new FormData(entryForm);
-        
-        // Finalize drink type and quantity
-        const finalType = document.getElementById('drink_type_select').value === 'Other' ? 
-                          document.getElementById('custom_drink_type').value : 
-                          document.getElementById('drink_type_select').value;
-        const finalQuantity = document.getElementById('quantity_select').value === 'custom' ? 
-                             document.getElementById('custom_quantity').value : 
-                             document.getElementById('quantity_select').value;
-
-        if (!finalType || !finalQuantity) { alert("Complete all fields."); return; }
-
+        const finalType = document.getElementById('drink_type_select').value === 'Other'
+            ? document.getElementById('custom_drink_type').value
+            : document.getElementById('drink_type_select').value;
+        const finalQuantity = document.getElementById('quantity_select').value === 'custom'
+            ? document.getElementById('custom_quantity').value
+            : document.getElementById('quantity_select').value;
+        if (!finalType || !finalQuantity) {
+            alert('Complete all fields.');
+            return;
+        }
         formData.set('drink_type', finalType);
         formData.set('quantity', finalQuantity);
         formData.set('client_timestamp', ui.getLocalTimestamp());
         formData.set('client_timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || '');
         formData.set('client_timezone_code', ui.getLocalTimeZoneCode());
-        if(formData.has('username')) formData.delete('username');
+        if (formData.has('username')) formData.delete('username');
 
-        const submitBtn = document.getElementById('submit-btn');
-        submitBtn.disabled = true;
-        submitBtn.innerText = "SENDING...";
-
+        const submitButton = document.getElementById('submit-btn');
+        submitButton.disabled = true;
+        submitButton.innerText = 'SENDING...';
         try {
-            const response = await api.submitEntry(currentBeerRunId, formData, token);
+            const response = await api.submitEntry(targetRun.id, formData, token);
             if (response.ok) {
-                entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;">
-                    <h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2>
-                    <p style="color: var(--text-secondary);">Your drink has been logged.</p>
-                    <button onclick="window.location.reload()" style="background: var(--accent-primary); color: #000; margin-top: 20px;">LOG ANOTHER</button>
-                </div>`;
-                refreshData(true);
-            } else {
-                if (response.status === 401) {
-                    handleRejectedSession();
-                } else if (response.status === 404) {
-                    // Re-fetch visible runs without resubmitting the form.
-                    // Re-resolution refreshes currentUserRole; the gate above
-                    // blocks later creates when the role is absent.
-                    currentBeerRunId = null;
-                    currentUserRole = null;
-                    const resolution = await resolveDefaultBeerRun();
-                    if (!currentBeerRunId) {
-                        const syncStatusEl = document.getElementById('sync-status');
-                        syncStatusEl.innerText = resolution.reason === 'network'
-                            ? 'Connection unavailable; retrying'
-                            : 'BeerRunJPN is not available';
-                    }
-                } else {
-                    const errorText = await response.text();
-                    alert(`Upload failed: ${errorText || response.statusText}`);
-                }
-                submitBtn.disabled = false;
-                submitBtn.innerText = "SEND ENTRY";
+                entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;"><h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2><p style="color: var(--text-secondary);">Your drink has been logged.</p><button onclick="window.location.reload()" style="background: var(--accent-primary); color: #000; margin-top: 20px;">LOG ANOTHER</button></div>`;
+                if (Number(currentRun?.id) === Number(targetRun.id)) refreshData(true);
+                return;
             }
-        } catch (err) {
-            console.error("Submission error:", err);
-            alert("Upload failed. Check console.");
-            submitBtn.disabled = false;
-            submitBtn.innerText = "SEND ENTRY";
+            if (response.status === 401) handleRejectedSession();
+            else if (response.status === 404 && Number(currentRun?.id) === Number(targetRun.id)) await recoverFromAccessLoss(targetRun);
+            else alert(`Upload failed: ${(await response.text()) || response.statusText}`);
+        } catch (error) {
+            console.error('Submission error:', error);
+            alert('Upload failed. Check console.');
+        } finally {
+            const activeSubmitButton = document.getElementById('submit-btn');
+            if (activeSubmitButton) {
+                activeSubmitButton.disabled = false;
+                activeSubmitButton.innerText = 'SEND ENTRY';
+            }
         }
     });
 
-    // --- Init & Refresh Loop ---
     initInstructionsModal();
     initWrappedEndedModal();
-
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
     setInterval(() => refreshData(false), 30000);
-    
-    // Initial Data Load
+
     (async () => {
         const authPromptShown = await validateStoredSession();
-        if (!authPromptShown) {
-            showStartupModals();
-        }
-
+        if (!authPromptShown) showStartupModals();
         const config = await api.fetchConfig();
         ui.renderDrinkOptions(config);
-        
         ui.requestLocation(latInput, lngInput, locationStatus);
-        refreshData(true);
     })();
 });

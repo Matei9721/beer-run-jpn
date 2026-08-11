@@ -125,9 +125,13 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
 
 ## Backend Rules
 
-- The current default trip is `BeerRunJPN`. Existing entry creation, entry
-  listing, and leaderboard behavior operate on that run implicitly until a
-  later feature adds run selection.
+- `BeerRunJPN` is the public fallback run for an unsigned visitor and for a
+  signed-in user without a valid remembered selection. Ranking, map, filters,
+  and entry creation are scoped to the run selected in the shared picker.
+- Persist a signed-in user's selected run by immutable ID, validate it on each
+  identity transition, and clear scoped browser state before displaying a
+  different run. Anonymous selections are session-only. A public run grants
+  read access only; writing still requires that user's current membership.
 - Keep public API response shapes stable unless frontend consumers and tests are
   updated in the same change.
 - Keep JWT/password/configuration primitives in `auth.py` and auth-facing HTTP
@@ -144,6 +148,7 @@ Retain these browser module responsibilities:
 - `static/js/modules/auth.js`: token and auth UI state
 - `static/js/modules/map.js`: Leaflet and marker behavior
 - `static/js/modules/ui.js`: rendering and UI helpers
+- `static/js/modules/beer-runs.js`: run-picker UI and selected-run storage key
 - `static/js/app.js`: application orchestration
 - `static/js/wrapped.js`: Wrapped reel behavior
 

@@ -9,8 +9,10 @@ import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
+from conftest import engine
 from main import app
 
 VALID_SIGNUP_CODE = os.environ["SIGNUP_CODE"]
@@ -313,6 +315,188 @@ class TestListBeerRuns:
         response = client.get("/api/beer-runs", headers=_bearer(token))
         bj = [r for r in response.json() if r["name"] == "BeerRunJPN"][0]
         assert bj["current_user_role"] == "member"
+
+    def test_mine_returns_only_public_and_private_memberships(self, client):
+        owner_token, _ = _signup(client, "SelectorOwner")
+        other_token, _ = _signup(client, "SelectorOther")
+        private = client.post(
+            "/api/beer-runs",
+            json={"name": "Selector Private"},
+            headers=_bearer(owner_token),
+        )
+        public = client.post(
+            "/api/beer-runs",
+            json={"name": "Selector Public", "is_public": True},
+            headers=_bearer(owner_token),
+        )
+        client.post(
+            "/api/beer-runs",
+            json={"name": "Other Public", "is_public": True},
+            headers=_bearer(other_token),
+        )
+
+        response = client.get("/api/beer-runs?view=mine", headers=_bearer(owner_token))
+
+        assert response.status_code == 200
+        assert [run["name"] for run in response.json()] == [
+            "Selector Private",
+            "Selector Public",
+        ]
+        assert {run["id"] for run in response.json()} == {
+            private.json()["id"],
+            public.json()["id"],
+        }
+        assert {run["current_user_role"] for run in response.json()} == {"owner"}
+
+    def test_mine_allows_no_memberships_and_requires_valid_authentication(self, client):
+        token, _ = _signup(client, "SelectorSolo")
+
+        response = client.get("/api/beer-runs?view=mine", headers=_bearer(token))
+        assert response.status_code == 200
+        assert response.json() == []
+
+        assert client.get("/api/beer-runs?view=mine").status_code == 401
+        assert client.get(
+            "/api/beer-runs?view=mine",
+            headers={"Authorization": "Bearer invalid.token.value"},
+        ).status_code == 401
+
+    def test_public_exact_name_is_case_insensitive_and_public_only(self, client):
+        token = _login(client)
+        client.post(
+            "/api/beer-runs",
+            json={"name": "Exact Public", "is_public": True},
+            headers=_bearer(token),
+        )
+        client.post(
+            "/api/beer-runs",
+            json={"name": "Exact Private"},
+            headers=_bearer(token),
+        )
+
+        response = client.get("/api/beer-runs?view=public&name=exact%20public")
+        assert response.status_code == 200
+        assert [run["name"] for run in response.json()] == ["Exact Public"]
+        assert client.get(
+            "/api/beer-runs?view=public&name=Exact%20Private"
+        ).json() == []
+        assert client.get(
+            "/api/beer-runs?view=public&name=Missing%20Run"
+        ).json() == []
+
+    def test_public_prefix_search_is_bounded_and_deterministic(self, client):
+        token = _login(client)
+        for number in range(25):
+            response = client.post(
+                "/api/beer-runs",
+                json={"name": f"Search Catalog {number:02d}", "is_public": True},
+                headers=_bearer(token),
+            )
+            assert response.status_code == 201
+        client.post(
+            "/api/beer-runs",
+            json={"name": "Search Catalog Private"},
+            headers=_bearer(token),
+        )
+
+        response = client.get("/api/beer-runs?view=public&q=search%20catalog")
+        assert response.status_code == 200
+        names = [run["name"] for run in response.json()]
+        assert len(names) == 20
+        assert names == sorted(names, key=lambda value: value.lower())
+        assert "Search Catalog Private" not in names
+
+        limited = client.get("/api/beer-runs?view=public&q=search%20catalog&limit=3")
+        assert limited.status_code == 200
+        assert [run["name"] for run in limited.json()] == names[:3]
+
+    def test_public_prefix_treats_like_wildcards_as_literals(self, client):
+        token = _login(client)
+        for name in ("A_B Selector", "AxB Selector"):
+            response = client.post(
+                "/api/beer-runs",
+                json={"name": name, "is_public": True},
+                headers=_bearer(token),
+            )
+            assert response.status_code == 201
+
+        underscore = client.get("/api/beer-runs?view=public&q=A_")
+        assert underscore.status_code == 200
+        assert [run["name"] for run in underscore.json()] == ["A_B Selector"]
+        percent = client.get("/api/beer-runs?view=public&q=A%")
+        assert percent.status_code == 200
+        assert percent.json() == []
+
+    def test_public_search_preserves_caller_role_without_expanding_visibility(self, client):
+        owner_token, _ = _signup(client, "PublicRoleOwner")
+        stranger_token, _ = _signup(client, "PublicRoleStranger")
+        client.post(
+            "/api/beer-runs",
+            json={"name": "Role Search", "is_public": True},
+            headers=_bearer(owner_token),
+        )
+
+        owner = client.get(
+            "/api/beer-runs?view=public&q=role%20search",
+            headers=_bearer(owner_token),
+        )
+        stranger = client.get(
+            "/api/beer-runs?view=public&q=role%20search",
+            headers=_bearer(stranger_token),
+        )
+        anonymous = client.get("/api/beer-runs?view=public&q=role%20search")
+
+        assert owner.json()[0]["current_user_role"] == "owner"
+        assert stranger.json()[0]["current_user_role"] is None
+        assert anonymous.json()[0]["current_user_role"] is None
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/beer-runs?view=unknown",
+            "/api/beer-runs?name=BeerRunJPN",
+            "/api/beer-runs?view=public",
+            "/api/beer-runs?view=public&name=BeerRunJPN&q=Beer",
+            "/api/beer-runs?view=public&name=BeerRunJPN&limit=1",
+            "/api/beer-runs?view=public&q=B",
+            "/api/beer-runs?view=public&q=Beer&limit=0",
+            "/api/beer-runs?view=mine&q=Beer",
+        ],
+    )
+    def test_selector_query_combinations_are_rejected(self, client, path):
+        response = client.get(path)
+        assert response.status_code == 422
+        assert "sql" not in response.text.lower()
+        assert "beer_run_members" not in response.text
+
+    def test_filtered_list_metadata_query_count_is_bounded(self, client):
+        token = _login(client)
+        for number in range(21):
+            response = client.post(
+                "/api/beer-runs",
+                json={"name": f"Count Catalog {number:02d}", "is_public": True},
+                headers=_bearer(token),
+            )
+            assert response.status_code == 201
+
+        def request_count(limit):
+            statements = []
+
+            def record(*args):
+                statements.append(args[2])
+
+            event.listen(engine, "before_cursor_execute", record)
+            try:
+                response = client.get(
+                    f"/api/beer-runs?view=public&q=count%20catalog&limit={limit}",
+                    headers=_bearer(token),
+                )
+            finally:
+                event.remove(engine, "before_cursor_execute", record)
+            assert response.status_code == 200
+            return len(statements)
+
+        assert request_count(1) == request_count(20)
 
 
 # ── Detail ───────────────────────────────────────────────────────────

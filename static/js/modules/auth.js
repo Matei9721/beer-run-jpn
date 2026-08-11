@@ -19,7 +19,7 @@ export const AUTH_STATES = Object.freeze({
 
 const DEFAULT_LOGIN_ERROR = 'Invalid credentials';
 
-export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED) {
+export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED, canWrite = false) {
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
     const authRestrictedElements = document.querySelectorAll('.auth-restricted');
@@ -30,7 +30,13 @@ export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED) {
     if (isAuthenticated) {
         loginBtn.style.display = 'none';
         logoutBtn.style.display = '';
-        authRestrictedElements.forEach(el => el.style.display = '');
+        authRestrictedElements.forEach(el => el.style.display = canWrite ? '' : 'none');
+        if (!canWrite) {
+            const activeTab = document.querySelector('.tab-btn.active');
+            if (activeTab && activeTab.classList.contains('auth-restricted')) {
+                document.querySelector('[data-tab="leaderboard-tab"]').click();
+            }
+        }
     } else {
         loginBtn.style.display = isValidating ? 'none' : '';
         logoutBtn.style.display = 'none';

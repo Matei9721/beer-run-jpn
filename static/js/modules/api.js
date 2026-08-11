@@ -15,45 +15,111 @@ function _authHeaders(token) {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
-export async function fetchBeerRuns(token = null) {
+function _abortedResult(error) {
+    return error && error.name === 'AbortError'
+        ? { ok: false, aborted: true }
+        : null;
+}
+
+async function _fetchRunList(params, token = null, signal = null) {
+    const query = new URLSearchParams(params);
     try {
-        const response = await fetch('/api/beer-runs', { headers: _authHeaders(token) });
+        const response = await fetch(`/api/beer-runs?${query.toString()}`, {
+            headers: _authHeaders(token),
+            signal,
+        });
         if (!response.ok) {
             return { ok: false, status: response.status, network: false };
         }
         return { ok: true, data: await response.json() };
     } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
         console.error("Error fetching beer runs:", error);
         return { ok: false, network: true };
     }
 }
 
-export async function fetchLeaderboard(beerRunId, token = null) {
+export async function fetchBeerRuns(token = null, signal = null) {
     try {
-        const response = await fetch(`/api/beer-runs/${beerRunId}/leaderboard`, {
+        const response = await fetch('/api/beer-runs', {
             headers: _authHeaders(token),
+            signal,
         });
         if (!response.ok) {
             return { ok: false, status: response.status, network: false };
         }
         return { ok: true, data: await response.json() };
     } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        console.error("Error fetching beer runs:", error);
+        return { ok: false, network: true };
+    }
+}
+
+export function fetchMyBeerRuns(token, signal = null) {
+    return _fetchRunList({ view: 'mine' }, token, signal);
+}
+
+export function findPublicBeerRunByName(name, token = null, signal = null) {
+    return _fetchRunList({ view: 'public', name }, token, signal);
+}
+
+export function searchPublicBeerRuns(query, token = null, signal = null) {
+    return _fetchRunList({ view: 'public', q: query }, token, signal);
+}
+
+export async function fetchBeerRun(beerRunId, token = null, signal = null) {
+    try {
+        const response = await fetch(`/api/beer-runs/${beerRunId}`, {
+            headers: _authHeaders(token),
+            signal,
+        });
+        if (!response.ok) {
+            return { ok: false, status: response.status, network: false };
+        }
+        return { ok: true, data: await response.json() };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        console.error("Error fetching beer run:", error);
+        return { ok: false, network: true };
+    }
+}
+
+export async function fetchLeaderboard(beerRunId, token = null, signal = null) {
+    try {
+        const response = await fetch(`/api/beer-runs/${beerRunId}/leaderboard`, {
+            headers: _authHeaders(token),
+            signal,
+        });
+        if (!response.ok) {
+            return { ok: false, status: response.status, network: false };
+        }
+        return { ok: true, data: await response.json() };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
         console.error("Error fetching leaderboard:", error);
         return { ok: false, network: true };
     }
 }
 
-export async function fetchEntries(beerRunId, username = "", token = null) {
+export async function fetchEntries(beerRunId, username = "", token = null, signal = null) {
     const query = username ? `?username=${encodeURIComponent(username)}` : '';
     try {
         const response = await fetch(`/api/beer-runs/${beerRunId}/entries${query}`, {
             headers: _authHeaders(token),
+            signal,
         });
         if (!response.ok) {
             return { ok: false, status: response.status, network: false };
         }
         return { ok: true, data: await response.json() };
     } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
         console.error("Error fetching entries:", error);
         return { ok: false, network: true };
     }

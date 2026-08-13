@@ -65,6 +65,45 @@ For an existing database with the current `users` and `entries` tables, this rec
 uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
 ```
 
+### Migrate legacy upload paths
+
+The upload-path migration is a separate operator action; schema migration and
+application startup never run it automatically. It copies legacy images into
+run-specific UUID paths, verifies the copies, updates matching entry rows, and
+retains every original flat file for rollback and old-URL compatibility.
+
+Before applying it to live data:
+
+1. Stop the application and any other process that can write entries.
+2. Create or confirm recoverable, separately named backups of both the SQLite
+   database and the complete `static/uploads` tree. Do not overwrite an
+   existing backup while doing this.
+3. Run the read-only preflight with both live paths stated explicitly:
+
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_upload_paths.py --database .\boozerun.db --upload-root .\static\uploads --preflight
+```
+
+Resolve every reported missing, invalid, or conflicting entry before apply.
+Preflight returns a nonzero status while any unresolved row remains.
+
+4. With application writes still stopped, apply the migration explicitly:
+
+```powershell
+uv --cache-dir .uv-cache run python scripts/migrate_upload_paths.py --database .\boozerun.db --upload-root .\static\uploads --apply
+```
+
+5. Require a zero exit status, rerun preflight, and confirm its summary reports
+   no planned, missing, invalid, or conflicting rows. Confirm the retained flat
+   sources and their new nested copies are both present before restarting the
+   application.
+
+The command is resumable: after a partial failure, leave both source and nested
+files in place, correct the reported problem, and rerun the same apply command.
+It verifies and reuses an identical deterministic destination rather than
+creating another copy. Never delete retained legacy sources as part of this
+procedure.
+
 ### 4. Start the Backend
 Run the FastAPI server on all interfaces:
 ```powershell

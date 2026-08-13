@@ -14,6 +14,7 @@ import io
 import os
 import sqlite3
 from datetime import datetime
+from uuid import UUID
 
 import pytest
 from PIL import Image
@@ -207,6 +208,44 @@ class TestScopedEntries:
         assert set(rows[0]) == EXPECTED_ENTRY_FIELDS
         assert "beer_run_id" not in rows[0]
         assert rows[0]["timestamp"] == "2026-01-02T12:00:00"
+
+    def test_entry_paths_are_response_normalized_without_mutating_storage(
+        self, client, owner_member_nonmember_run
+    ):
+        data = owner_member_nonmember_run
+        legacy = _add_entry(
+            data["db"],
+            data["owner"],
+            data["public_run"],
+            drink_type="Legacy",
+            image_path=r"static\uploads\legacy.jpg",
+        )
+        _add_entry(
+            data["db"],
+            data["owner"],
+            data["public_run"],
+            drink_type="Flat",
+            image_path="static/uploads/flat.jpg",
+        )
+        _add_entry(
+            data["db"],
+            data["owner"],
+            data["public_run"],
+            drink_type="Nested",
+            image_path="static/uploads/beer_runs/5/nested.jpg",
+        )
+        data["db"].commit()
+
+        response = client.get(f"/api/beer-runs/{data['public_run'].id}/entries")
+
+        assert response.status_code == 200
+        rows = {row["drink_type"]: row for row in response.json()}
+        assert all(set(row) == EXPECTED_ENTRY_FIELDS for row in rows.values())
+        assert rows["Legacy"]["image_path"] == "static/uploads/legacy.jpg"
+        assert rows["Flat"]["image_path"] == "static/uploads/flat.jpg"
+        assert rows["Nested"]["image_path"] == "static/uploads/beer_runs/5/nested.jpg"
+        data["db"].expire_all()
+        assert data["db"].get(models.Entry, legacy.id).image_path == r"static\uploads\legacy.jpg"
 
     def test_username_filter_is_case_insensitive_and_run_scoped(self, client, owner_member_nonmember_run):
         """The filter stays inside the requested run with case-insensitive identity."""
@@ -417,6 +456,7 @@ class TestScopedCreate:
             headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
         )
         assert response.status_code == 200
+        assert response.json() == {"status": "success", "entry_id": response.json()["entry_id"]}
         entry_id = response.json()["entry_id"]
 
         with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
@@ -446,15 +486,11 @@ class TestScopedCreate:
         assert response.status_code == 422
 
     def test_create_entry_with_image_uses_isolated_writer_seam(self, client, owner_member_nonmember_run, tmp_path, monkeypatch):
-        """Uploads go through the image-writer seam into tmp_path; row + file persisted."""
+        """The real writer stores a canonical JPEG under an isolated root."""
         import main as main_mod
 
-        def _write_to_tmp(contents):
-            path = tmp_path / "proof.jpg"
-            path.write_bytes(contents)
-            return str(path)
-
-        monkeypatch.setattr(main_mod, "write_upload_image", _write_to_tmp)
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
         data = owner_member_nonmember_run
         response = client.post(
             f"/api/beer-runs/{data['public_run'].id}/entries",
@@ -465,23 +501,112 @@ class TestScopedCreate:
         assert response.status_code == 200
         entry_id = response.json()["entry_id"]
 
-        written = list(tmp_path.glob("*.jpg"))
+        written = list(upload_root.rglob("*.jpg"))
         assert len(written) == 1
         with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
             row = conn.execute(
                 "SELECT image_path, user_id, beer_run_id FROM entries WHERE id = ?", (entry_id,)
             ).fetchone()
-        assert row[0] == str(written[0])
+        assert row[0].startswith(
+            f"static/uploads/beer_runs/{data['public_run'].id}/"
+        )
+        assert row[0].endswith(".jpg")
+        UUID(row[0].rsplit("/", 1)[1][:-4])
         assert row[1] == data["member"].id
         assert row[2] == data["public_run"].id
 
-    def test_denied_create_writes_no_entry_and_no_upload(self, client, owner_member_nonmember_run, monkeypatch):
+        with Image.open(written[0]) as stored:
+            assert stored.format == "JPEG"
+
+    def test_hostile_filenames_and_same_timestamp_get_distinct_run_scoped_paths(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+        data = owner_member_nonmember_run
+        run_id = data["public_run"].id
+        filenames = [
+            "same.jpg",
+            "../escape.png",
+            r"C:\temp\absolute.gif",
+            "/root/secret.jpg",
+            "日本語の写真.jpeg",
+        ]
+        paths = []
+
+        for filename in filenames:
+            response = client.post(
+                f"/api/beer-runs/{run_id}/entries",
+                data=_valid_entry_form(
+                    client_timestamp="2026-08-13T12:00:00",
+                    beer_run_id=str(data["private_run"].id),
+                ),
+                files={"image": (filename, _jpeg_bytes(), "image/jpeg")},
+                headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
+            )
+            assert response.status_code == 200
+
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            paths = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT image_path FROM entries WHERE beer_run_id = ? ORDER BY id",
+                    (run_id,),
+                )
+            ]
+
+        assert len(paths) == len(filenames)
+        assert len(set(paths)) == len(paths)
+        for path in paths:
+            prefix = f"static/uploads/beer_runs/{run_id}/"
+            assert path.startswith(prefix) and path.endswith(".jpg")
+            UUID(path.removeprefix(prefix).removesuffix(".jpg"))
+            assert all(filename not in path for filename in filenames)
+
+    def test_run_rename_does_not_change_or_invalidate_upload_path(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+        data = owner_member_nonmember_run
+        run_id = data["public_run"].id
+        headers = {"Authorization": f"Bearer {auth_token_for(data['owner'])}"}
+
+        created = client.post(
+            f"/api/beer-runs/{run_id}/entries",
+            data=_valid_entry_form(),
+            files={"image": ("before.jpg", _jpeg_bytes(), "image/jpeg")},
+            headers=headers,
+        )
+        assert created.status_code == 200
+        before = client.get(f"/api/beer-runs/{run_id}/entries").json()[0]["image_path"]
+
+        renamed = client.patch(
+            f"/api/beer-runs/{run_id}",
+            json={"name": "Renamed Upload Run"},
+            headers=headers,
+        )
+        assert renamed.status_code == 200
+        after = client.get(f"/api/beer-runs/{run_id}/entries").json()[0]["image_path"]
+
+        assert after == before
+        assert f"/beer_runs/{run_id}/" in after
+        assert (upload_root / "beer_runs" / str(run_id) / after.rsplit("/", 1)[1]).is_file()
+
+    def test_denied_create_writes_no_entry_and_no_upload(self, client, owner_member_nonmember_run, tmp_path, monkeypatch):
         """Auth/membership completes before any upload or row is written."""
         import main as main_mod
 
         writer_calls = {"n": 0}
 
-        def _must_not_run(contents):
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+
+        def _must_not_run(contents, beer_run_id):
             writer_calls["n"] += 1
             raise AssertionError("image writer must not run for a denied request")
 
@@ -502,14 +627,129 @@ class TestScopedCreate:
             assert response.status_code in (401, 404)
 
         assert writer_calls["n"] == 0
+        assert not upload_root.exists()
         after_entries = client.get(f"/api/beer-runs/{data['public_run'].id}/entries").json()
         assert after_entries == before_entries
+
+    def test_no_image_and_empty_image_create_no_upload_directory(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+        data = owner_member_nonmember_run
+        headers = {"Authorization": f"Bearer {auth_token_for(data['member'])}"}
+        url = f"/api/beer-runs/{data['public_run'].id}/entries"
+
+        without_image = client.post(url, data=_valid_entry_form(), headers=headers)
+        empty_image = client.post(
+            url,
+            data=_valid_entry_form(),
+            files={"image": ("empty.jpg", b"", "image/jpeg")},
+            headers=headers,
+        )
+
+        assert without_image.status_code == 200
+        assert empty_image.status_code == 200
+        assert not upload_root.exists()
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            paths = conn.execute(
+                "SELECT image_path FROM entries WHERE beer_run_id = ? ORDER BY id",
+                (data["public_run"].id,),
+            ).fetchall()
+        assert paths == [(None,), (None,)]
+
+    def test_uuid_retry_exhaustion_is_sanitized_and_preserves_sentinel(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        data = owner_member_nonmember_run
+        upload_root = tmp_path / "uploads"
+        run_directory = upload_root / "beer_runs" / str(data["public_run"].id)
+        run_directory.mkdir(parents=True)
+        fixed_uuid = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+        sentinel = run_directory / f"{fixed_uuid}.jpg"
+        sentinel.write_bytes(b"sentinel-do-not-replace")
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(main_mod, "UPLOAD_ALLOCATION_ATTEMPTS", 2)
+        monkeypatch.setattr(main_mod, "uuid4", lambda: fixed_uuid)
+
+        response = client.post(
+            f"/api/beer-runs/{data['public_run'].id}/entries",
+            data=_valid_entry_form(),
+            files={"image": ("proof.jpg", _jpeg_bytes(), "image/jpeg")},
+            headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Unable to create entry"}
+        assert "aaaaaaaa" not in response.text
+        assert sentinel.read_bytes() == b"sentinel-do-not-replace"
+        assert list(run_directory.iterdir()) == [sentinel]
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0] == 0
+
+    def test_upload_directory_failure_is_sanitized_without_an_entry(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        data = owner_member_nonmember_run
+        upload_root = tmp_path / "not-a-directory"
+        upload_root.write_bytes(b"blocking file")
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+
+        response = client.post(
+            f"/api/beer-runs/{data['public_run'].id}/entries",
+            data=_valid_entry_form(),
+            files={"image": ("proof.jpg", _jpeg_bytes(), "image/jpeg")},
+            headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Unable to create entry"}
+        assert "not-a-directory" not in response.text
+        assert upload_root.read_bytes() == b"blocking file"
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0] == 0
+
+    def test_invalid_image_removes_only_request_owned_partial_file(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        data = owner_member_nonmember_run
+        upload_root = tmp_path / "uploads"
+        run_directory = upload_root / "beer_runs" / str(data["public_run"].id)
+        run_directory.mkdir(parents=True)
+        concurrent = run_directory / "concurrent.jpg"
+        concurrent.write_bytes(b"another-request")
+        legacy = upload_root / "legacy.jpg"
+        legacy.write_bytes(b"legacy")
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+
+        response = client.post(
+            f"/api/beer-runs/{data['public_run'].id}/entries",
+            data=_valid_entry_form(),
+            files={"image": ("broken.jpg", b"not an image", "image/jpeg")},
+            headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Unable to create entry"}
+        assert concurrent.read_bytes() == b"another-request"
+        assert legacy.read_bytes() == b"legacy"
+        assert list(run_directory.iterdir()) == [concurrent]
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0] == 0
 
     def test_image_failure_is_sanitized_and_rolls_back(self, client, owner_member_nonmember_run, monkeypatch):
         """Image failure: exact detail, no entry row, no raw internals."""
         import main as main_mod
 
-        def _boom(contents):
+        def _boom(contents, beer_run_id):
             raise RuntimeError("secret local path /var/tmp/leak.jpg")
 
         monkeypatch.setattr(main_mod, "write_upload_image", _boom)
@@ -529,9 +769,19 @@ class TestScopedCreate:
         after = client.get(f"/api/beer-runs/{data['public_run'].id}/entries").json()
         assert after == before
 
-    def test_pre_commit_database_failure_rolls_back(self, client, owner_member_nonmember_run):
-        """A failing insert rolls back with the exact sanitized detail."""
+    def test_pre_commit_database_failure_rolls_back_and_removes_owned_upload(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        """A failing insert rolls back and targets only this request's file."""
+        import main as main_mod
+
         data = owner_member_nonmember_run
+        upload_root = tmp_path / "uploads"
+        run_directory = upload_root / "beer_runs" / str(data["public_run"].id)
+        run_directory.mkdir(parents=True)
+        sentinel = run_directory / "concurrent.jpg"
+        sentinel.write_bytes(b"keep")
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
         bind = data["db"].get_bind()
 
         def _raise_on_insert(conn, cursor, statement, parameters, context, executemany):
@@ -543,6 +793,7 @@ class TestScopedCreate:
             response = client.post(
                 f"/api/beer-runs/{data['public_run'].id}/entries",
                 data=_valid_entry_form(),
+                files={"image": ("proof.jpg", _jpeg_bytes(), "image/jpeg")},
                 headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
             )
         finally:
@@ -550,11 +801,50 @@ class TestScopedCreate:
 
         assert response.status_code == 500
         assert response.json() == {"detail": "Unable to create entry"}
+        assert sentinel.read_bytes() == b"keep"
+        assert list(run_directory.iterdir()) == [sentinel]
         with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
             count = conn.execute(
                 "SELECT COUNT(*) FROM entries WHERE beer_run_id = ?", (data["public_run"].id,)
             ).fetchone()[0]
         assert count == 0
+
+    def test_cleanup_failure_does_not_replace_sanitized_database_error(
+        self, client, owner_member_nonmember_run, tmp_path, monkeypatch
+    ):
+        import main as main_mod
+
+        data = owner_member_nonmember_run
+        upload_root = tmp_path / "uploads"
+        monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(
+            main_mod,
+            "cleanup_owned_upload",
+            lambda upload: (_ for _ in ()).throw(
+                OSError(r"secret cleanup path C:\uploads\private.jpg")
+            ),
+        )
+        bind = data["db"].get_bind()
+
+        def _raise_on_insert(conn, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().upper().startswith("INSERT"):
+                raise RuntimeError("forced insert failure")
+
+        event.listen(bind, "before_cursor_execute", _raise_on_insert)
+        try:
+            response = client.post(
+                f"/api/beer-runs/{data['public_run'].id}/entries",
+                data=_valid_entry_form(),
+                files={"image": ("proof.jpg", _jpeg_bytes(), "image/jpeg")},
+                headers={"Authorization": f"Bearer {auth_token_for(data['member'])}"},
+            )
+        finally:
+            event.remove(bind, "before_cursor_execute", _raise_on_insert)
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Unable to create entry"}
+        assert "cleanup" not in response.text and "private.jpg" not in response.text
+        assert len(list(upload_root.rglob("*.jpg"))) == 1
 
     def test_commit_is_final_without_post_commit_refresh(self, client, owner_member_nonmember_run):
         """A successful create performs no SELECT after the entry insert."""

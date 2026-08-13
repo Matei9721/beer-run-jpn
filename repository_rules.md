@@ -115,6 +115,11 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
 - Do not apply a migration to `boozerun.db` unless the user explicitly
   authorizes it. Use `scripts/migrate_db.py --check` for a read-only readiness
   check.
+- The upload-path file/data migration is an explicit operator action separate
+  from schema migration. Implementation and automated verification must use
+  disposable database and upload roots. Do not run its `--apply` mode against
+  `boozerun.db` or `static/uploads/` without direct authorization, stopped
+  application writes, and confirmed recoverable database and upload backups.
 - Tests must use the isolated test database override and must never point at
   `boozerun.db`.
 - Preserve existing uploaded-image paths unless a dedicated, tested file
@@ -196,6 +201,10 @@ uv --cache-dir .uv-cache run pytest
 # Apply or check database migrations
 uv --cache-dir .uv-cache run python scripts/migrate_db.py
 uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
+
+# Preflight or explicitly apply the upload-path file/data migration
+uv --cache-dir .uv-cache run python scripts/migrate_upload_paths.py --database .\boozerun.db --upload-root .\static\uploads --preflight
+uv --cache-dir .uv-cache run python scripts/migrate_upload_paths.py --database .\boozerun.db --upload-root .\static\uploads --apply
 
 # Sync users after migrations
 uv --cache-dir .uv-cache run python scripts/setup_db.py

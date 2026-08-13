@@ -1,15 +1,18 @@
 import os
 import io
 import json
+from dataclasses import dataclass
 from functools import lru_cache
-from datetime import datetime, UTC
+from datetime import datetime
+from pathlib import Path, PurePosixPath
+from typing import Any, BinaryIO, Dict
+from uuid import UUID, uuid4
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from typing import Dict, Any
 from PIL import Image, ImageOps
 
 import models
@@ -52,6 +55,24 @@ os.makedirs("templates", exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+UPLOAD_ROOT = Path("static/uploads")
+UPLOAD_PATH_ROOT = PurePosixPath("static/uploads")
+UPLOAD_ALLOCATION_ATTEMPTS = 10
+
+
+@dataclass(frozen=True)
+class _OwnedUpload:
+    """A canonical image path and the one physical file this request owns."""
+
+    image_path: str
+    physical_path: Path
+
+
+class UploadAllocationError(RuntimeError):
+    """Raised when no exclusive upload destination can be allocated."""
+
+
 @lru_cache()
 def get_drink_config() -> Dict[str, Any]:
     try:
@@ -75,7 +96,7 @@ def parse_client_timestamp(value: str | None) -> datetime:
 
     return parsed.replace(tzinfo=None)
 
-def save_optimized_image(contents: bytes, image_path: str) -> None:
+def save_optimized_image(contents: bytes, image_path: str | os.PathLike | BinaryIO) -> None:
     img = Image.open(io.BytesIO(contents))
     img = ImageOps.exif_transpose(img)
 
@@ -92,20 +113,59 @@ def save_optimized_image(contents: bytes, image_path: str) -> None:
     img.save(image_path, "JPEG", quality=85, optimize=True)
 
 
-def write_upload_image(contents: bytes) -> str:
-    """Normalize and persist an uploaded image, returning its stored path.
+def cleanup_owned_upload(upload: _OwnedUpload) -> None:
+    """Remove only the exclusively allocated file represented by ``upload``."""
 
-    This is the narrow image-writer seam that focused tests redirect or mock so
-    they never write into the repository's real ``static/uploads`` folder. The
-    returned value keeps the historical ``static/uploads/<name>`` form so
-    existing ``image_path`` values and ``/static/uploads`` URL serving remain
-    compatible. The timestamp-only filename is intentionally preserved;
-    collision-safe names and orphan cleanup remain out of scope here.
-    """
-    timestamp = int(datetime.now(UTC).timestamp())
-    image_path = os.path.join("static/uploads", f"{timestamp}.jpg")
-    save_optimized_image(contents, image_path)
-    return image_path
+    upload.physical_path.unlink(missing_ok=True)
+
+
+def _cleanup_owned_upload_safely(upload: _OwnedUpload) -> None:
+    try:
+        cleanup_owned_upload(upload)
+    except Exception:
+        # Cleanup must never replace the original sanitized request failure.
+        pass
+
+
+def write_upload_image(contents: bytes, beer_run_id: int) -> _OwnedUpload:
+    """Normalize an image into a request-owned, run-scoped destination."""
+
+    if isinstance(beer_run_id, bool) or not isinstance(beer_run_id, int) or beer_run_id <= 0:
+        raise ValueError("beer_run_id must be a positive integer")
+
+    run_directory = UPLOAD_ROOT / "beer_runs" / str(beer_run_id)
+    run_directory.mkdir(parents=True, exist_ok=True)
+
+    for _ in range(UPLOAD_ALLOCATION_ATTEMPTS):
+        candidate_uuid = UUID(str(uuid4()))
+        filename = f"{candidate_uuid}.jpg"
+        physical_path = run_directory / filename
+        image_path = str(
+            UPLOAD_PATH_ROOT / "beer_runs" / str(beer_run_id) / filename
+        )
+        upload = _OwnedUpload(image_path=image_path, physical_path=physical_path)
+
+        try:
+            destination = physical_path.open("xb")
+        except FileExistsError:
+            continue
+
+        try:
+            with destination:
+                save_optimized_image(contents, destination)
+        except Exception:
+            _cleanup_owned_upload_safely(upload)
+            raise
+
+        return upload
+
+    raise UploadAllocationError("Unable to allocate an upload destination")
+
+
+def normalize_image_path_for_response(image_path: str | None) -> str | None:
+    """Return browser-facing separators without mutating the stored value."""
+
+    return image_path.replace("\\", "/") if image_path is not None else None
 
 
 @app.get("/")
@@ -203,7 +263,7 @@ async def get_scoped_entries(
         "brand": e.brand,
         "latitude": e.latitude,
         "longitude": e.longitude,
-        "image_path": e.image_path,
+        "image_path": normalize_image_path_for_response(e.image_path),
         "timestamp": e.timestamp.isoformat(),
         "timezone": e.timezone,
         "timezone_code": e.timezone_code
@@ -234,11 +294,13 @@ async def create_scoped_entry(
     the final fallible boundary.
     """
     image_path = None
+    owned_upload = None
     if image and image.filename and image.filename.strip():
         try:
             contents = await image.read()
             if contents:
-                image_path = write_upload_image(contents)
+                owned_upload = write_upload_image(contents, access.beer_run.id)
+                image_path = owned_upload.image_path
         except Exception:
             raise HTTPException(status_code=500, detail="Unable to create entry")
 
@@ -262,7 +324,12 @@ async def create_scoped_entry(
         entry_id = new_entry.id
         db.commit()
     except Exception:
-        db.rollback()
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        if owned_upload is not None:
+            _cleanup_owned_upload_safely(owned_upload)
         raise HTTPException(status_code=500, detail="Unable to create entry")
 
     return {"status": "success", "entry_id": entry_id}

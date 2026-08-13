@@ -67,6 +67,16 @@ class BeerRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BeerRunMemberResponse(BaseModel):
+    """A member visible to anyone authorized to read the beer-run."""
+
+    user_id: int
+    username: str
+    role: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Invite Schemas ---
 
 class InviteCreateResponse(BaseModel):

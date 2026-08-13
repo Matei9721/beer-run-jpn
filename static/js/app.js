@@ -1,9 +1,10 @@
-import * as api from './modules/api.js?v=13';
+import * as api from './modules/api.js?v=15';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as beerRuns from './modules/beer-runs.js?v=3';
-import * as mapMod from './modules/map.js?v=10';
-import * as ui from './modules/ui.js?v=10';
+import * as beerRuns from './modules/beer-runs.js?v=6';
+import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
+import * as mapMod from './modules/map.js?v=11';
+import * as ui from './modules/ui.js?v=11';
 
 document.addEventListener('DOMContentLoaded', () => {
     const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
@@ -25,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         onSelectRun: run => selectRun(run, { persist: Boolean(currentUser) }),
         onSearchPublicRuns: (query, signal) => api.searchPublicBeerRuns(query, auth.getToken(), signal),
         onShareRun: shareRun,
+        onCreateRun: handleCreateBeerRun,
+        onFetchMembers: (beerRunId, signal) => api.fetchBeerRunMembers(beerRunId, auth.getToken(), signal),
     });
 
     function canWriteCurrentRun() {
@@ -45,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
         userFilter.innerHTML = '<option value="">All Users</option>';
         userFilter.value = '';
         mapMod.clearRunState();
+        const mapEmptyState = document.getElementById('map-empty-state');
+        if (mapEmptyState) mapEmptyState.hidden = true;
         ui.clearUserModal();
         if (message) ui.renderRunLoading(document.getElementById('leaderboard-data'));
     }
@@ -110,6 +115,65 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             window.prompt('Copy this run link', url);
         }
+    }
+
+    function createRequestIsStale(user, token, generation) {
+        return generation !== contextGeneration
+            || currentUser?.id !== user.id
+            || auth.getToken() !== token;
+    }
+
+    async function reconcileCreatedBeerRun(name, isPublic, user, token, generation) {
+        const result = await api.fetchMyBeerRuns(token);
+        if (createRequestIsStale(user, token, generation)) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (!result.ok) return result;
+        const created = result.data.find(run => (
+            run.name === name
+            && run.is_public === isPublic
+            && run.current_user_role === 'owner'
+        ));
+        return created
+            ? { ok: true, data: created, reconciled: true }
+            : { ok: false, status: 500, detail: 'We could not confirm the new run. Check My runs before trying again.' };
+    }
+
+    async function handleCreateBeerRun(name, isPublic) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token) return { ok: false, status: 401 };
+
+        let result = await api.createBeerRun(name, isPublic, token);
+        if (createRequestIsStale(user, token, generation)) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (result.status === 401) {
+            handleRejectedSession();
+            return { ok: false, status: 401, handled: true };
+        }
+
+        let created = result.ok && isCreatedBeerRunResponse(result.data, name, isPublic)
+            ? result.data
+            : null;
+        if (!created && (result.network || result.ok)) {
+            result = await reconcileCreatedBeerRun(name, isPublic, user, token, generation);
+            if (result.status === 401) {
+                handleRejectedSession();
+                return { ok: false, status: 401, handled: true };
+            }
+            if (createRequestIsStale(user, token, generation)) {
+                return { ok: false, aborted: true, stale: true };
+            }
+            created = result.ok ? result.data : null;
+        }
+        if (!created) return result;
+
+        setCurrentRun(created, { persist: true, message: `Created ${created.name}.` });
+        picker.setAvailability('ready');
+        await refreshData(true);
+        return { ok: true, data: created };
     }
 
     async function resolveDefaultRun(signal = null) {
@@ -244,6 +308,11 @@ document.addEventListener('DOMContentLoaded', () => {
         userFilter.innerHTML = options.join('');
         userFilter.value = selectedUsername;
         mapMod.updateMarkers(currentEntries, isManual);
+        const mapEmptyState = document.getElementById('map-empty-state');
+        if (mapEmptyState) {
+            mapEmptyState.hidden = currentEntries.length > 0;
+            mapEmptyState.textContent = 'No mapped drinks in this run yet.';
+        }
 
         lastRefreshTime = new Date();
         setSyncStatus(`Synced ${lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);

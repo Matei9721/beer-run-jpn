@@ -70,6 +70,62 @@ export function searchPublicBeerRuns(query, token = null, signal = null) {
     return _fetchRunList({ view: 'public', q: query }, token, signal);
 }
 
+export async function createBeerRun(name, isPublicOrToken, tokenOrSignal = null, signalOrMaybe = null) {
+    // Accept the original private-create call shape (name, token, signal)
+    // while allowing the visibility-aware shape (name, isPublic, token, signal).
+    const visibilitySelected = typeof isPublicOrToken === 'boolean';
+    const isPublic = visibilitySelected ? isPublicOrToken : false;
+    const token = visibilitySelected ? tokenOrSignal : isPublicOrToken;
+    const signal = visibilitySelected ? signalOrMaybe : tokenOrSignal;
+    try {
+        const response = await fetch('/api/beer-runs', {
+            method: 'POST',
+            headers: {
+                ..._authHeaders(token),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, is_public: Boolean(isPublic) }),
+            signal,
+        });
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: typeof payload?.detail === 'string' ? payload.detail : null,
+                network: false,
+            };
+        }
+        return { ok: true, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
+export async function fetchBeerRunMembers(beerRunId, token = null, signal = null) {
+    try {
+        const response = await fetch(`/api/beer-runs/${beerRunId}/members`, {
+            headers: _authHeaders(token),
+            signal,
+        });
+        if (!response.ok) {
+            return { ok: false, status: response.status, network: false };
+        }
+        return { ok: true, data: await response.json() };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
 export async function fetchBeerRun(beerRunId, token = null, signal = null) {
     try {
         const response = await fetch(`/api/beer-runs/${beerRunId}`, {

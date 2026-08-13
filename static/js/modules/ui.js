@@ -184,7 +184,7 @@ function appendUserDrinkBatch(userEntries, list, button) {
 // --- Leaderboard Render ---
 export function renderLeaderboard(data, leaderboardContainer) {
     if (data.length === 0) {
-        leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>No entries found.</p></div>";
+        leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>No drinks logged in this run yet.</p></div>";
         return;
     }
 

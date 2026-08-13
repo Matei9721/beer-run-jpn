@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=12">
+    <link rel="stylesheet" href="/static/css/style.css?v=16">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -65,6 +65,7 @@
                     </select>
                 </div>
                 <div id="map"></div>
+                <p id="map-empty-state" class="map-empty-state" role="status" aria-live="polite" hidden>No mapped drinks in this run yet.</p>
             </div>
         </section>
 
@@ -134,8 +135,15 @@
                 <span id="beer-run-picker-current-name"></span>
                 <button id="share-beer-run" class="run-share-button" type="button">Share link</button>
             </div>
+            <section id="beer-run-roster" class="run-roster" hidden aria-labelledby="beer-run-roster-title">
+                <h3 id="beer-run-roster-title">Members</h3>
+                <p id="beer-run-roster-status" class="run-picker-note" role="status" aria-live="polite"></p>
+                <ul id="beer-run-roster-list" class="run-roster-list"></ul>
+            </section>
+            <div id="beer-run-library-view">
             <section id="beer-run-members-section">
                 <h3>My runs</h3>
+                <button id="create-beer-run" class="run-create-button" type="button" hidden>Create run</button>
                 <div id="beer-run-members" class="run-choice-list"></div>
             </section>
             <section class="public-run-search-section" aria-labelledby="public-run-search-title">
@@ -144,6 +152,43 @@
                 <input id="public-run-search" type="search" autocomplete="off" placeholder="Type 2 or more characters">
                 <p id="public-run-search-status" class="run-picker-note" role="status" aria-live="polite"></p>
                 <div id="public-run-results" class="run-choice-list"></div>
+            </section>
+            </div>
+            <section id="create-beer-run-view" class="create-run-view" hidden aria-labelledby="create-beer-run-title">
+                <h3 id="create-beer-run-title">Create a run</h3>
+                <p class="run-picker-intro">Choose who can see the run, then invite people later.</p>
+                <form id="create-beer-run-form" novalidate>
+                    <div class="create-run-field">
+                        <label for="create-beer-run-name">Run name</label>
+                        <input id="create-beer-run-name" name="name" type="text" maxlength="64" autocomplete="off" required aria-describedby="create-beer-run-help create-beer-run-error">
+                        <p id="create-beer-run-help" class="run-picker-note">3–64 characters: letters, numbers, spaces, underscores, or hyphens.</p>
+                        <fieldset class="create-visibility-field">
+                            <legend>Visibility</legend>
+                            <div class="visibility-options" role="radiogroup" aria-label="Run visibility">
+                                <label class="visibility-option">
+                                    <input type="radio" name="visibility" value="private" checked>
+                                    <span>
+                                        <strong>Private</strong>
+                                        <small>Members only</small>
+                                    </span>
+                                </label>
+                                <label class="visibility-option">
+                                    <input type="radio" name="visibility" value="public">
+                                    <span>
+                                        <strong>Public</strong>
+                                        <small>Anyone can view</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
+                        <p id="create-beer-run-error" class="create-run-error" role="alert" aria-live="assertive"></p>
+                        <p id="create-beer-run-status" class="create-run-status" role="status" aria-live="polite"></p>
+                    </div>
+                    <div class="create-run-actions">
+                        <button id="cancel-create-beer-run" class="run-create-secondary" type="button">Back</button>
+                        <button id="submit-create-beer-run" class="run-create-submit" type="submit">Create run</button>
+                    </div>
+                </form>
             </section>
         </section>
     </div>
@@ -288,6 +333,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=17"></script>
+    <script type="module" src="/static/js/app.js?v=20"></script>
 </body>
 </html>

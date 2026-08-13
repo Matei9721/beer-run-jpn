@@ -557,6 +557,34 @@ class TestDetailBeerRun:
         assert response.status_code == 404
 
 
+# ── Members ──────────────────────────────────────────────────────────
+
+class TestBeerRunMembers:
+    def test_public_run_roster_is_visible_to_logged_out_reader(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["public_run"]
+        response = client.get(f"/api/beer-runs/{run.id}/members")
+        assert response.status_code == 200
+        assert response.json() == [
+            {"user_id": owner_member_nonmember_run["member"].id, "username": "RunMember", "role": "member"},
+            {"user_id": owner_member_nonmember_run["owner"].id, "username": "RunOwner", "role": "owner"},
+        ]
+
+    def test_private_run_roster_requires_membership(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        member_response = client.get(
+            f"/api/beer-runs/{run.id}/members",
+            headers=_bearer(owner_member_nonmember_run["member_token"]),
+        )
+        assert member_response.status_code == 200
+        assert {item["username"] for item in member_response.json()} == {"RunOwner", "RunMember"}
+
+        stranger_response = client.get(
+            f"/api/beer-runs/{run.id}/members",
+            headers=_bearer(owner_member_nonmember_run["non_member_token"]),
+        )
+        assert stranger_response.status_code == 404
+
+
 # ── Update ───────────────────────────────────────────────────────────
 
 class TestUpdateBeerRun:

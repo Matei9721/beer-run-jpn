@@ -355,6 +355,36 @@ async def get_beer_run(
     return _beer_run_response(access.beer_run, access.membership)
 
 
+@router.get(
+    "/api/beer-runs/{beer_run_id}/members",
+    response_model=list[schemas.BeerRunMemberResponse],
+)
+async def list_beer_run_members(
+    access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
+    db: Session = Depends(get_db),
+):
+    """Return the roster when the caller can read the beer-run.
+
+    Public runs expose their roster to the same callers who can read the run;
+    private runs remain limited to members by the shared public-read policy.
+    """
+    rows = (
+        db.query(models.BeerRunMember, models.User)
+        .join(models.User, models.User.id == models.BeerRunMember.user_id)
+        .filter(models.BeerRunMember.beer_run_id == access.beer_run.id)
+        .order_by(models.User.username.collate("NOCASE"), models.User.id)
+        .all()
+    )
+    return [
+        schemas.BeerRunMemberResponse(
+            user_id=member.user_id,
+            username=user.username,
+            role=member.role,
+        )
+        for member, user in rows
+    ]
+
+
 # ── Update (Feature 4) ───────────────────────────────────────────────
 
 @router.patch(

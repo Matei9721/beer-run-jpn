@@ -887,15 +887,18 @@ button {
 
 .run-share-button {
     width: auto;
+    min-width: 96px;
     margin-left: auto;
-    padding: 6px 9px;
+    min-height: 44px;
+    padding: 10px 14px;
     border: 1px solid rgba(0, 242, 255, 0.36);
-    border-radius: 999px;
+    border-radius: 11px;
     background: rgba(0, 242, 255, 0.08);
     color: var(--accent-primary);
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.02em;
+    line-height: 1.2;
     white-space: nowrap;
 }
 
@@ -903,6 +906,174 @@ button {
 .run-share-button:focus-visible {
     background: rgba(0, 242, 255, 0.16);
     border-color: var(--accent-primary);
+}
+
+.run-invite-button,
+.invite-action-button,
+.invite-action-primary,
+.invite-action-secondary {
+    width: auto;
+    min-height: 44px;
+}
+
+.run-invite-button,
+.run-create-button,
+.invite-action-button,
+.invite-action-primary,
+.invite-action-secondary {
+    min-width: 96px;
+    text-align: center;
+}
+
+.invite-action-button,
+.invite-action-secondary {
+    padding: 10px 14px;
+    border: 1px solid rgba(0, 242, 255, 0.36);
+    border-radius: 11px;
+    background: rgba(0, 242, 255, 0.08);
+    color: var(--accent-primary);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.invite-action-primary {
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent-primary), #00a2ff);
+    color: #05070a;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.invite-action-button:hover,
+.invite-action-button:focus-visible,
+.invite-action-secondary:hover,
+.invite-action-secondary:focus-visible {
+    background: rgba(0, 242, 255, 0.16);
+    border-color: var(--accent-primary);
+}
+
+.invite-action-primary:hover,
+.invite-action-primary:focus-visible {
+    filter: brightness(1.08);
+    box-shadow: 0 5px 18px rgba(0, 242, 255, 0.3);
+}
+
+.run-invite-button {
+    margin-left: auto;
+    padding: 10px 14px;
+    border: 1px solid rgba(0, 242, 255, 0.36);
+    border-radius: 11px;
+    background: rgba(0, 242, 255, 0.08);
+    color: var(--accent-primary);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.run-invite-button:hover,
+.run-invite-button:focus-visible {
+    border-color: var(--accent-primary);
+    background: rgba(0, 242, 255, 0.16);
+}
+
+.invite-owner-view,
+.invite-owner-result {
+    display: grid;
+    gap: 12px;
+}
+
+.invite-owner-view h3 {
+    margin: 0;
+}
+
+.invite-link-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.invite-link-row input {
+    min-width: 0;
+    flex: 1;
+    overflow-x: auto;
+    font-size: 12px;
+}
+
+.invite-owner-actions,
+.invite-dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.invite-error {
+    min-height: 1.25em;
+    margin: 0;
+    color: #ff9db8;
+    white-space: pre-line;
+}
+
+.invite-status {
+    min-height: 1.25em;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.invite-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.invite-modal-backdrop[hidden] {
+    display: none;
+}
+
+.invite-dialog {
+    width: min(100%, 430px);
+    max-height: min(680px, calc(100dvh - 40px));
+    overflow-y: auto;
+    padding: 28px;
+}
+
+.invite-dialog-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.invite-dialog-kicker {
+    margin: 0;
+    color: var(--accent-primary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.invite-dialog-heading h2 {
+    margin: 6px 0 0;
+}
+
+.invite-dialog-copy {
+    margin: 22px 0 4px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+body.invite-dialog-open {
+    overflow: hidden;
 }
 
 .run-roster {
@@ -1075,11 +1246,13 @@ button {
 .run-create-button {
     width: auto;
     margin: 0 0 10px;
-    padding: 9px 14px;
+    padding: 10px 14px;
     background: rgba(0, 242, 255, 0.1);
     border: 1px solid rgba(0, 242, 255, 0.36);
     color: var(--accent-primary);
+    font-size: 13px;
     font-weight: 800;
+    line-height: 1.2;
 }
 
 .run-create-button:hover,
@@ -1207,14 +1380,35 @@ button {
 }
 
 .run-create-secondary {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 10px 14px;
+    background: rgba(0, 242, 255, 0.08);
+    border: 1px solid rgba(0, 242, 255, 0.36);
+    color: var(--accent-primary);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.run-create-secondary:hover,
+.run-create-secondary:focus-visible {
+    background: rgba(0, 242, 255, 0.16);
+    border-color: var(--accent-primary);
 }
 
 .run-create-submit {
-    background: var(--accent-primary);
+    padding: 10px 14px;
+    background: linear-gradient(135deg, var(--accent-primary), #00a2ff);
     color: #05070a;
+    font-size: 13px;
     font-weight: 800;
+    line-height: 1.2;
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+}
+
+.run-create-submit:hover,
+.run-create-submit:focus-visible {
+    filter: brightness(1.08);
+    box-shadow: 0 5px 18px rgba(0, 242, 255, 0.3);
 }
 
 .map-empty-state {
@@ -1432,5 +1626,132 @@ button {
 
     .run-choice-heading {
         gap: 6px;
+    }
+
+    .invite-modal-backdrop {
+        place-items: end center;
+        padding: 0;
+    }
+
+    .invite-dialog {
+        width: 100%;
+        max-height: 82vh;
+        padding: 22px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+        border-radius: 26px 26px 0 0;
+    }
+
+    .invite-dialog::before {
+        display: block;
+        width: 42px;
+        height: 4px;
+        margin: -7px auto 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.25);
+        content: '';
+    }
+
+.invite-link-row {
+        align-items: stretch;
+    }
+}
+
+/* Shared glass treatment for picker and invite controls. */
+.run-share-button,
+.run-invite-button,
+.run-create-button,
+.invite-action-button,
+.invite-action-secondary,
+.run-create-secondary {
+    background: linear-gradient(180deg, rgba(34, 61, 75, 0.94), rgba(16, 34, 45, 0.96));
+    border: 1px solid rgba(0, 242, 255, 0.42);
+    color: #e8fdff;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 6px 18px rgba(0, 0, 0, 0.16);
+    transition: transform 0.18s ease, border-color 0.18s ease,
+        background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.run-share-button:hover,
+.run-share-button:focus-visible,
+.run-invite-button:hover,
+.run-invite-button:focus-visible,
+.run-create-button:hover,
+.run-create-button:focus-visible,
+.invite-action-button:hover,
+.invite-action-button:focus-visible,
+.invite-action-secondary:hover,
+.invite-action-secondary:focus-visible,
+.run-create-secondary:hover,
+.run-create-secondary:focus-visible {
+    background: linear-gradient(180deg, rgba(43, 82, 98, 0.98), rgba(19, 44, 57, 0.98));
+    border-color: rgba(0, 242, 255, 0.8);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 8px 22px rgba(0, 242, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.run-share-button:active,
+.run-invite-button:active,
+.run-create-button:active,
+.invite-action-button:active,
+.invite-action-secondary:active,
+.run-create-secondary:active {
+    transform: translateY(0);
+}
+
+.invite-action-primary,
+.run-create-submit {
+    border: 1px solid rgba(184, 255, 255, 0.7);
+    background: linear-gradient(135deg, #55f7ff, #00b8e8 72%, #008fd0);
+    color: #041217;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 8px 22px rgba(0, 205, 235, 0.24);
+    transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.invite-action-primary:hover,
+.invite-action-primary:focus-visible,
+.run-create-submit:hover,
+.run-create-submit:focus-visible {
+    filter: brightness(1.06) saturate(1.08);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.52),
+        0 10px 26px rgba(0, 205, 235, 0.34);
+    transform: translateY(-1px);
+}
+
+.invite-action-primary:active,
+.run-create-submit:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+    .run-share-button,
+    .run-invite-button,
+    .run-create-button,
+    .invite-action-button,
+    .invite-action-primary,
+    .invite-action-secondary,
+    .run-create-secondary,
+    .run-create-submit {
+        min-width: 96px;
+        min-height: 44px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+    }
+
+    .run-picker-current {
+        gap: 6px;
+        padding: 8px 9px;
+    }
+
+    .invite-owner-actions,
+    .invite-dialog-actions,
+    .create-run-actions {
+        gap: 8px;
     }
 }

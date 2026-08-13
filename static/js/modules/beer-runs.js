@@ -1,4 +1,5 @@
 import { isCreatedBeerRunResponse, validateBeerRunName } from './beer-run-create.js?v=3';
+import { validateOwnerInviteResponse } from './invites.js?v=3';
 
 const STORAGE_PREFIX = 'beerRunJpn.selectedRun.user.';
 
@@ -67,7 +68,7 @@ function runButton(run, currentRunId, selectRun) {
     return button;
 }
 
-export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onFetchMembers }) {
+export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onFetchMembers, onCreateInvite }) {
     const trigger = document.getElementById('beer-run-trigger');
     const triggerName = document.getElementById('beer-run-trigger-name');
     const triggerMeta = document.getElementById('beer-run-trigger-meta');
@@ -82,6 +83,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const rosterStatus = document.getElementById('beer-run-roster-status');
     const rosterList = document.getElementById('beer-run-roster-list');
     const shareButton = document.getElementById('share-beer-run');
+    const inviteButton = document.getElementById('invite-beer-run');
     const membershipSection = document.getElementById('beer-run-members-section');
     const memberships = document.getElementById('beer-run-members');
     const createAction = document.getElementById('create-beer-run');
@@ -97,6 +99,18 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const searchInput = document.getElementById('public-run-search');
     const searchStatus = document.getElementById('public-run-search-status');
     const searchResults = document.getElementById('public-run-results');
+    const inviteView = document.getElementById('invite-beer-run-view');
+    const inviteOwnerError = document.getElementById('invite-owner-error');
+    const inviteOwnerStatus = document.getElementById('invite-owner-status');
+    const inviteOwnerResult = document.getElementById('invite-owner-result');
+    const inviteOwnerUrl = document.getElementById('invite-owner-url');
+    const inviteOwnerActionsEmpty = document.getElementById('invite-owner-actions-empty');
+    const generateInvite = document.getElementById('generate-invite-link');
+    const retryInvite = document.getElementById('retry-invite-link');
+    const copyInvite = document.getElementById('copy-invite-link');
+    const shareInvite = document.getElementById('share-invite-link');
+    const backInvite = document.getElementById('back-invite-link');
+    const cancelInvite = document.getElementById('cancel-invite-link');
 
     let currentRun = null;
     let myRuns = [];
@@ -109,6 +123,11 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     let createPending = false;
     let memberGeneration = 0;
     let memberController = null;
+    let inviteMode = false;
+    let invitePending = false;
+    let inviteGeneration = 0;
+    let inviteLastFocusedElement = null;
+    let inviteData = null;
 
     function selectable(run) {
         void Promise.resolve(onSelectRun(run)).catch(() => {});
@@ -124,6 +143,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             triggerName.textContent = 'Choose a beer run';
             triggerMeta.textContent = '';
             currentSummary.hidden = true;
+            inviteButton.hidden = true;
             return;
         }
         triggerName.textContent = currentRun.name;
@@ -131,6 +151,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         triggerMeta.textContent = `${currentRun.is_public ? 'Public' : 'Private'} \u00b7 ${access}`;
         currentSummaryName.textContent = currentRun.name;
         currentSummary.hidden = false;
+        inviteButton.hidden = !(identity && currentRun.current_user_role === 'owner');
     }
 
     function renderMemberships() {
@@ -194,6 +215,117 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     function setCreateFeedback(message = '', assertive = false) {
         createError.textContent = assertive ? message : '';
         createStatus.textContent = assertive ? '' : message;
+    }
+
+    function setInviteFeedback(message = '', assertive = false) {
+        inviteOwnerError.textContent = assertive ? message : '';
+        inviteOwnerStatus.textContent = assertive ? '' : message;
+    }
+
+    function resetInviteView({ restoreFocus = false } = {}) {
+        inviteGeneration += 1;
+        inviteMode = false;
+        invitePending = false;
+        inviteData = null;
+        inviteView.hidden = true;
+        libraryView.hidden = false;
+        inviteOwnerResult.hidden = true;
+        inviteOwnerActionsEmpty.hidden = false;
+        retryInvite.hidden = true;
+        shareInvite.hidden = true;
+        inviteOwnerUrl.value = '';
+        generateInvite.disabled = false;
+        generateInvite.textContent = 'Create invite link';
+        setInviteFeedback();
+        document.getElementById('beer-run-picker-title').textContent = 'Choose a run';
+        pickerIntro.textContent = 'Switch the whole trip view, or discover a public crew.';
+        renderTrigger();
+        if (restoreFocus) (inviteLastFocusedElement || inviteButton)?.focus?.();
+        inviteLastFocusedElement = null;
+    }
+
+    function openInvite() {
+        if (!identity || !currentRun || currentRun.current_user_role !== 'owner' || invitePending) return;
+        inviteLastFocusedElement = document.activeElement;
+        inviteMode = true;
+        libraryView.hidden = true;
+        createView.hidden = true;
+        inviteView.hidden = false;
+        currentSummary.hidden = true;
+        rosterSection.hidden = true;
+        document.getElementById('beer-run-picker-title').textContent = 'Invite people';
+        pickerIntro.textContent = 'Share a permanent link that lets someone join this run.';
+        setInviteFeedback();
+        generateInvite.focus();
+    }
+
+    function renderInviteResponse(result) {
+        const data = result?.data;
+        if (!result?.ok || !data || (result.status !== 200 && result.status !== 201)
+            || Number(data.beer_run_id) !== Number(currentRun?.id)) return false;
+        const validated = validateOwnerInviteResponse(data, currentRun?.id);
+        if (!validated) return false;
+        inviteData = data;
+        inviteOwnerUrl.value = validated.url;
+        inviteOwnerResult.hidden = false;
+        inviteOwnerActionsEmpty.hidden = true;
+        retryInvite.hidden = false;
+        shareInvite.hidden = !navigator.share;
+        setInviteFeedback(`Invite link ready for ${data.beer_run_name}.`);
+        return true;
+    }
+
+    async function requestInvite() {
+        if (invitePending || !currentRun || currentRun.current_user_role !== 'owner') return;
+        const generation = ++inviteGeneration;
+        invitePending = true;
+        generateInvite.disabled = true;
+        retryInvite.disabled = true;
+        inviteOwnerResult.hidden = true;
+        inviteOwnerActionsEmpty.hidden = false;
+        inviteOwnerUrl.value = '';
+        inviteData = null;
+        setInviteFeedback('Creating invite link...');
+        const result = await onCreateInvite?.(currentRun);
+        if (generation !== inviteGeneration || inviteMode === false) return;
+        retryInvite.disabled = false;
+        invitePending = false;
+        if (result?.ok && renderInviteResponse(result)) return;
+        if (result?.status === 401 && result?.handled) {
+            resetInviteView();
+            close({ focusElement: trigger });
+            return;
+        }
+        setInviteFeedback(result?.status === 403
+            ? 'You are no longer the owner of this run.'
+            : 'We could not create the invite link. Try again.', true);
+        retryInvite.hidden = false;
+        generateInvite.disabled = false;
+        inviteOwnerActionsEmpty.hidden = false;
+    }
+
+    async function copyInviteLink() {
+        if (!inviteData || !inviteOwnerUrl.value) return;
+        try {
+            await navigator.clipboard.writeText(inviteOwnerUrl.value);
+            setInviteFeedback('Invite link copied.');
+        } catch (error) {
+            window.prompt('Copy this invite link', inviteOwnerUrl.value);
+        }
+    }
+
+    async function shareInviteLink() {
+        if (!inviteData || !navigator.share) return;
+        try {
+            await navigator.share({
+                title: `${inviteData.beer_run_name} · BeerRunJPN`,
+                text: `Join ${inviteData.beer_run_name} in BeerRunJPN`,
+                url: inviteOwnerUrl.value,
+            });
+            setInviteFeedback('Share sheet opened.');
+        } catch (error) {
+            if (error?.name !== 'AbortError') setInviteFeedback('Invite link is ready to copy.');
+        }
     }
 
     function resetCreateView({ restoreFocus = false } = {}) {
@@ -367,6 +499,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     function close({ focusElement = null } = {}) {
         if (dialog.hidden) return;
         if (createMode) resetCreateView();
+        if (inviteMode) resetInviteView();
         dialog.hidden = true;
         trigger.setAttribute('aria-expanded', 'false');
         if (searchController) searchController.abort();
@@ -380,6 +513,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     trigger.addEventListener('click', open);
     closeButton.addEventListener('click', close);
     createAction.addEventListener('click', openCreate);
+    inviteButton.addEventListener('click', openInvite);
     createCancel.addEventListener('click', () => {
         resetCreateView({ restoreFocus: true });
         if (!dialog.hidden) void loadRoster();
@@ -388,6 +522,12 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     shareButton.addEventListener('click', () => {
         if (currentRun) void onShareRun?.(currentRun);
     });
+    generateInvite.addEventListener('click', requestInvite);
+    retryInvite.addEventListener('click', requestInvite);
+    copyInvite.addEventListener('click', copyInviteLink);
+    shareInvite.addEventListener('click', shareInviteLink);
+    backInvite.addEventListener('click', () => resetInviteView({ restoreFocus: true }));
+    cancelInvite.addEventListener('click', () => resetInviteView({ restoreFocus: true }));
     dialog.addEventListener('click', event => {
         if (event.target === dialog) close();
     });
@@ -407,11 +547,13 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             status.textContent = message;
         },
         setIdentity(user) {
-            if (!user && createMode) {
+            if ((createMode || inviteMode) && (!user || user.id !== identity?.id)) {
                 resetCreateView();
+                resetInviteView();
                 if (!dialog.hidden) close({ focusElement: trigger });
             }
             identity = user;
+            renderTrigger();
             renderMemberships();
             if (!dialog.hidden) void loadRoster();
         },
@@ -421,10 +563,18 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         },
         upsertMembership,
         setCurrentRun(run) {
+            if (inviteMode && Number(run?.id) !== Number(currentRun?.id)) resetInviteView();
             currentRun = run || null;
             renderTrigger();
             renderMemberships();
             if (!dialog.hidden) void loadRoster();
+        },
+        isOwner() {
+            return Boolean(identity && currentRun?.current_user_role === 'owner');
+        },
+        hasMembership(beerRunId) {
+            return Boolean(identity && myRuns.some(run => Number(run.id) === Number(beerRunId)
+                && (run.current_user_role === 'member' || run.current_user_role === 'owner')));
         },
         announce(message) {
             status.textContent = message;

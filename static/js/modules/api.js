@@ -144,6 +144,51 @@ export async function fetchBeerRun(beerRunId, token = null, signal = null) {
     }
 }
 
+async function _inviteRequest(path, options = {}) {
+    try {
+        const response = await fetch(path, options);
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: typeof payload?.detail === 'string' ? payload.detail : null,
+                network: false,
+            };
+        }
+        return { ok: true, status: response.status, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
+export function createBeerRunInvite(beerRunId, token, signal = null) {
+    return _inviteRequest(`/api/beer-runs/${encodeURIComponent(beerRunId)}/invites`, {
+        method: 'POST',
+        headers: _authHeaders(token),
+        signal,
+    });
+}
+
+export function previewInvite(code, signal = null) {
+    return _inviteRequest(`/api/invites/${encodeURIComponent(code)}`, { signal });
+}
+
+export function acceptInvite(code, token, signal = null) {
+    return _inviteRequest(`/api/invites/${encodeURIComponent(code)}/accept`, {
+        method: 'POST',
+        headers: _authHeaders(token),
+        signal,
+    });
+}
+
 export async function fetchLeaderboard(beerRunId, token = null, signal = null) {
     try {
         const response = await fetch(`/api/beer-runs/${beerRunId}/leaderboard`, {

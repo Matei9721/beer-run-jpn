@@ -1,7 +1,8 @@
-import * as api from './modules/api.js?v=15';
+import * as api from './modules/api.js?v=16';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as beerRuns from './modules/beer-runs.js?v=6';
+import * as beerRuns from './modules/beer-runs.js?v=8';
+import * as invites from './modules/invites.js?v=3';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
 import * as mapMod from './modules/map.js?v=11';
 import * as ui from './modules/ui.js?v=11';
@@ -21,12 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let contextGeneration = 0;
     let refreshGeneration = 0;
     let refreshController = null;
+    let inviteFlow = null;
 
     const picker = beerRuns.createBeerRunPicker({
         onSelectRun: run => selectRun(run, { persist: Boolean(currentUser) }),
         onSearchPublicRuns: (query, signal) => api.searchPublicBeerRuns(query, auth.getToken(), signal),
         onShareRun: shareRun,
         onCreateRun: handleCreateBeerRun,
+        onCreateInvite: handleCreateInvite,
         onFetchMembers: (beerRunId, signal) => api.fetchBeerRunMembers(beerRunId, auth.getToken(), signal),
     });
 
@@ -87,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function shareUrlForRun(run) {
         const url = new URL(window.location.href);
+        url.searchParams.delete('invite');
         url.searchParams.set('run', String(run.id));
         return url.toString();
     }
@@ -175,6 +179,83 @@ document.addEventListener('DOMContentLoaded', () => {
         await refreshData(true);
         return { ok: true, data: created };
     }
+
+    async function handleCreateInvite(run) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token || !run || Number(currentRun?.id) !== Number(run.id)) {
+            return { ok: false, status: 401 };
+        }
+        const result = await api.createBeerRunInvite(run.id, token);
+        if (generation !== contextGeneration || currentUser?.id !== user.id || auth.getToken() !== token
+            || Number(currentRun?.id) !== Number(run.id)) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (result.status === 401) {
+            handleRejectedSession();
+            return { ok: false, status: 401, handled: true };
+        }
+        if (result.status === 403) {
+            await initializeRunContext({ notice: 'Your owner access changed. Refreshing runs.' });
+        } else if (result.status === 404) {
+            await recoverFromAccessLoss(run);
+        }
+        return result;
+    }
+
+    async function reconcileInviteMembership(beerRunId, user, token, generation) {
+        if (!user || !token) return null;
+        const result = await api.fetchMyBeerRuns(token);
+        if (generation !== contextGeneration || currentUser?.id !== user.id || auth.getToken() !== token) return null;
+        if (!result.ok) {
+            if (result.status === 401) handleRejectedSession();
+            return null;
+        }
+        return result.data.find(run => Number(run.id) === Number(beerRunId)
+            && (run.current_user_role === 'member' || run.current_user_role === 'owner')) || null;
+    }
+
+    async function handleAcceptedInvite(run) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token) return false;
+        picker.upsertMembership(run);
+        setCurrentRun(run, { persist: true, message: `Joined ${run.name}.` });
+        picker.setAvailability('ready');
+        await refreshData(true);
+        if (generation !== contextGeneration || currentUser?.id !== user.id || auth.getToken() !== token) return false;
+        const reconciled = await api.fetchMyBeerRuns(token);
+        if (generation !== contextGeneration || currentUser?.id !== user.id || auth.getToken() !== token) return false;
+        if (reconciled.status === 401) {
+            handleRejectedSession();
+            return false;
+        }
+        if (reconciled.ok) {
+            picker.setMemberships(reconciled.data);
+        } else {
+            picker.announce('Joined run. My runs could not refresh; try again later.');
+        }
+        return true;
+    }
+
+    inviteFlow = invites.createInviteFlow({
+        getCurrentUser: () => currentUser,
+        getToken: () => auth.getToken(),
+        getContextGeneration: () => contextGeneration,
+        isMemberOfRun: beerRunId => picker.hasMembership(beerRunId)
+            || (Number(currentRun?.id) === Number(beerRunId)
+                && (currentRun?.current_user_role === 'member' || currentRun?.current_user_role === 'owner')),
+        onOpenAuth: mode => {
+            auth.openLoginModal();
+            auth.setAuthMode(mode);
+        },
+        onAccepted: handleAcceptedInvite,
+        onRejectedSession: handleRejectedSession,
+        onReconcile: reconcileInviteMembership,
+        onAllowStartup: showStartupModals,
+    });
 
     async function resolveDefaultRun(signal = null) {
         const result = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, auth.getToken(), signal);
@@ -379,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showStartupModals() {
         if (!authValidationComplete || !startupModalsPending) return;
+        if (inviteFlow?.isActive()) return;
         startupModalsPending = false;
         if (localStorage.getItem(INSTRUCTIONS_STORAGE_KEY) !== 'true') {
             document.getElementById('instructions-modal').style.display = 'flex';
@@ -390,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetIdentity() {
         contextGeneration += 1;
         cancelRefresh();
+        inviteFlow?.invalidate();
         currentUser = null;
         currentRun = null;
         picker.setIdentity(null);
@@ -459,7 +542,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('login-btn').addEventListener('click', auth.openLoginModal);
+    document.getElementById('login-btn').addEventListener('click', () => {
+        inviteFlow?.suspendForAuth();
+        auth.openLoginModal();
+    });
     document.getElementById('logout-btn').addEventListener('click', () => {
         auth.removeToken();
         resetIdentity();
@@ -467,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('close-login').addEventListener('click', () => {
         auth.closeLoginModal();
-        showStartupModals();
+        if (!inviteFlow?.authClosed()) showStartupModals();
     });
     document.getElementById('close-user-modal').addEventListener('click', ui.clearUserModal);
 
@@ -475,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const loginModal = document.getElementById('login-modal');
         if (event.target === loginModal) {
             auth.closeLoginModal();
-            showStartupModals();
+            if (!inviteFlow?.authClosed()) showStartupModals();
         }
         if (event.target === document.getElementById('user-modal')) ui.clearUserModal();
         if (event.target === document.getElementById('instructions-modal')) closeInstructionsModal();
@@ -487,8 +573,15 @@ document.addEventListener('DOMContentLoaded', () => {
         auth.closeLoginModal();
         document.getElementById('login-form').reset();
         resetIdentity();
-        await establishAuthenticatedContext();
-        showStartupModals();
+        const established = await establishAuthenticatedContext();
+        const resumedInvite = inviteFlow?.resumeAfterAuth();
+        if (!resumedInvite && inviteFlow?.authClosed()) {
+            // Restore an invite preview suspended for ordinary header auth.
+        } else if (!resumedInvite && !inviteFlow?.isActive()) {
+            showStartupModals();
+        } else if (!established && inviteFlow?.isActive()) {
+            inviteFlow.authClosed();
+        }
     }
 
     document.getElementById('login-form').addEventListener('submit', async event => {
@@ -652,7 +745,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     (async () => {
         const authPromptShown = await validateStoredSession();
-        if (!authPromptShown) showStartupModals();
+        const inviteShown = inviteFlow.initialize();
+        if (inviteShown) auth.closeLoginModal();
+        if (!authPromptShown && !inviteShown) showStartupModals();
         const config = await api.fetchConfig();
         ui.renderDrinkOptions(config);
         ui.requestLocation(latInput, lngInput, locationStatus);

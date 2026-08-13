@@ -64,7 +64,7 @@ function runButton(run, currentRunId, selectRun) {
     return button;
 }
 
-export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns }) {
+export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun }) {
     const trigger = document.getElementById('beer-run-trigger');
     const triggerName = document.getElementById('beer-run-trigger-name');
     const triggerMeta = document.getElementById('beer-run-trigger-meta');
@@ -74,6 +74,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns }) {
     const status = document.getElementById('beer-run-picker-status');
     const currentSummary = document.getElementById('beer-run-picker-current');
     const currentSummaryName = document.getElementById('beer-run-picker-current-name');
+    const shareButton = document.getElementById('share-beer-run');
     const membershipSection = document.getElementById('beer-run-members-section');
     const memberships = document.getElementById('beer-run-members');
     const searchInput = document.getElementById('public-run-search');
@@ -208,6 +209,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns }) {
 
     trigger.addEventListener('click', open);
     closeButton.addEventListener('click', close);
+    shareButton.addEventListener('click', () => {
+        if (currentRun) void onShareRun?.(currentRun);
+    });
     dialog.addEventListener('click', event => {
         if (event.target === dialog) close();
     });

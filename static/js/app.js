@@ -1,7 +1,7 @@
 import * as api from './modules/api.js?v=13';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as beerRuns from './modules/beer-runs.js?v=2';
+import * as beerRuns from './modules/beer-runs.js?v=3';
 import * as mapMod from './modules/map.js?v=10';
 import * as ui from './modules/ui.js?v=10';
 
@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const picker = beerRuns.createBeerRunPicker({
         onSelectRun: run => selectRun(run, { persist: Boolean(currentUser) }),
         onSearchPublicRuns: (query, signal) => api.searchPublicBeerRuns(query, auth.getToken(), signal),
+        onShareRun: shareRun,
     });
 
     function canWriteCurrentRun() {
@@ -74,6 +75,43 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('sync-dot').classList.toggle('syncing', syncing);
     }
 
+    function sharedRunIdFromUrl() {
+        const value = new URL(window.location.href).searchParams.get('run');
+        return value && /^\d+$/.test(value) ? value : null;
+    }
+
+    function shareUrlForRun(run) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('run', String(run.id));
+        return url.toString();
+    }
+
+    async function shareRun(run) {
+        const url = shareUrlForRun(run);
+        const shareData = {
+            title: `${run.name} · BeerRunJPN`,
+            text: `Open ${run.name} in BeerRunJPN`,
+            url,
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+                picker.announce('Share sheet opened.');
+                return;
+            } catch (error) {
+                if (error?.name === 'AbortError') return;
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(url);
+            picker.announce('Run link copied.');
+        } catch (error) {
+            window.prompt('Copy this run link', url);
+        }
+    }
+
     async function resolveDefaultRun(signal = null) {
         const result = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, auth.getToken(), signal);
         if (!result.ok) return { run: null, reason: result.network ? 'network' : 'missing' };
@@ -99,7 +137,14 @@ document.addEventListener('DOMContentLoaded', () => {
         picker.setMemberships(myRuns);
 
         let selected = null;
-        if (currentUser) {
+        const sharedRunId = sharedRunIdFromUrl();
+        if (sharedRunId) {
+            const sharedResult = await api.fetchBeerRun(sharedRunId, auth.getToken());
+            if (generation !== contextGeneration) return;
+            if (sharedResult.ok) selected = sharedResult.data;
+        }
+
+        if (!selected && currentUser) {
             const storedRunId = beerRuns.readSelectedRunId(currentUser.id);
             if (storedRunId) {
                 selected = myRuns.find(run => Number(run.id) === Number(storedRunId)) || null;
@@ -110,6 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (storedResult.status === 404) beerRuns.removeSelectedRunId(currentUser.id);
                 }
             }
+        }
+
+        if (!selected && currentUser) {
+            selected = myRuns.find(run => !run.is_public)
+                || myRuns.find(run => run.is_public)
+                || null;
         }
 
         if (!selected) {
@@ -147,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         picker.setCurrentRun(null);
         clearTripState('This beer run is no longer available.');
         updateAuthForContext();
-        await initializeRunContext({ notice: 'Your selected run is no longer available. Showing BeerRunJPN instead.' });
+        await initializeRunContext({ notice: 'Your selected run is no longer available. Choosing your default run instead.' });
     }
 
     async function refreshData(isManual = false, { allowFallback = true } = {}) {

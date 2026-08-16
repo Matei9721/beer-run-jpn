@@ -12,6 +12,8 @@ export const markerGroup = L.markerClusterGroup({
 
 const markersByEntryId = new Map();
 let highlightLayer = null;
+let highlightTimeout = null;
+let visualGeneration = 0;
 
 // Leaflet icon setup
 delete L.Icon.Default.prototype._getIconUrl;
@@ -53,11 +55,33 @@ export function closeDetail() {
     detailSheet.classList.remove('active');
 }
 
+export function clearRunState() {
+    visualGeneration += 1;
+    markerGroup.clearLayers();
+    markersByEntryId.clear();
+    map.closePopup();
+    closeDetail();
+    detailTitle.innerText = 'Drink Detail';
+    detailMeta.replaceChildren();
+    detailImg.removeAttribute('src');
+    detailImg.style.display = 'none';
+    if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+        highlightTimeout = null;
+    }
+    if (highlightLayer) {
+        map.removeLayer(highlightLayer);
+        highlightLayer = null;
+    }
+}
+
 export function focusEntry(entry) {
     const marker = markersByEntryId.get(Number(entry.id));
     if (!marker) return false;
+    const requestGeneration = visualGeneration;
 
     markerGroup.zoomToShowLayer(marker, () => {
+        if (requestGeneration !== visualGeneration) return;
         const latLng = marker.getLatLng();
         const targetZoom = Math.max(map.getZoom(), 16);
 
@@ -79,11 +103,13 @@ export function focusEntry(entry) {
             interactive: false
         }).addTo(map);
 
-        setTimeout(() => {
+        if (highlightTimeout) clearTimeout(highlightTimeout);
+        highlightTimeout = setTimeout(() => {
             if (highlightLayer) {
                 map.removeLayer(highlightLayer);
                 highlightLayer = null;
             }
+            highlightTimeout = null;
         }, 3500);
     });
 
@@ -97,6 +123,15 @@ window.openDetail = function(entryJson) {
 };
 
 export function updateMarkers(entries, shouldZoom = true) {
+    visualGeneration += 1;
+    if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+        highlightTimeout = null;
+    }
+    if (highlightLayer) {
+        map.removeLayer(highlightLayer);
+        highlightLayer = null;
+    }
     markerGroup.clearLayers();
     markersByEntryId.clear();
     entries.forEach(entry => {

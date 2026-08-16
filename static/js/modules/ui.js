@@ -184,7 +184,7 @@ function appendUserDrinkBatch(userEntries, list, button) {
 // --- Leaderboard Render ---
 export function renderLeaderboard(data, leaderboardContainer) {
     if (data.length === 0) {
-        leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>No entries found.</p></div>";
+        leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>No drinks logged in this run yet.</p></div>";
         return;
     }
 
@@ -222,6 +222,14 @@ export function renderLeaderboard(data, leaderboardContainer) {
 
     html += `</div>`;
     leaderboardContainer.innerHTML = html;
+}
+
+export function renderRunLoading(leaderboardContainer) {
+    leaderboardContainer.innerHTML = "<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>Loading run data...</p></div>";
+}
+
+export function renderRunUnavailable(leaderboardContainer, message) {
+    leaderboardContainer.innerHTML = `<div class='card'><p style='color: var(--text-secondary); text-align: center; margin: 0;'>${message}</p></div>`;
 }
 
 // --- User Profile Modal ---
@@ -303,4 +311,9 @@ export function showUserModal(username, leaderboard, entries, onEntrySelect = nu
             if (entry) onEntrySelect(entry);
         });
     }
+}
+
+export function clearUserModal() {
+    document.getElementById('user-modal').style.display = 'none';
+    document.getElementById('user-modal-content').replaceChildren();
 }

@@ -18,13 +18,15 @@ def test_wrapped_page_and_api(client):
     assert len(data["slides"]) >= 1
 
 
-def test_build_wrapped_data_skips_empty_images(tmp_path):
+def test_build_wrapped_data_accepts_flat_and_nested_images_and_skips_empty(tmp_path):
     db_path = tmp_path / "trip.db"
     root = tmp_path
     uploads = root / "static" / "uploads"
     uploads.mkdir(parents=True)
     (uploads / "valid.jpg").write_bytes(b"not-empty")
-    (uploads / "valid2.jpg").write_bytes(b"also-not-empty")
+    nested = uploads / "beer_runs" / "7"
+    nested.mkdir(parents=True)
+    (nested / "valid2.jpg").write_bytes(b"also-not-empty")
     (uploads / "empty.jpg").write_bytes(b"")
 
     conn = sqlite3.connect(db_path)
@@ -57,7 +59,7 @@ def test_build_wrapped_data_skips_empty_images(tmp_path):
         values
             (1, 'Beer', 'Proof', 0.5, 5.0, 35.7, 139.7, 'static/uploads/valid.jpg', '2026-03-24 10:00:00', 1),
             (2, 'Whiskey', 'Broken', 0.05, 55.0, 35.7, 139.7, 'static/uploads/empty.jpg', '2026-03-24 11:00:00', 1),
-            (3, 'Highball', 'Proof 2', 0.35, 7.0, 35.96, 139.59, 'static/uploads/valid2.jpg', '2026-03-25 11:00:00', 1)
+            (3, 'Highball', 'Proof 2', 0.35, 7.0, 35.96, 139.59, 'static\\uploads\\beer_runs\\7\\valid2.jpg', '2026-03-25 11:00:00', 1)
         """
     )
     conn.commit()
@@ -71,7 +73,8 @@ def test_build_wrapped_data_skips_empty_images(tmp_path):
     assert data["stats"]["total_entries"] == 3
     assert data["stats"]["total_photos"] == 2
     assert "/static/uploads/valid.jpg" in rendered
-    assert "/static/uploads/valid2.jpg" in rendered
+    assert "/static/uploads/beer_runs/7/valid2.jpg" in rendered
+    assert "static\\\\uploads" not in rendered
     assert "/static/uploads/empty.jpg" not in rendered
 
     layouts = {slide["layout"] for slide in data["slides"]}

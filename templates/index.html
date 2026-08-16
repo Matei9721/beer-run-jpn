@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=4">
-    <link rel="stylesheet" href="/static/css/auth.css?v=8">
+    <link rel="stylesheet" href="/static/css/style.css?v=23">
+    <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -30,6 +30,16 @@
                 </button>
             </div>
         </header>
+
+        <section class="current-run-panel" aria-label="Current beer run">
+            <button id="beer-run-trigger" class="beer-run-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" disabled>
+                <span class="beer-run-trigger-icon" aria-hidden="true">🍺</span>
+                <span class="beer-run-trigger-copy">
+                    <span id="beer-run-trigger-name">Loading beer run...</span>
+                    <span id="beer-run-trigger-meta"></span>
+                </span>
+            </button>
+        </section>
 
         <nav class="tabs">
             <button class="tab-btn active" data-tab="leaderboard-tab">RANKING</button>
@@ -55,6 +65,7 @@
                     </select>
                 </div>
                 <div id="map"></div>
+                <p id="map-empty-state" class="map-empty-state" role="status" aria-live="polite" hidden>No mapped drinks in this run yet.</p>
             </div>
         </section>
 
@@ -108,6 +119,124 @@
         </section>
     </div>
 
+    <div id="beer-run-picker" class="run-picker-backdrop" hidden>
+        <section id="beer-run-picker-sheet" class="run-picker-sheet card" role="dialog" aria-modal="true" aria-labelledby="beer-run-picker-title">
+            <div class="run-picker-heading">
+                <div>
+                    <p class="run-picker-kicker">Beer runs</p>
+                    <h2 id="beer-run-picker-title">Choose a run</h2>
+                    <p class="run-picker-intro">Switch the whole trip view, or discover a public crew.</p>
+                </div>
+                <button id="close-beer-run-picker" class="run-picker-close" type="button" aria-label="Close run selector">&times;</button>
+            </div>
+            <p id="beer-run-picker-status" class="run-picker-status" role="status" aria-live="polite"></p>
+            <div id="beer-run-picker-current" class="run-picker-current" hidden>
+                <span class="run-picker-current-label">Viewing</span>
+                <span id="beer-run-picker-current-name"></span>
+                <button id="share-beer-run" class="run-share-button" type="button">Share link</button>
+                <button id="invite-beer-run" class="run-invite-button" type="button" hidden>Invite people</button>
+            </div>
+            <section id="beer-run-roster" class="run-roster" hidden aria-labelledby="beer-run-roster-title">
+                <h3 id="beer-run-roster-title">Members</h3>
+                <p id="beer-run-roster-status" class="run-picker-note" role="status" aria-live="polite"></p>
+                <ul id="beer-run-roster-list" class="run-roster-list"></ul>
+            </section>
+            <div id="beer-run-library-view">
+            <section id="beer-run-members-section">
+                <h3>My runs</h3>
+                <button id="create-beer-run" class="run-create-button" type="button" hidden>Create run</button>
+                <div id="beer-run-members" class="run-choice-list"></div>
+            </section>
+            <section class="public-run-search-section" aria-labelledby="public-run-search-title">
+                <h3 id="public-run-search-title">Browse public runs</h3>
+                <label for="public-run-search">Search by name</label>
+                <input id="public-run-search" type="search" autocomplete="off" placeholder="Type 2 or more characters">
+                <p id="public-run-search-status" class="run-picker-note" role="status" aria-live="polite"></p>
+                <div id="public-run-results" class="run-choice-list"></div>
+            </section>
+            </div>
+            <section id="create-beer-run-view" class="create-run-view" hidden aria-labelledby="create-beer-run-title">
+                <h3 id="create-beer-run-title">Create a run</h3>
+                <p class="run-picker-intro">Choose who can see the run, then invite people later.</p>
+                <form id="create-beer-run-form" novalidate>
+                    <div class="create-run-field">
+                        <label for="create-beer-run-name">Run name</label>
+                        <input id="create-beer-run-name" name="name" type="text" maxlength="64" autocomplete="off" required aria-describedby="create-beer-run-help create-beer-run-error">
+                        <p id="create-beer-run-help" class="run-picker-note">3–64 characters: letters, numbers, spaces, underscores, or hyphens.</p>
+                        <fieldset class="create-visibility-field">
+                            <legend>Visibility</legend>
+                            <div class="visibility-options" role="radiogroup" aria-label="Run visibility">
+                                <label class="visibility-option">
+                                    <input type="radio" name="visibility" value="private" checked>
+                                    <span>
+                                        <strong>Private</strong>
+                                        <small>Members only</small>
+                                    </span>
+                                </label>
+                                <label class="visibility-option">
+                                    <input type="radio" name="visibility" value="public">
+                                    <span>
+                                        <strong>Public</strong>
+                                        <small>Anyone can view</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
+                        <p id="create-beer-run-error" class="create-run-error" role="alert" aria-live="assertive"></p>
+                        <p id="create-beer-run-status" class="create-run-status" role="status" aria-live="polite"></p>
+                    </div>
+                    <div class="create-run-actions">
+                        <button id="cancel-create-beer-run" class="run-create-secondary" type="button">Back</button>
+                        <button id="submit-create-beer-run" class="run-create-submit" type="submit">Create run</button>
+                    </div>
+                </form>
+            </section>
+            <section id="invite-beer-run-view" class="invite-owner-view" hidden aria-labelledby="invite-beer-run-title">
+                <h3 id="invite-beer-run-title">Invite people</h3>
+                <p class="run-picker-intro">Create or retrieve the permanent link for this run.</p>
+                <p id="invite-owner-error" class="invite-error" role="alert" aria-live="assertive"></p>
+                <p id="invite-owner-status" class="invite-status" role="status" aria-live="polite"></p>
+                <div id="invite-owner-result" class="invite-owner-result" hidden>
+                    <label for="invite-owner-url">Invite link</label>
+                    <div class="invite-link-row">
+                        <input id="invite-owner-url" type="text" readonly autocomplete="off" aria-describedby="invite-owner-status">
+                        <button id="copy-invite-link" class="invite-action-button" type="button">Copy</button>
+                    </div>
+                    <div class="invite-owner-actions">
+                        <button id="share-invite-link" class="invite-action-button" type="button" hidden>Share</button>
+                        <button id="retry-invite-link" class="invite-action-button" type="button" hidden>Retry</button>
+                        <button id="back-invite-link" class="invite-action-secondary" type="button">Back</button>
+                    </div>
+                </div>
+                <div id="invite-owner-actions-empty" class="invite-owner-actions">
+                    <button id="generate-invite-link" class="invite-action-primary" type="button">Create invite link</button>
+                    <button id="cancel-invite-link" class="invite-action-secondary" type="button">Back</button>
+                </div>
+            </section>
+        </section>
+    </div>
+
+    <div id="invite-modal" class="invite-modal-backdrop" hidden>
+        <section id="invite-dialog" class="invite-dialog card" role="dialog" aria-modal="true" aria-labelledby="invite-dialog-title">
+            <div class="invite-dialog-heading">
+                <div>
+                    <p class="invite-dialog-kicker">BeerRunJPN invite</p>
+                    <h2 id="invite-dialog-title">Join a beer run</h2>
+                </div>
+                <button id="close-invite" class="run-picker-close" type="button" aria-label="Close invite">&times;</button>
+            </div>
+            <p id="invite-dialog-copy" class="invite-dialog-copy">Checking this invite...</p>
+            <p id="invite-dialog-status" class="invite-status" role="status" aria-live="polite"></p>
+            <p id="invite-dialog-error" class="invite-error" role="alert" aria-live="assertive"></p>
+            <div id="invite-dialog-actions" class="invite-dialog-actions" hidden>
+                <button id="accept-invite" class="invite-action-primary" type="button">Join run</button>
+                <button id="login-to-join" class="invite-action-primary" type="button" hidden>Log in to join</button>
+                <button id="signup-to-join" class="invite-action-secondary" type="button" hidden>Sign up to join</button>
+                <button id="retry-invite" class="invite-action-secondary" type="button" hidden>Retry</button>
+            </div>
+        </section>
+    </div>
+
     <!-- The Slick Sync Bar -->
     <div id="sync-bar" class="sync-bar">
         <div class="sync-info">
@@ -131,22 +260,46 @@
         </div>
     </div>
 
-    <!-- Login Modal -->
+    <!-- Login / Sign Up Modal -->
     <div id="login-modal" class="modal">
         <div class="modal-content card">
             <span id="close-login" class="close">&times;</span>
-            <h2>Login</h2>
-            <form id="login-form">
+            <h2 id="auth-modal-title">Login</h2>
+            <div class="auth-mode-switch" role="group" aria-label="Authentication mode">
+                <button type="button" id="auth-mode-login" class="auth-mode-btn active" aria-pressed="true" aria-controls="login-form">Login</button>
+                <button type="button" id="auth-mode-signup" class="auth-mode-btn" aria-pressed="false" aria-controls="signup-form">Sign Up</button>
+            </div>
+            <form id="login-form" class="auth-panel active">
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="login-username" name="username" required>
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" name="username" autocomplete="username" required>
                 </div>
                 <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="login-password" name="password" required>
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" name="password" autocomplete="current-password" required>
                 </div>
                 <button type="submit">LOGIN</button>
-                <p id="login-error" style="color: red; display: none; margin-top: 10px;">Invalid credentials</p>
+                <p id="login-error" role="alert" style="color: red; display: none; margin-top: 10px;">Invalid credentials</p>
+            </form>
+            <form id="signup-form" class="auth-panel" novalidate>
+                <div class="form-group">
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" name="username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" name="password" autocomplete="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-confirm">Confirm Password</label>
+                    <input type="password" id="signup-confirm" name="confirm_password" autocomplete="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-code">Signup Code</label>
+                    <input type="password" id="signup-code" name="signup_code" autocomplete="off" required>
+                </div>
+                <button type="submit" id="signup-submit">CREATE ACCOUNT</button>
+                <p id="signup-error" class="auth-error" role="alert"></p>
             </form>
         </div>
     </div>
@@ -224,6 +377,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=11"></script>
+    <script type="module" src="/static/js/app.js?v=23"></script>
 </body>
 </html>

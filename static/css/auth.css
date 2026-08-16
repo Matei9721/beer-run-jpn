@@ -56,6 +56,60 @@
     cursor: pointer;
 }
 
+/* Login / Sign Up mode switch */
+.auth-mode-switch {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    margin: 0 0 18px;
+    padding: 4px;
+}
+
+.auth-mode-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex: 1;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    text-transform: uppercase;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.auth-mode-btn.active {
+    background: linear-gradient(135deg, var(--accent-primary), #00a2ff);
+    color: #05070a;
+}
+
+.auth-mode-btn:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.auth-panel {
+    display: none;
+}
+
+.auth-panel.active {
+    display: block;
+}
+
+.auth-error {
+    color: red;
+    display: none;
+    font-size: 13px;
+    margin-top: 10px;
+    white-space: pre-line;
+}
+
 .drink-history-title {
     color: var(--accent-primary);
     font-size: 14px;

@@ -19,52 +19,15 @@ jobs:
       - name: Check out main with full history
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
       - name: Create the next semantic version tag
+        uses: anothrNick/github-tag-action@4ed44965e0db8dab2b466a16da04aec3cc312fd8 # 1.75.0
         env:
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          commit_message="$(git show -s --format=%B "$MERGE_SHA")"
-
-          if grep -Eq '(^[[:alpha:]]+(\([^)]*\))?!:)|(^BREAKING[ -]CHANGE:)' <<< "$commit_message"; then
-            bump=major
-          elif grep -Eq '^feat(\([^)]*\))?:' <<< "$commit_message"; then
-            bump=minor
-          else
-            bump=patch
-          fi
-
-          # A retry makes simultaneous PR merges safe: if another run claims the
-          # same tag first, refresh the tags and calculate the next version.
-          for attempt in {1..5}; do
-            git fetch origin --tags --force
-            mapfile -t version_tags < <(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname)
-            latest_tag="${version_tags[0]:-}"
-            latest_version="${latest_tag#v}"
-            IFS=. read -r major minor patch <<< "${latest_version:-0.0.0}"
-
-            case "$bump" in
-              major) next_version="$((major + 1)).0.0" ;;
-              minor) next_version="$major.$((minor + 1)).0" ;;
-              patch) next_version="$major.$minor.$((patch + 1))" ;;
-            esac
-
-            next_tag="v$next_version"
-            git tag -a "$next_tag" "$MERGE_SHA" -m "Release $next_tag"
-
-            if git push origin "refs/tags/$next_tag"; then
-              echo "Created $next_tag from $MERGE_SHA using a $bump bump."
-              exit 0
-            fi
-
-            git tag -d "$next_tag"
-            sleep "$attempt"
-          done
-
-          echo "Unable to create a unique semantic version tag after 5 attempts." >&2
-          exit 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: v
+          DEFAULT_BUMP: patch
+          BRANCH_HISTORY: last
+          RELEASE_BRANCHES: main
+          VERBOSE: false

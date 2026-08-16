@@ -160,6 +160,7 @@ users.json
 .codex
 .playwright
 release1_tasks
+release2_tasks
 .claude
 
 # Caddy

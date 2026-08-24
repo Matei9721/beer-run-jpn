@@ -18,6 +18,18 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 body {
     background-color: var(--bg-color);
     background-image:
@@ -315,6 +327,13 @@ button {
     transition: all 0.3s;
 }
 
+button:disabled,
+input:disabled,
+select:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
 #submit-btn {
     background: linear-gradient(135deg, var(--accent-primary), #00a2ff);
     color: #05070a;
@@ -337,6 +356,135 @@ button {
 
 .secondary-btn:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.entry-form-context {
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 242, 255, 0.35);
+    border-radius: 12px;
+    background: rgba(0, 242, 255, 0.08);
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#entry-form.is-editing {
+    border-color: rgba(0, 242, 255, 0.5);
+    box-shadow: 0 0 28px rgba(0, 242, 255, 0.1);
+}
+
+.entry-photo-field {
+    min-width: 0;
+    margin-inline: 0;
+    padding: 0;
+    border: 0;
+}
+
+.entry-photo-field legend {
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.current-photo-state {
+    margin: 0 0 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.entry-photo-options {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.entry-photo-option {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+.entry-photo-option:has(input:checked) {
+    border-color: var(--accent-primary);
+    background: rgba(0, 242, 255, 0.09);
+}
+
+.entry-photo-option input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+}
+
+.entry-form-actions {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.entry-form-actions > button {
+    width: auto;
+    flex: 1 1 0;
+    min-height: 48px;
+}
+
+.entry-cancel-button {
+    margin-top: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+.entry-form-status,
+.entry-form-error {
+    min-height: 18px;
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.entry-form-status {
+    color: var(--success-color);
+}
+
+.entry-form-error {
+    color: #ff7d9e;
+}
+
+.entry-create-success {
+    padding: 40px 10px;
+    text-align: center;
+}
+
+.entry-create-success h2 {
+    justify-content: center;
+    color: var(--success-color);
+}
+
+.entry-create-success p {
+    color: var(--text-secondary);
+}
+
+#log-another-entry {
+    margin-top: 20px;
+    background: var(--accent-primary);
+    color: #000;
 }
 
 /* Leaderboard Cards */
@@ -514,8 +662,11 @@ button {
 .close-sheet {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    padding: 0;
+    border: 1px solid transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -524,11 +675,21 @@ button {
     color: white;
 }
 
+.close-sheet:focus-visible {
+    outline: 3px solid rgba(0, 242, 255, 0.45);
+    outline-offset: 2px;
+}
+
 .detail-meta {
     font-size: 14px;
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 20px;
+}
+
+.detail-time {
+    font-size: 12px;
+    opacity: 0.7;
 }
 
 .detail-img-container {
@@ -548,6 +709,106 @@ button {
     max-height: 450px;
     display: block;
     object-fit: contain;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.detail-actions button {
+    width: auto;
+    flex: 1 1 0;
+    min-height: 48px;
+}
+
+.detail-edit-button {
+    border: 1px solid rgba(0, 242, 255, 0.42);
+    background: rgba(0, 242, 255, 0.1);
+    color: var(--accent-primary);
+}
+
+.detail-delete-button,
+.entry-delete-confirm {
+    border: 1px solid rgba(255, 42, 109, 0.55);
+    background: rgba(255, 42, 109, 0.14);
+    color: #ff7d9e;
+}
+
+.entry-delete-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5200;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.entry-delete-dialog {
+    width: min(100%, 430px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 28px;
+}
+
+.entry-delete-kicker {
+    margin: 0 0 5px;
+    color: #ff7d9e;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.entry-delete-dialog h2 {
+    margin: 0;
+}
+
+.entry-delete-copy {
+    margin: 18px 0 0;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.entry-delete-status,
+.entry-delete-error {
+    min-height: 18px;
+    margin: 12px 0 0;
+    font-size: 13px;
+}
+
+.entry-delete-status {
+    color: var(--text-secondary);
+}
+
+.entry-delete-error {
+    color: #ff7d9e;
+}
+
+.entry-delete-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.entry-delete-actions button {
+    width: auto;
+    flex: 1 1 0;
+    min-height: 48px;
+}
+
+.entry-delete-cancel {
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+body.entry-delete-open {
+    overflow: hidden;
 }
 
 /* Custom Leaflet Popup Styling */
@@ -599,6 +860,12 @@ button {
 }
 
 .popup-link {
+    width: auto;
+    min-height: 44px;
+    padding: 8px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
@@ -607,6 +874,7 @@ button {
     margin-top: 5px;
     display: block;
     cursor: pointer;
+    text-align: left;
 }
 
 .leaflet-container {
@@ -1641,6 +1909,34 @@ body.invite-dialog-open {
     }
 
     .invite-dialog::before {
+        display: block;
+        width: 42px;
+        height: 4px;
+        margin: -7px auto 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.25);
+        content: '';
+    }
+
+    .entry-form-actions,
+    .detail-actions,
+    .entry-delete-actions {
+        flex-direction: column;
+    }
+
+    .entry-delete-backdrop {
+        place-items: end center;
+        padding: 0;
+    }
+
+    .entry-delete-dialog {
+        width: 100%;
+        max-height: 82vh;
+        padding: 22px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+        border-radius: 26px 26px 0 0;
+    }
+
+    .entry-delete-dialog::before {
         display: block;
         width: 42px;
         height: 4px;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=23">
+    <link rel="stylesheet" href="/static/css/style.css?v=25">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -70,51 +70,82 @@
         </section>
 
         <section id="log-tab" class="tab-content">
-            <h2>Log a Drink</h2>
+            <h2 id="entry-form-title">Log a Drink</h2>
             <form id="entry-form" class="card" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label>Drink Type</label>
-                    <select id="drink_type_select" required>
-                        <option value="Beer">Beer</option>
-                        <option value="Sake">Sake</option>
-                        <option value="Chu-hi">Chu-hi</option>
-                        <option value="Highball">Highball</option>
-                        <option value="Ume-shu">Ume-shu</option>
-                        <option value="Other">Other...</option>
-                    </select>
-                    <input type="text" id="custom_drink_type" class="custom-input" placeholder="What's the drink?">
-                </div>
-                <div class="form-group">
-                    <label>Brand (Optional)</label>
-                    <input type="text" id="brand" name="brand" placeholder="Asahi, Suntory, etc.">
-                </div>
-                <div class="form-group">
-                    <label>ABV (%)</label>
-                    <input type="number" id="abv" name="abv" step="0.1" required placeholder="Alcohol percentage">
-                </div>
-                <div class="form-group">
-                    <label>Quantity</label>
-                    <select id="quantity_select" required>
-                        <option value="0.33">330ml</option>
-                        <option value="0.5">500ml</option>
-                        <option value="0.75">750ml</option>
-                        <option value="1.0">1L</option>
-                        <option value="custom">Custom...</option>
-                    </select>
-                    <input type="number" id="custom_quantity" class="custom-input" step="0.01" placeholder="Liters (e.g. 0.4)">
-                </div>
-                <div class="form-group">
-                    <label>Photo Proof</label>
-                    <input type="file" id="image" name="image" accept="image/*">
-                </div>
-                
-                <input type="hidden" id="latitude" name="latitude">
-                <input type="hidden" id="longitude" name="longitude">
+                <div id="entry-form-fields">
+                    <p id="entry-form-context" class="entry-form-context" hidden></p>
+                    <div class="form-group">
+                        <label for="drink_type_select">Drink Type</label>
+                        <select id="drink_type_select" required>
+                            <option value="Beer">Beer</option>
+                            <option value="Sake">Sake</option>
+                            <option value="Chu-hi">Chu-hi</option>
+                            <option value="Highball">Highball</option>
+                            <option value="Ume-shu">Ume-shu</option>
+                            <option value="Other">Other...</option>
+                        </select>
+                        <input type="text" id="custom_drink_type" class="custom-input" placeholder="What's the drink?" aria-label="Custom drink type">
+                    </div>
+                    <div class="form-group">
+                        <label for="brand">Brand (Optional)</label>
+                        <input type="text" id="brand" name="brand" placeholder="Asahi, Suntory, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label for="abv">ABV (%)</label>
+                        <input type="number" id="abv" name="abv" step="0.1" required placeholder="Alcohol percentage">
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity_select">Quantity</label>
+                        <select id="quantity_select" required>
+                            <option value="0.33">330ml</option>
+                            <option value="0.5">500ml</option>
+                            <option value="0.75">750ml</option>
+                            <option value="1.0">1L</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                        <input type="number" id="custom_quantity" class="custom-input" step="0.01" placeholder="Liters (e.g. 0.4)" aria-label="Custom quantity in liters">
+                    </div>
+                    <fieldset class="form-group entry-photo-field">
+                        <legend>Photo</legend>
+                        <p id="current-photo-state" class="current-photo-state" hidden></p>
+                        <div id="edit-photo-options" class="entry-photo-options" hidden>
+                            <label class="entry-photo-option">
+                                <input type="radio" name="entry_photo_choice" value="keep" checked>
+                                <span id="photo-keep-label">Keep current photo</span>
+                            </label>
+                            <label class="entry-photo-option">
+                                <input type="radio" name="entry_photo_choice" value="replace">
+                                <span>Replace photo</span>
+                            </label>
+                            <label id="photo-remove-option" class="entry-photo-option">
+                                <input type="radio" name="entry_photo_choice" value="remove">
+                                <span>Remove photo</span>
+                            </label>
+                        </div>
+                        <div id="image-input-wrap">
+                            <label id="image-label" class="visually-hidden" for="image">Upload photo (optional)</label>
+                            <input type="file" id="image" name="image" accept="image/*">
+                        </div>
+                    </fieldset>
 
-                <button type="button" id="get-location-btn" class="secondary-btn">Pin Current Location 📍</button>
-                <div id="location-status" class="status-msg">Waiting for GPS...</div>
+                    <input type="hidden" id="latitude" name="latitude">
+                    <input type="hidden" id="longitude" name="longitude">
 
-                <button type="submit" id="submit-btn">SEND ENTRY</button>
+                    <button type="button" id="get-location-btn" class="secondary-btn">Pin Current Location 📍</button>
+                    <div id="location-status" class="status-msg" role="status" aria-live="polite">Waiting for GPS...</div>
+
+                    <p id="entry-form-status" class="entry-form-status" role="status" aria-live="polite"></p>
+                    <p id="entry-form-error" class="entry-form-error" role="alert" aria-live="assertive"></p>
+                    <div class="entry-form-actions">
+                        <button type="submit" id="submit-btn">SEND ENTRY</button>
+                        <button type="button" id="cancel-edit-btn" class="entry-cancel-button" hidden>CANCEL</button>
+                    </div>
+                </div>
+                <div id="entry-create-success" class="entry-create-success" hidden>
+                    <h2>ENTRY SENT</h2>
+                    <p>Your drink has been logged.</p>
+                    <button id="log-another-entry" type="button">LOG ANOTHER</button>
+                </div>
             </form>
         </section>
     </div>
@@ -247,10 +278,10 @@
     </div>
 
     <!-- Native Detail Sheet -->
-    <div id="detail-sheet" class="detail-sheet">
+    <div id="detail-sheet" class="detail-sheet" aria-hidden="true" inert>
         <div class="detail-header">
             <h3 id="detail-title" class="detail-title">Drink Detail</h3>
-            <div id="close-sheet" class="close-sheet">&times;</div>
+            <button id="close-sheet" class="close-sheet" type="button" aria-label="Close drink detail" disabled>&times;</button>
         </div>
         <div id="detail-meta" class="detail-meta">
             <!-- Dynamic Content -->
@@ -258,6 +289,24 @@
         <div class="detail-img-container">
             <img id="detail-img" class="detail-img" src="" alt="Drink Proof">
         </div>
+        <div id="detail-actions" class="detail-actions" hidden>
+            <button id="detail-edit-entry" type="button" class="detail-edit-button">EDIT</button>
+            <button id="detail-delete-entry" type="button" class="detail-delete-button">DELETE</button>
+        </div>
+    </div>
+
+    <div id="entry-delete-modal" class="entry-delete-backdrop" hidden>
+        <section id="entry-delete-dialog" class="entry-delete-dialog card" role="dialog" aria-modal="true" aria-labelledby="entry-delete-title" aria-describedby="entry-delete-copy" tabindex="-1">
+            <p class="entry-delete-kicker">Permanent action</p>
+            <h2 id="entry-delete-title">Delete this drink?</h2>
+            <p id="entry-delete-copy" class="entry-delete-copy"></p>
+            <p id="entry-delete-status" class="entry-delete-status" role="status" aria-live="polite"></p>
+            <p id="entry-delete-error" class="entry-delete-error" role="alert" aria-live="assertive"></p>
+            <div class="entry-delete-actions">
+                <button id="cancel-entry-delete" type="button" class="entry-delete-cancel">CANCEL</button>
+                <button id="confirm-entry-delete" type="button" class="entry-delete-confirm">DELETE PERMANENTLY</button>
+            </div>
+        </section>
     </div>
 
     <!-- Login / Sign Up Modal -->
@@ -377,6 +426,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=23"></script>
+    <script type="module" src="/static/js/app.js?v=28"></script>
 </body>
 </html>

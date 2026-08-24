@@ -27,6 +27,19 @@ const detailSheet = document.getElementById('detail-sheet');
 const detailTitle = document.getElementById('detail-title');
 const detailMeta = document.getElementById('detail-meta');
 const detailImg = document.getElementById('detail-img');
+const detailCloseButton = document.getElementById('close-sheet');
+const detailActionsElement = document.getElementById('detail-actions');
+const detailEditButton = document.getElementById('detail-edit-entry');
+const detailDeleteButton = document.getElementById('detail-delete-entry');
+
+let activeDetailEntry = null;
+let detailActions = {
+    canManageEntry: () => false,
+    onEntrySelected: null,
+    onDetailClosed: null,
+    onEdit: null,
+    onDelete: null,
+};
 
 function formatEntryTime(entry) {
     const timeCode = entry.timezone_code ? ` (${entry.timezone_code})` : '';
@@ -34,25 +47,65 @@ function formatEntryTime(entry) {
 }
 
 export function openDetail(entry) {
+    activeDetailEntry = entry;
+    detailSheet.removeAttribute('inert');
+    detailSheet.setAttribute('aria-hidden', 'false');
+    detailCloseButton.disabled = false;
     detailTitle.innerText = `${entry.username}`;
-    detailMeta.innerHTML = `
-        <strong>${entry.drink_type}</strong> ${entry.brand ? `(${entry.brand})` : ''}<br>
-        ${entry.abv}% ABV | ${entry.quantity}L<br>
-        <span style="font-size: 12px; opacity: 0.7;">Logged at ${formatEntryTime(entry)}</span>
-    `;
+    detailMeta.replaceChildren();
+    const drinkType = document.createElement('strong');
+    drinkType.textContent = entry.drink_type;
+    detailMeta.append(drinkType);
+    if (entry.brand) detailMeta.append(` (${entry.brand})`);
+    detailMeta.append(document.createElement('br'));
+    detailMeta.append(`${entry.abv}% ABV | ${entry.quantity}L`);
+    detailMeta.append(document.createElement('br'));
+    const timestamp = document.createElement('span');
+    timestamp.className = 'detail-time';
+    timestamp.textContent = `Logged at ${formatEntryTime(entry)}`;
+    detailMeta.append(timestamp);
     
     if (entry.image_path) {
         detailImg.src = `/${entry.image_path.replace(/\\/g, '/')}`;
         detailImg.style.display = 'block';
     } else {
+        detailImg.removeAttribute('src');
         detailImg.style.display = 'none';
     }
-    
+
+    const canManage = Boolean(detailActions.canManageEntry?.(entry));
+    detailActionsElement.hidden = !canManage;
+    detailEditButton.disabled = false;
+    detailDeleteButton.disabled = false;
+    detailActions.onEntrySelected?.(entry, canManage);
     detailSheet.classList.add('active');
 }
 
-export function closeDetail() {
+export function closeDetail({ notify = true } = {}) {
     detailSheet.classList.remove('active');
+    detailSheet.setAttribute('inert', '');
+    detailSheet.setAttribute('aria-hidden', 'true');
+    detailCloseButton.disabled = true;
+    detailActionsElement.hidden = true;
+    if (!notify) return;
+    const closedEntry = activeDetailEntry;
+    activeDetailEntry = null;
+    detailActions.onDetailClosed?.(closedEntry);
+}
+
+export function isDetailOpen() {
+    return detailSheet.classList.contains('active');
+}
+
+export function configureEntryActions(actions = {}) {
+    detailActions = { ...detailActions, ...actions };
+}
+
+export function focusDetailAction(action = 'edit') {
+    const button = action === 'delete' ? detailDeleteButton : detailEditButton;
+    if (!detailSheet.classList.contains('active') || button.hidden || button.disabled) return false;
+    button.focus();
+    return true;
 }
 
 export function clearRunState() {
@@ -75,7 +128,7 @@ export function clearRunState() {
     }
 }
 
-export function focusEntry(entry) {
+export function focusEntry(entry, onShown = null) {
     const marker = markersByEntryId.get(Number(entry.id));
     if (!marker) return false;
     const requestGeneration = visualGeneration;
@@ -111,16 +164,11 @@ export function focusEntry(entry) {
             }
             highlightTimeout = null;
         }, 3500);
+        onShown?.();
     });
 
     return true;
 }
-
-// Global exposure for onclick handlers in Leaflet popups
-window.openDetail = function(entryJson) {
-    const entry = JSON.parse(decodeURIComponent(entryJson));
-    openDetail(entry);
-};
 
 export function updateMarkers(entries, shouldZoom = true) {
     visualGeneration += 1;
@@ -135,18 +183,31 @@ export function updateMarkers(entries, shouldZoom = true) {
     markerGroup.clearLayers();
     markersByEntryId.clear();
     entries.forEach(entry => {
-        const entryJson = encodeURIComponent(JSON.stringify(entry));
-        const popupContent = `
-            <div class="mini-popup">
-                ${entry.image_path ? `<img src="/${entry.image_path.replace(/\\/g, '/')}" class="popup-thumb">` : ''}
-                <div class="popup-info">
-                    <span class="popup-user">${entry.username}</span>
-                    <span class="popup-drink">${entry.drink_type}</span>
-                    <a class="popup-link" onclick="openDetail('${entryJson}')">View Details</a>
-                </div>
-            </div>
-        `;
-        
+        const popupContent = document.createElement('div');
+        popupContent.className = 'mini-popup';
+        if (entry.image_path) {
+            const thumbnail = document.createElement('img');
+            thumbnail.src = `/${entry.image_path.replace(/\\/g, '/')}`;
+            thumbnail.className = 'popup-thumb';
+            thumbnail.alt = '';
+            popupContent.append(thumbnail);
+        }
+        const popupInfo = document.createElement('div');
+        popupInfo.className = 'popup-info';
+        const popupUser = document.createElement('span');
+        popupUser.className = 'popup-user';
+        popupUser.textContent = entry.username;
+        const popupDrink = document.createElement('span');
+        popupDrink.className = 'popup-drink';
+        popupDrink.textContent = entry.drink_type;
+        const popupLink = document.createElement('button');
+        popupLink.type = 'button';
+        popupLink.className = 'popup-link';
+        popupLink.textContent = 'View Details';
+        popupLink.addEventListener('click', () => openDetail(entry));
+        popupInfo.append(popupUser, popupDrink, popupLink);
+        popupContent.append(popupInfo);
+
         const marker = L.marker([entry.latitude, entry.longitude])
             .bindPopup(popupContent);
 
@@ -160,3 +221,15 @@ export function updateMarkers(entries, shouldZoom = true) {
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
     }
 }
+
+detailEditButton.addEventListener('click', () => {
+    if (!activeDetailEntry || detailEditButton.disabled || !detailActions.canManageEntry?.(activeDetailEntry)) return;
+    const entry = activeDetailEntry;
+    const started = detailActions.onEdit?.(entry);
+    if (started !== false) closeDetail({ notify: false });
+});
+
+detailDeleteButton.addEventListener('click', () => {
+    if (!activeDetailEntry || detailDeleteButton.disabled || !detailActions.canManageEntry?.(activeDetailEntry)) return;
+    detailActions.onDelete?.(activeDetailEntry);
+});

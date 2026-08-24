@@ -236,6 +236,54 @@ export async function submitEntry(beerRunId, formData, token) {
     });
 }
 
+async function _entryMutationRequest(path, options) {
+    try {
+        const response = await fetch(path, options);
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: typeof payload?.detail === 'string' ? payload.detail : null,
+                network: false,
+            };
+        }
+        return { ok: true, status: response.status, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
+export function patchEntry(beerRunId, entryId, formData, token, signal = null) {
+    return _entryMutationRequest(
+        `/api/beer-runs/${encodeURIComponent(beerRunId)}/entries/${encodeURIComponent(entryId)}`,
+        {
+            method: 'PATCH',
+            body: formData,
+            headers: _authHeaders(token),
+            signal,
+        },
+    );
+}
+
+export function deleteEntry(beerRunId, entryId, token, signal = null) {
+    return _entryMutationRequest(
+        `/api/beer-runs/${encodeURIComponent(beerRunId)}/entries/${encodeURIComponent(entryId)}`,
+        {
+            method: 'DELETE',
+            headers: _authHeaders(token),
+            signal,
+        },
+    );
+}
+
 export async function fetchConfig() {
     try {
         const response = await fetch('/api/config');

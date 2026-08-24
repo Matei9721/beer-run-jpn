@@ -1,6 +1,7 @@
 // --- Tooltip & Hint System ---
 let tooltipElem = null;
 let mapHintShown = false;
+let openUserModalUsername = null;
 const USER_MODAL_BATCH_SIZE = 15;
 
 export function createTooltip(target, text) {
@@ -81,7 +82,7 @@ export function renderDrinkOptions(config) {
     }
 }
 
-export function updateFormToggles() {
+export function updateFormToggles({ focusCustom = false } = {}) {
 
     const drinkTypeSelect = document.getElementById('drink_type_select');
     const customDrinkType = document.getElementById('custom_drink_type');
@@ -89,35 +90,41 @@ export function updateFormToggles() {
     const customQuantity = document.getElementById('custom_quantity');
 
     customDrinkType.style.display = drinkTypeSelect.value === 'Other' ? 'block' : 'none';
-    if (drinkTypeSelect.value === 'Other') customDrinkType.focus();
+    if (focusCustom && drinkTypeSelect.value === 'Other') customDrinkType.focus();
 
     customQuantity.style.display = quantitySelect.value === 'custom' ? 'block' : 'none';
-    if (quantitySelect.value === 'custom') customQuantity.focus();
+    if (focusCustom && quantitySelect.value === 'custom') customQuantity.focus();
 }
 
-export function requestLocation(latInput, lngInput, locationStatus) {
+export function getCurrentLocation(locationStatus) {
     if (!navigator.geolocation) {
         locationStatus.innerText = "GPS Not Supported";
         locationStatus.style.color = "red";
-        return;
+        return Promise.resolve(null);
     }
 
     locationStatus.innerText = "Requesting GPS...";
     locationStatus.style.color = "var(--text-primary)";
 
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            latInput.value = position.coords.latitude;
-            lngInput.value = position.coords.longitude;
-            locationStatus.innerText = `Ready: ${position.coords.latitude.toFixed(3)}, ${position.coords.longitude.toFixed(3)}`;
-            locationStatus.style.color = 'var(--success-color)';
-        },
-        (err) => {
-            locationStatus.innerText = "GPS Error - try again";
-            locationStatus.style.color = "red";
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-    );
+    return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const coordinates = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                };
+                locationStatus.innerText = `Ready: ${coordinates.latitude.toFixed(3)}, ${coordinates.longitude.toFixed(3)}`;
+                locationStatus.style.color = 'var(--success-color)';
+                resolve(coordinates);
+            },
+            () => {
+                locationStatus.innerText = "GPS Error - try again";
+                locationStatus.style.color = "red";
+                resolve(null);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    });
 }
 
 export function getLocalTimestamp(date = new Date()) {
@@ -241,7 +248,9 @@ export function showUserModal(username, leaderboard, entries, onEntrySelect = nu
     const userEntries = entries.filter(e => e.username === username)
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    if (!userStats) return;
+    if (!userStats) return false;
+
+    openUserModalUsername = username;
 
     let recentDrinksHtml = '';
     if (userEntries.length > 0) {
@@ -311,9 +320,15 @@ export function showUserModal(username, leaderboard, entries, onEntrySelect = nu
             if (entry) onEntrySelect(entry);
         });
     }
+    return true;
 }
 
 export function clearUserModal() {
+    openUserModalUsername = null;
     document.getElementById('user-modal').style.display = 'none';
     document.getElementById('user-modal-content').replaceChildren();
+}
+
+export function getOpenUserModalUsername() {
+    return openUserModalUsername;
 }

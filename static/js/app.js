@@ -1,11 +1,12 @@
-import * as api from './modules/api.js?v=16';
+import * as api from './modules/api.js?v=17';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
 import * as beerRuns from './modules/beer-runs.js?v=8';
 import * as invites from './modules/invites.js?v=3';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
-import * as mapMod from './modules/map.js?v=11';
-import * as ui from './modules/ui.js?v=11';
+import * as mapMod from './modules/map.js?v=14';
+import * as ui from './modules/ui.js?v=13';
+import { createEntryManagement } from './modules/entry-management.js?v=4';
 
 document.addEventListener('DOMContentLoaded', () => {
     const INSTRUCTIONS_STORAGE_KEY = 'beerRunJpn.hideInstructions';
@@ -22,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let contextGeneration = 0;
     let refreshGeneration = 0;
     let refreshController = null;
+    let mutationGeneration = 0;
+    let mutationController = null;
     let inviteFlow = null;
 
     const picker = beerRuns.createBeerRunPicker({
@@ -33,8 +36,38 @@ document.addEventListener('DOMContentLoaded', () => {
         onFetchMembers: (beerRunId, signal) => api.fetchBeerRunMembers(beerRunId, auth.getToken(), signal),
     });
 
+    const entryManager = createEntryManagement({
+        onCreate: handleCreateEntry,
+        onUpdate: handleUpdateEntry,
+        onDelete: handleDeleteEntry,
+        onMutationSuccess: handleEntryMutationSuccess,
+        onCancelEdit: handleCancelEdit,
+    });
+
+    mapMod.configureEntryActions({
+        canManageEntry,
+        onEntrySelected: (entry, canManage) => entryManager.selectEntry(entry, canManage),
+        onDetailClosed: () => entryManager.clearSelectedEntry(),
+        onEdit: entry => {
+            if (!canManageEntry(entry) || !entryManager.beginEdit(entry)) return false;
+            activateTab('log-tab', { preserveDetail: true });
+            return true;
+        },
+        onDelete: entry => entryManager.openDelete(entry),
+    });
+
     function canWriteCurrentRun() {
         return currentRun?.current_user_role === 'owner' || currentRun?.current_user_role === 'member';
+    }
+
+    function canManageEntry(entry) {
+        return Boolean(
+            entry
+            && currentUser
+            && canWriteCurrentRun()
+            && entry.username === currentUser.username
+            && currentEntries.some(currentEntry => Number(currentEntry.id) === Number(entry.id))
+        );
     }
 
     function updateAuthForContext() {
@@ -45,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearTripState(message = 'Loading run data...') {
+        invalidateMutationWork();
         currentLeaderboard = [];
         currentEntries = [];
         const userFilter = document.getElementById('user-filter');
@@ -63,6 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshController = null;
     }
 
+    function invalidateMutationWork() {
+        mutationGeneration += 1;
+        if (mutationController) mutationController.abort();
+        mutationController = null;
+        entryManager.resetForContextChange();
+    }
+
     function setCurrentRun(run, { persist = false, message = '' } = {}) {
         const changed = Number(currentRun?.id) !== Number(run?.id);
         if (changed) {
@@ -75,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             beerRuns.saveSelectedRunId(currentUser.id, currentRun.id);
         }
         updateAuthForContext();
+        if (changed) void entryManager.requestInitialLocation();
         if (message) picker.announce(message);
     }
 
@@ -264,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeRunContext({ notice = '' } = {}) {
+        invalidateMutationWork();
         const generation = ++contextGeneration;
         picker.setAvailability('loading');
         picker.setIdentity(currentUser);
@@ -395,11 +438,190 @@ document.addEventListener('DOMContentLoaded', () => {
             mapEmptyState.textContent = 'No mapped drinks in this run yet.';
         }
 
+        const openHistoryUsername = ui.getOpenUserModalUsername();
+        if (openHistoryUsername) {
+            const historyRendered = ui.showUserModal(
+                openHistoryUsername,
+                currentLeaderboard,
+                currentEntries,
+                focusEntryOnMap,
+            );
+            if (!historyRendered) {
+                ui.clearUserModal();
+                picker.announce('That drink history is no longer available.');
+            }
+        }
+
         lastRefreshTime = new Date();
         setSyncStatus(`Synced ${lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     }
 
-    function activateTab(tabId) {
+    function createMutationSnapshot(entry, interactionGeneration) {
+        const user = currentUser;
+        const run = currentRun;
+        const token = auth.getToken();
+        if (!entry || !user || !run || !token || !canWriteCurrentRun()) return null;
+
+        if (mutationController) mutationController.abort();
+        const generation = ++mutationGeneration;
+        mutationController = new AbortController();
+        return {
+            userId: user.id,
+            token,
+            contextGeneration,
+            runId: run.id,
+            entryId: entry.id,
+            interactionGeneration,
+            mutationGeneration: generation,
+            signal: mutationController.signal,
+        };
+    }
+
+    function mutationSnapshotIsCurrent(snapshot) {
+        return Boolean(
+            snapshot
+            && snapshot.mutationGeneration === mutationGeneration
+            && snapshot.contextGeneration === contextGeneration
+            && currentUser?.id === snapshot.userId
+            && auth.getToken() === snapshot.token
+            && Number(currentRun?.id) === Number(snapshot.runId)
+            && entryManager.isInteractionCurrent(snapshot.entryId, snapshot.interactionGeneration)
+        );
+    }
+
+    function finishMutation(snapshot) {
+        if (snapshot?.mutationGeneration === mutationGeneration) mutationController = null;
+    }
+
+    function createRequestIsCurrent(snapshot) {
+        return Boolean(
+            snapshot.contextGeneration === contextGeneration
+            && currentUser?.id === snapshot.userId
+            && auth.getToken() === snapshot.token
+            && Number(currentRun?.id) === Number(snapshot.runId)
+            && entryManager.getInteractionGeneration() === snapshot.interactionGeneration
+        );
+    }
+
+    async function handleCreateEntry({ formData, interactionGeneration }) {
+        const token = auth.getToken();
+        if (!token || !currentUser) {
+            updateAuthForContext();
+            return { ok: false, message: 'You must be logged in.' };
+        }
+        if (!currentRun) return { ok: false, message: 'Choose an available beer run first.' };
+        if (!canWriteCurrentRun()) return { ok: false, message: `You are not a member of ${currentRun.name}.` };
+
+        const snapshot = {
+            userId: currentUser.id,
+            token,
+            contextGeneration,
+            runId: currentRun.id,
+            interactionGeneration,
+        };
+        let response;
+        try {
+            response = await api.submitEntry(snapshot.runId, formData, token);
+        } catch (error) {
+            if (!createRequestIsCurrent(snapshot)) return { stale: true };
+            return { ok: false, message: 'Upload failed. Check your connection and try again.' };
+        }
+        if (!createRequestIsCurrent(snapshot)) return { stale: true };
+        if (response.ok) {
+            void refreshData(true);
+            return { ok: true };
+        }
+        if (response.status === 401) {
+            handleRejectedSession();
+            return { stale: true };
+        }
+        if (response.status === 404) {
+            await recoverFromAccessLoss(currentRun);
+            return { stale: true };
+        }
+        if (response.status === 422) {
+            return { ok: false, message: 'Upload failed. Check the entry details and try again.' };
+        }
+        return { ok: false, message: 'Upload failed. Please try again.' };
+    }
+
+    async function executeEntryMutation(kind, entry, formData, interactionGeneration) {
+        const snapshot = createMutationSnapshot(entry, interactionGeneration);
+        if (!snapshot) {
+            return { ok: false, message: 'Your session or selected run changed. Reopen the entry and try again.' };
+        }
+
+        const result = kind === 'edit'
+            ? await api.patchEntry(snapshot.runId, snapshot.entryId, formData, snapshot.token, snapshot.signal)
+            : await api.deleteEntry(snapshot.runId, snapshot.entryId, snapshot.token, snapshot.signal);
+        if (!mutationSnapshotIsCurrent(snapshot) || result?.aborted) return { stale: true };
+        finishMutation(snapshot);
+
+        if (result.ok) {
+            return { ok: true, message: kind === 'edit' ? 'Changes saved.' : 'Entry deleted.' };
+        }
+        if (result.status === 401) {
+            handleRejectedSession();
+            return { stale: true };
+        }
+        if (result.status === 404 && result.detail === 'Beer-run not found') {
+            await recoverFromAccessLoss(currentRun);
+            return { stale: true };
+        }
+        if (result.status === 404 && result.detail === 'Entry not found') {
+            mapMod.closeDetail();
+            setSyncStatus('Entry no longer available; refreshing.');
+            picker.announce('This entry is no longer available.');
+            void refreshData(true);
+            return { stale: true };
+        }
+        if (result.status === 422) {
+            return { ok: false, message: 'Check the entry details and photo choice, then try again.' };
+        }
+        if (result.network) {
+            return {
+                ok: false,
+                message: kind === 'edit'
+                    ? 'Connection lost before the update was confirmed. Refresh before trying again.'
+                    : 'Connection lost before deletion was confirmed. Refresh before trying again.',
+            };
+        }
+        return {
+            ok: false,
+            message: kind === 'edit'
+                ? 'Unable to update entry. Please try again.'
+                : 'Unable to delete entry. Please try again.',
+        };
+    }
+
+    function handleUpdateEntry({ entry, formData, interactionGeneration }) {
+        return executeEntryMutation('edit', entry, formData, interactionGeneration);
+    }
+
+    function handleDeleteEntry({ entry, interactionGeneration }) {
+        return executeEntryMutation('delete', entry, null, interactionGeneration);
+    }
+
+    function handleEntryMutationSuccess(kind) {
+        mapMod.closeDetail();
+        picker.announce(kind === 'edit' ? 'Entry updated.' : 'Entry deleted.');
+        void refreshData(true);
+    }
+
+    function handleCancelEdit(entry) {
+        const currentEntry = currentEntries.find(item => Number(item.id) === Number(entry?.id));
+        if (!currentEntry || !currentRun) return;
+        activateTab('map-tab');
+        setTimeout(() => {
+            mapMod.map.invalidateSize();
+            mapMod.focusEntry(currentEntry, () => mapMod.focusDetailAction('edit'));
+        }, 200);
+    }
+
+    function activateTab(tabId, { preserveDetail = false } = {}) {
+        if (tabId !== 'map-tab' && !preserveDetail && mapMod.isDetailOpen()) {
+            mapMod.closeDetail();
+        }
         document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
@@ -538,6 +760,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     refreshData(true);
                     ui.showMapHint();
                 }, 200);
+            } else if (tabId === 'log-tab') {
+                void entryManager.requestInitialLocation();
             }
         });
     });
@@ -665,79 +889,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('user-filter').addEventListener('change', () => refreshData(true));
 
-    document.getElementById('drink_type_select').addEventListener('change', ui.updateFormToggles);
-    document.getElementById('quantity_select').addEventListener('change', ui.updateFormToggles);
-    const locationStatus = document.getElementById('location-status');
-    const latInput = document.getElementById('latitude');
-    const lngInput = document.getElementById('longitude');
-    document.getElementById('get-location-btn').addEventListener('click', () => ui.requestLocation(latInput, lngInput, locationStatus));
-
-    document.getElementById('entry-form').addEventListener('submit', async event => {
-        event.preventDefault();
-        const token = auth.getToken();
-        if (!token) {
-            alert('You must be logged in.');
-            updateAuthForContext();
-            return;
-        }
-        if (!latInput.value) {
-            alert('Pin location first.');
-            return;
-        }
-        if (!currentRun) {
-            alert('Choose an available beer run first.');
-            return;
-        }
-        if (!canWriteCurrentRun()) {
-            alert(`You are not a member of ${currentRun.name}.`);
-            return;
-        }
-
-        const targetRun = currentRun;
-        const entryForm = document.getElementById('entry-form');
-        const formData = new FormData(entryForm);
-        const finalType = document.getElementById('drink_type_select').value === 'Other'
-            ? document.getElementById('custom_drink_type').value
-            : document.getElementById('drink_type_select').value;
-        const finalQuantity = document.getElementById('quantity_select').value === 'custom'
-            ? document.getElementById('custom_quantity').value
-            : document.getElementById('quantity_select').value;
-        if (!finalType || !finalQuantity) {
-            alert('Complete all fields.');
-            return;
-        }
-        formData.set('drink_type', finalType);
-        formData.set('quantity', finalQuantity);
-        formData.set('client_timestamp', ui.getLocalTimestamp());
-        formData.set('client_timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-        formData.set('client_timezone_code', ui.getLocalTimeZoneCode());
-        if (formData.has('username')) formData.delete('username');
-
-        const submitButton = document.getElementById('submit-btn');
-        submitButton.disabled = true;
-        submitButton.innerText = 'SENDING...';
-        try {
-            const response = await api.submitEntry(targetRun.id, formData, token);
-            if (response.ok) {
-                entryForm.innerHTML = `<div class="card" style="text-align:center; padding: 40px;"><h2 style="justify-content:center; color: var(--success-color);">ENTRY SENT</h2><p style="color: var(--text-secondary);">Your drink has been logged.</p><button onclick="window.location.reload()" style="background: var(--accent-primary); color: #000; margin-top: 20px;">LOG ANOTHER</button></div>`;
-                if (Number(currentRun?.id) === Number(targetRun.id)) refreshData(true);
-                return;
-            }
-            if (response.status === 401) handleRejectedSession();
-            else if (response.status === 404 && Number(currentRun?.id) === Number(targetRun.id)) await recoverFromAccessLoss(targetRun);
-            else alert(`Upload failed: ${(await response.text()) || response.statusText}`);
-        } catch (error) {
-            console.error('Submission error:', error);
-            alert('Upload failed. Check console.');
-        } finally {
-            const activeSubmitButton = document.getElementById('submit-btn');
-            if (activeSubmitButton) {
-                activeSubmitButton.disabled = false;
-                activeSubmitButton.innerText = 'SEND ENTRY';
-            }
-        }
-    });
-
     initInstructionsModal();
     initWrappedEndedModal();
     document.getElementById('sync-bar').addEventListener('click', () => refreshData(true));
@@ -749,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (inviteShown) auth.closeLoginModal();
         if (!authPromptShown && !inviteShown) showStartupModals();
         const config = await api.fetchConfig();
-        ui.renderDrinkOptions(config);
-        ui.requestLocation(latInput, lngInput, locationStatus);
+        entryManager.setConfig(config);
+        void entryManager.requestInitialLocation();
     })();
 });

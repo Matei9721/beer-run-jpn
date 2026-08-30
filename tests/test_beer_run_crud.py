@@ -825,6 +825,137 @@ class TestDeleteBeerRun:
         assert response.status_code == 404
 
 
+# ── Leave ────────────────────────────────────────────────────────────
+
+class TestLeaveBeerRun:
+    def test_member_leaves_without_removing_entries_or_photos(
+        self, client, owner_member_nonmember_run
+    ):
+        data = owner_member_nonmember_run
+        run = data["private_run"]
+
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            conn.execute(
+                "INSERT INTO entries "
+                "(drink_type, abv, quantity, latitude, longitude, image_path, user_id, beer_run_id, timestamp) "
+                "VALUES ('Beer', 5.0, 0.5, 35.0, 139.0, ?, ?, ?, datetime('now'))",
+                (
+                    "static/uploads/beer_runs/{}/retained.jpg".format(run.id),
+                    data["member"].id,
+                    run.id,
+                ),
+            )
+
+        before = client.get(
+            f"/api/beer-runs/{run.id}/entries",
+            headers=_bearer(data["owner_token"]),
+        )
+        assert before.status_code == 200
+        assert before.json()[0]["image_path"].endswith("retained.jpg")
+
+        response = client.delete(
+            f"/api/beer-runs/{run.id}/members/me",
+            headers=_bearer(data["member_token"]),
+        )
+        assert response.status_code == 200
+        assert response.json() == {"status": "left", "beer_run_id": run.id}
+
+        after = client.get(
+            f"/api/beer-runs/{run.id}/entries",
+            headers=_bearer(data["owner_token"]),
+        )
+        assert after.status_code == 200
+        assert after.json() == before.json()
+
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            assert conn.execute(
+                "SELECT COUNT(*) FROM beer_run_members WHERE beer_run_id = ? AND user_id = ?",
+                (run.id, data["member"].id),
+            ).fetchone()[0] == 0
+
+    @pytest.mark.parametrize("run_key", ["private_run", "public_run"])
+    def test_owner_cannot_leave(self, client, owner_member_nonmember_run, run_key):
+        data = owner_member_nonmember_run
+        run = data[run_key]
+
+        response = client.delete(
+            f"/api/beer-runs/{run.id}/members/me",
+            headers=_bearer(data["owner_token"]),
+        )
+        assert response.status_code == 409
+        assert response.json() == {
+            "detail": "Owners must transfer ownership or delete the beer-run before leaving."
+        }
+
+        with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+            assert conn.execute(
+                "SELECT role FROM beer_run_members WHERE beer_run_id = ? AND user_id = ?",
+                (run.id, data["owner"].id),
+            ).fetchone()[0] == "owner"
+
+    @pytest.mark.parametrize("run_key", ["private_run", "public_run"])
+    def test_non_member_cannot_leave_and_private_run_stays_concealed(
+        self, client, owner_member_nonmember_run, run_key
+    ):
+        data = owner_member_nonmember_run
+        run = data[run_key]
+
+        response = client.delete(
+            f"/api/beer-runs/{run.id}/members/me",
+            headers=_bearer(data["non_member_token"]),
+        )
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Beer-run not found"}
+
+    def test_repeated_leave_is_safe_and_returns_concealed_not_found(
+        self, client, owner_member_nonmember_run
+    ):
+        data = owner_member_nonmember_run
+        run = data["private_run"]
+        headers = _bearer(data["member_token"])
+
+        first = client.delete(f"/api/beer-runs/{run.id}/members/me", headers=headers)
+        second = client.delete(f"/api/beer-runs/{run.id}/members/me", headers=headers)
+
+        assert first.status_code == 200
+        assert second.status_code == 404
+        assert second.json() == {"detail": "Beer-run not found"}
+
+    def test_public_former_member_keeps_read_access_but_loses_writes(
+        self, client, owner_member_nonmember_run
+    ):
+        data = owner_member_nonmember_run
+        run = data["public_run"]
+        headers = _bearer(data["member_token"])
+
+        response = client.delete(f"/api/beer-runs/{run.id}/members/me", headers=headers)
+        assert response.status_code == 200
+
+        detail = client.get(f"/api/beer-runs/{run.id}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["current_user_role"] is None
+
+        create = client.post(
+            f"/api/beer-runs/{run.id}/entries",
+            headers=headers,
+            data={
+                "drink_type": "Beer",
+                "abv": "5",
+                "quantity": "0.5",
+                "latitude": "35",
+                "longitude": "139",
+            },
+        )
+        assert create.status_code == 404
+        assert create.json() == {"detail": "Beer-run not found"}
+
+    def test_leave_requires_authentication(self, client, owner_member_nonmember_run):
+        run = owner_member_nonmember_run["private_run"]
+        response = client.delete(f"/api/beer-runs/{run.id}/members/me")
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Could not validate credentials"}
+
+
 # ── Shared Authorization Integration ─────────────────────────────────
 #
 # These tests use the owner_member_nonmember_run fixture so the "member" caller

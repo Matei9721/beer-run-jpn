@@ -1168,6 +1168,12 @@ body.entry-delete-open {
     text-transform: uppercase;
 }
 
+.run-owner-guidance {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+    color: #ffb1c7;
+}
+
 .run-share-button {
     width: auto;
     min-width: 96px;
@@ -1208,6 +1214,27 @@ body.entry-delete-open {
     line-height: 1.2;
     text-align: center;
     white-space: nowrap;
+}
+
+.run-leave-button {
+    width: auto;
+    min-width: 96px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 42, 109, 0.46);
+    border-radius: 11px;
+    background: rgba(255, 42, 109, 0.08);
+    color: #ffb1c7;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.run-leave-button:hover,
+.run-leave-button:focus-visible {
+    border-color: #ff6d9c;
+    background: rgba(255, 42, 109, 0.16);
 }
 
 .run-invite-button,
@@ -2059,6 +2086,7 @@ body.invite-dialog-open {
     .run-share-button,
     .run-invite-button,
     .run-manage-button,
+    .run-leave-button,
     .run-create-button,
     .invite-action-button,
     .invite-action-primary,

@@ -385,6 +385,56 @@ async def list_beer_run_members(
     ]
 
 
+# ── Leave (Release 2) ───────────────────────────────────────────────
+
+@router.delete("/api/beer-runs/{beer_run_id}/members/me")
+async def leave_beer_run(
+    access: permissions.MemberAccess = Depends(permissions.authorize_member_access),
+    db: Session = Depends(get_db),
+):
+    """Remove the caller's regular membership without changing run history.
+
+    Owners must resolve ownership before leaving. The conditional delete also
+    re-checks the role at mutation time so a stale request cannot remove a
+    membership that was promoted to owner after authorization completed.
+    """
+    if access.membership.role == "owner":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Owners must transfer ownership or delete the beer-run before leaving.",
+        )
+
+    beer_run_id_val = access.beer_run.id
+    try:
+        deleted = (
+            db.query(models.BeerRunMember)
+            .filter(
+                models.BeerRunMember.id == access.membership.id,
+                models.BeerRunMember.beer_run_id == beer_run_id_val,
+                models.BeerRunMember.user_id == access.membership.user_id,
+                models.BeerRunMember.role == "member",
+            )
+            .delete(synchronize_session=False)
+        )
+        if deleted != 1:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This membership changed. Refresh the run before trying again.",
+            )
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to leave beer-run",
+        ) from None
+
+    return {"status": "left", "beer_run_id": beer_run_id_val}
+
+
 # ── Update (Feature 4) ───────────────────────────────────────────────
 
 @router.patch(

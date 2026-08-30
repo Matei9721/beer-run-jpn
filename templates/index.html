@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=28">
+    <link rel="stylesheet" href="/static/css/style.css?v=29">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -170,7 +170,9 @@
                     <button id="share-beer-run" class="run-share-button" type="button">Share link</button>
                     <button id="invite-beer-run" class="run-invite-button" type="button" hidden>Invite people</button>
                     <button id="manage-beer-run" class="run-manage-button" type="button" hidden>Manage</button>
+                    <button id="leave-beer-run" class="run-leave-button" type="button" hidden>Leave run</button>
                 </div>
+                <p id="beer-run-owner-guidance" class="run-picker-note run-owner-guidance" hidden>Owners can’t leave a run. Transfer ownership or delete the run first.</p>
             </div>
             <section id="beer-run-roster" class="run-roster" hidden aria-labelledby="beer-run-roster-title">
                 <h3 id="beer-run-roster-title">Members</h3>
@@ -279,6 +281,21 @@
                 <div class="invite-dialog-actions">
                     <button id="cancel-rename-beer-run-confirm" class="invite-action-secondary" type="button">Cancel</button>
                     <button id="confirm-rename-beer-run" class="invite-action-primary" type="button">Rename run</button>
+                </div>
+            </section>
+        </div>
+        <div id="leave-beer-run-confirm" class="invite-modal-backdrop" hidden>
+            <section id="leave-beer-run-confirm-dialog" class="invite-dialog card" role="dialog" aria-modal="true" aria-labelledby="leave-beer-run-confirm-title" aria-describedby="leave-beer-run-confirm-copy">
+                <div class="invite-dialog-heading">
+                    <div>
+                        <p class="invite-dialog-kicker">Confirm leaving</p>
+                        <h2 id="leave-beer-run-confirm-title">Leave this run?</h2>
+                    </div>
+                </div>
+                <p id="leave-beer-run-confirm-copy" class="invite-dialog-copy"></p>
+                <div class="invite-dialog-actions">
+                    <button id="cancel-leave-beer-run" class="invite-action-secondary" type="button">Stay in run</button>
+                    <button id="confirm-leave-beer-run" class="run-leave-button" type="button">Leave run</button>
                 </div>
             </section>
         </div>
@@ -463,6 +480,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=28"></script>
+    <script type="module" src="/static/js/app.js?v=29"></script>
 </body>
 </html>

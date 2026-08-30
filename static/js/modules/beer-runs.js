@@ -68,7 +68,7 @@ function runButton(run, currentRunId, selectRun) {
     return button;
 }
 
-export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onRenameRun, onFetchMembers, onCreateInvite }) {
+export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onRenameRun, onLeaveRun, onFetchMembers, onCreateInvite }) {
     const trigger = document.getElementById('beer-run-trigger');
     const triggerName = document.getElementById('beer-run-trigger-name');
     const triggerMeta = document.getElementById('beer-run-trigger-meta');
@@ -85,6 +85,8 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const shareButton = document.getElementById('share-beer-run');
     const inviteButton = document.getElementById('invite-beer-run');
     const manageButton = document.getElementById('manage-beer-run');
+    const leaveButton = document.getElementById('leave-beer-run');
+    const ownerGuidance = document.getElementById('beer-run-owner-guidance');
     const membershipSection = document.getElementById('beer-run-members-section');
     const memberships = document.getElementById('beer-run-members');
     const createAction = document.getElementById('create-beer-run');
@@ -123,6 +125,10 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const shareInvite = document.getElementById('share-invite-link');
     const backInvite = document.getElementById('back-invite-link');
     const cancelInvite = document.getElementById('cancel-invite-link');
+    const leaveConfirmBackdrop = document.getElementById('leave-beer-run-confirm');
+    const leaveConfirmCopy = document.getElementById('leave-beer-run-confirm-copy');
+    const leaveConfirmCancel = document.getElementById('cancel-leave-beer-run');
+    const leaveConfirmSubmit = document.getElementById('confirm-leave-beer-run');
 
     let currentRun = null;
     let myRuns = [];
@@ -145,6 +151,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     let inviteGeneration = 0;
     let inviteLastFocusedElement = null;
     let inviteData = null;
+    let leaveMode = false;
+    let leavePending = false;
+    let leaveConfirmationLastFocusedElement = null;
 
     function selectable(run) {
         void Promise.resolve(onSelectRun(run)).catch(() => {});
@@ -162,6 +171,8 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             currentSummary.hidden = true;
             inviteButton.hidden = true;
             manageButton.hidden = true;
+            leaveButton.hidden = true;
+            ownerGuidance.hidden = true;
             return;
         }
         triggerName.textContent = currentRun.name;
@@ -171,6 +182,8 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         currentSummary.hidden = false;
         inviteButton.hidden = !(identity && currentRun.current_user_role === 'owner');
         manageButton.hidden = !(identity && currentRun.current_user_role === 'owner');
+        leaveButton.hidden = !(identity && currentRun.current_user_role === 'member');
+        ownerGuidance.hidden = !(identity && currentRun.current_user_role === 'owner');
     }
 
     function renderMemberships() {
@@ -292,6 +305,71 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         setRenameFeedback();
         renameNameInput.focus();
         renameNameInput.select();
+    }
+
+    function closeLeaveConfirmation({ restoreFocus = true } = {}) {
+        if (leaveConfirmBackdrop.hidden) return;
+        leaveConfirmBackdrop.hidden = true;
+        sheet.inert = false;
+        const focusTarget = leaveConfirmationLastFocusedElement || leaveButton;
+        leaveConfirmationLastFocusedElement = null;
+        if (restoreFocus) focusTarget?.focus?.();
+    }
+
+    function resetLeaveConfirmation({ restoreFocus = false } = {}) {
+        closeLeaveConfirmation({ restoreFocus: false });
+        leaveMode = false;
+        leavePending = false;
+        leaveConfirmSubmit.disabled = false;
+        leaveConfirmCancel.disabled = false;
+        leaveConfirmSubmit.textContent = 'Leave run';
+        if (restoreFocus) leaveButton.focus();
+    }
+
+    function openLeaveConfirmation() {
+        if (!identity || !currentRun || currentRun.current_user_role !== 'member' || leavePending) return;
+        leaveMode = true;
+        leaveConfirmationLastFocusedElement = document.activeElement;
+        leaveConfirmCopy.textContent = `Leave “${currentRun.name}”? You will stop being a member, but your previous entries and photos will remain visible in this run's history.`;
+        sheet.inert = true;
+        leaveConfirmBackdrop.hidden = false;
+        leaveConfirmCancel.focus();
+    }
+
+    async function confirmLeave() {
+        if (leavePending || !leaveMode || !identity || !currentRun
+            || currentRun.current_user_role !== 'member') return;
+        const run = currentRun;
+        leavePending = true;
+        leaveConfirmSubmit.disabled = true;
+        leaveConfirmCancel.disabled = true;
+        leaveConfirmSubmit.textContent = 'Leaving...';
+        const result = await onLeaveRun?.(run);
+        if (result?.ok) {
+            resetLeaveConfirmation();
+            close({ focusElement: trigger });
+            status.textContent = result.stale
+                ? `You were already removed from ${run.name}.`
+                : `Left ${run.name}. Your entries remain in that run's history.`;
+            return;
+        }
+
+        if (result?.aborted || result?.stale || (result?.status === 401 && result?.handled)) {
+            resetLeaveConfirmation();
+            if (result?.status === 401 && result?.handled) close({ focusElement: trigger });
+            return;
+        }
+
+        leavePending = false;
+        leaveConfirmSubmit.disabled = false;
+        leaveConfirmCancel.disabled = false;
+        leaveConfirmSubmit.textContent = 'Leave run';
+        resetLeaveConfirmation({ restoreFocus: false });
+        status.textContent = result?.status === 409
+            ? (result.detail || 'Owners must transfer ownership or delete the run before leaving.')
+            : (result?.network
+                ? 'We could not confirm that you left the run. Check your connection and try again.'
+                : 'We could not leave this run. Please try again.');
     }
 
     async function submitRename(event) {
@@ -590,7 +668,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     }
 
     function focusableElements() {
-        const root = renameConfirmBackdrop.hidden ? sheet : renameConfirmBackdrop;
+        const root = !renameConfirmBackdrop.hidden
+            ? renameConfirmBackdrop
+            : (!leaveConfirmBackdrop.hidden ? leaveConfirmBackdrop : sheet);
         return [...root.querySelectorAll('button:not([disabled]), input:not([disabled]), [href]')]
             .filter(element => !element.hidden
                 && element.offsetParent !== null
@@ -603,6 +683,11 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         if (!renameConfirmBackdrop.hidden && event.key === 'Escape') {
             event.preventDefault();
             closeRenameConfirmation();
+            return;
+        }
+        if (!leaveConfirmBackdrop.hidden && event.key === 'Escape') {
+            event.preventDefault();
+            resetLeaveConfirmation({ restoreFocus: true });
             return;
         }
         if (event.key === 'Escape') {
@@ -638,6 +723,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         if (createMode) resetCreateView();
         if (renameMode) resetRenameView();
         if (inviteMode) resetInviteView();
+        if (leaveMode) resetLeaveConfirmation();
         dialog.hidden = true;
         trigger.setAttribute('aria-expanded', 'false');
         if (searchController) searchController.abort();
@@ -653,6 +739,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     createAction.addEventListener('click', openCreate);
     inviteButton.addEventListener('click', openInvite);
     manageButton.addEventListener('click', openRename);
+    leaveButton.addEventListener('click', openLeaveConfirmation);
     createCancel.addEventListener('click', () => {
         resetCreateView({ restoreFocus: true });
         if (!dialog.hidden) void loadRoster();
@@ -662,6 +749,8 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     renameCancel.addEventListener('click', () => resetRenameView({ restoreFocus: true }));
     renameConfirmCancel.addEventListener('click', () => closeRenameConfirmation());
     renameConfirmSubmit.addEventListener('click', confirmRename);
+    leaveConfirmCancel.addEventListener('click', () => resetLeaveConfirmation({ restoreFocus: true }));
+    leaveConfirmSubmit.addEventListener('click', confirmLeave);
     shareButton.addEventListener('click', () => {
         if (currentRun) void onShareRun?.(currentRun);
     });
@@ -676,6 +765,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     });
     renameConfirmBackdrop.addEventListener('click', event => {
         if (event.target === renameConfirmBackdrop) closeRenameConfirmation();
+    });
+    leaveConfirmBackdrop.addEventListener('click', event => {
+        if (event.target === leaveConfirmBackdrop) resetLeaveConfirmation({ restoreFocus: true });
     });
     document.addEventListener('keydown', onKeyDown);
     searchInput.addEventListener('input', search);
@@ -693,10 +785,11 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             status.textContent = message;
         },
         setIdentity(user) {
-            if ((createMode || renameMode || inviteMode) && (!user || user.id !== identity?.id)) {
+            if ((createMode || renameMode || inviteMode || leaveMode) && (!user || user.id !== identity?.id)) {
                 resetCreateView();
                 resetRenameView();
                 resetInviteView();
+                resetLeaveConfirmation();
                 if (!dialog.hidden) close({ focusElement: trigger });
             }
             identity = user;
@@ -712,6 +805,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         setCurrentRun(run) {
             if (inviteMode && Number(run?.id) !== Number(currentRun?.id)) resetInviteView();
             if (renameMode && Number(run?.id) !== Number(currentRun?.id)) resetRenameView();
+            if (leaveMode && Number(run?.id) !== Number(currentRun?.id)) resetLeaveConfirmation();
             currentRun = run || null;
             renderTrigger();
             renderMemberships();

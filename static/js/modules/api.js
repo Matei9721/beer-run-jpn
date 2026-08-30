@@ -177,6 +177,35 @@ export async function updateBeerRun(beerRunId, updates, token, signal = null) {
     }
 }
 
+export async function leaveBeerRun(beerRunId, token, signal = null) {
+    try {
+        const response = await fetch(`/api/beer-runs/${encodeURIComponent(beerRunId)}/members/me`, {
+            method: 'DELETE',
+            headers: _authHeaders(token),
+            signal,
+        });
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: typeof payload?.detail === 'string' ? payload.detail : null,
+                network: false,
+            };
+        }
+        return { ok: true, status: response.status, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
 async function _inviteRequest(path, options = {}) {
     try {
         const response = await fetch(path, options);

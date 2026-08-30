@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=29">
+    <link rel="stylesheet" href="/static/css/style.css?v=30">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -245,6 +245,11 @@
                         <button id="submit-rename-beer-run" class="run-create-submit" type="submit">Save name</button>
                     </div>
                 </form>
+                <section class="run-danger-zone" aria-labelledby="delete-beer-run-title">
+                    <h4 id="delete-beer-run-title">Delete run</h4>
+                    <p>Deleting this run permanently removes its entries, photos, memberships, invite, and history.</p>
+                    <button id="delete-beer-run" class="run-delete-button" type="button">Delete this run</button>
+                </section>
             </section>
             <section id="invite-beer-run-view" class="invite-owner-view" hidden aria-labelledby="invite-beer-run-title">
                 <h3 id="invite-beer-run-title">Invite people</h3>
@@ -296,6 +301,24 @@
                 <div class="invite-dialog-actions">
                     <button id="cancel-leave-beer-run" class="invite-action-secondary" type="button">Stay in run</button>
                     <button id="confirm-leave-beer-run" class="run-leave-button" type="button">Leave run</button>
+                </div>
+            </section>
+        </div>
+        <div id="delete-beer-run-confirm" class="invite-modal-backdrop" hidden>
+            <section id="delete-beer-run-confirm-dialog" class="invite-dialog card" role="dialog" aria-modal="true" aria-labelledby="delete-beer-run-confirm-title" aria-describedby="delete-beer-run-confirm-copy">
+                <div class="invite-dialog-heading">
+                    <div>
+                        <p class="invite-dialog-kicker">Permanent action</p>
+                        <h2 id="delete-beer-run-confirm-title">Delete this run?</h2>
+                    </div>
+                </div>
+                <p id="delete-beer-run-confirm-copy" class="invite-dialog-copy"></p>
+                <label class="delete-run-confirm-label" for="delete-beer-run-name">Type the exact run name to confirm</label>
+                <input id="delete-beer-run-name" class="delete-run-confirm-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="delete-beer-run-confirm-copy delete-beer-run-confirm-error">
+                <p id="delete-beer-run-confirm-error" class="invite-error" role="alert" aria-live="assertive"></p>
+                <div class="invite-dialog-actions">
+                    <button id="cancel-delete-beer-run" class="invite-action-secondary" type="button">Keep this run</button>
+                    <button id="confirm-delete-beer-run" class="run-delete-button" type="button" disabled>Delete permanently</button>
                 </div>
             </section>
         </div>
@@ -480,6 +503,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=29"></script>
+    <script type="module" src="/static/js/app.js?v=30"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
-import * as api from './modules/api.js?v=19';
+import * as api from './modules/api.js?v=20';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as beerRuns from './modules/beer-runs.js?v=12';
+import * as beerRuns from './modules/beer-runs.js?v=13';
 import * as invites from './modules/invites.js?v=3';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
 import * as mapMod from './modules/map.js?v=14';
@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onCreateRun: handleCreateBeerRun,
         onRenameRun: handleRenameBeerRun,
         onLeaveRun: handleLeaveBeerRun,
+        onDeleteRun: handleDeleteBeerRun,
         onCreateInvite: handleCreateInvite,
         onFetchMembers: (beerRunId, signal) => api.fetchBeerRunMembers(beerRunId, auth.getToken(), signal),
     });
@@ -287,6 +288,42 @@ document.addEventListener('DOMContentLoaded', () => {
         return result;
     }
 
+    async function handleDeleteBeerRun(run) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token || !run || Number(currentRun?.id) !== Number(run.id)) {
+            return { ok: false, status: 401 };
+        }
+
+        const result = await api.deleteBeerRun(run.id, token);
+        if (generation !== contextGeneration || currentUser?.id !== user.id
+            || auth.getToken() !== token || Number(currentRun?.id) !== Number(run.id)) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (result.status === 401) {
+            handleRejectedSession();
+            return { ok: false, status: 401, handled: true };
+        }
+        if (result.status === 404) {
+            await recoverFromAccessLoss(run, {
+                notice: 'This run was already removed. Choosing another available run.',
+            });
+            return { ok: true, status: result.status, stale: true };
+        }
+        if (result.status === 403) {
+            await initializeRunContext({ notice: 'Your owner access changed. Refreshing runs.' });
+            return result;
+        }
+        if (result.ok) {
+            picker.removeRun(run.id);
+            await recoverFromAccessLoss(run, {
+                notice: `Deleted ${run.name}. Choosing another available run.`,
+            });
+        }
+        return result;
+    }
+
     async function handleCreateInvite(run) {
         const user = currentUser;
         const token = auth.getToken();
@@ -446,7 +483,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function recoverFromAccessLoss(run, { notice = 'Your selected run is no longer available. Choosing your default run instead.' } = {}) {
         if (!currentRun || Number(currentRun.id) !== Number(run.id)) return;
+        cancelRefresh();
         if (currentUser) beerRuns.removeSelectedRunId(currentUser.id);
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('run') === String(run.id)) {
+            url.searchParams.delete('run');
+            window.history.replaceState({}, '', url);
+        }
         currentRun = null;
         picker.setCurrentRun(null);
         clearTripState('This beer run is no longer available.');

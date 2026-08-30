@@ -1,7 +1,6 @@
 import os
 import io
 import json
-import re
 from dataclasses import dataclass
 from functools import lru_cache
 from datetime import datetime
@@ -27,6 +26,7 @@ import permissions
 import schemas
 from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
+from upload_cleanup import persisted_upload_target
 
 auth.validate_auth_configuration()
 auth.validate_signup_configuration()
@@ -64,12 +64,6 @@ UPLOAD_PATH_ROOT = PurePosixPath("static/uploads")
 UPLOAD_ALLOCATION_ATTEMPTS = 10
 _FORM_FLOAT = TypeAdapter(float)
 _PHOTO_ACTIONS = frozenset({"keep", "replace", "remove"})
-_CANONICAL_UPLOAD_RE = re.compile(
-    r"^static/uploads/beer_runs/([1-9][0-9]*)/"
-    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg$"
-)
-
-
 @dataclass(frozen=True)
 class _OwnedUpload:
     """A canonical image path and the one physical file this request owns."""
@@ -251,31 +245,12 @@ def _persisted_upload_target(
     beer_run_id: int,
 ) -> Path | None:
     """Resolve one exact canonical same-run file beneath the configured root."""
-
-    if not isinstance(image_path, str) or "\\" in image_path:
-        return None
-    match = _CANONICAL_UPLOAD_RE.fullmatch(image_path)
-    if match is None or int(match.group(1)) != beer_run_id:
-        return None
-    try:
-        parsed_uuid = UUID(match.group(2))
-    except ValueError:
-        return None
-    if str(parsed_uuid) != match.group(2):
-        return None
-
-    try:
-        relative = PurePosixPath(image_path).relative_to(UPLOAD_PATH_ROOT)
-        resolved_root = UPLOAD_ROOT.resolve(strict=False)
-        candidate = UPLOAD_ROOT.joinpath(*relative.parts)
-        resolved_target = candidate.resolve(strict=False)
-        if not resolved_target.is_relative_to(resolved_root):
-            return None
-        if candidate.is_symlink() or not resolved_target.is_file():
-            return None
-    except (OSError, ValueError):
-        return None
-    return resolved_target
+    return persisted_upload_target(
+        image_path,
+        beer_run_id,
+        upload_root=UPLOAD_ROOT,
+        upload_path_root=UPLOAD_PATH_ROOT,
+    )
 
 
 def _cleanup_persisted_upload(

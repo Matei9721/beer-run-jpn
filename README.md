@@ -24,7 +24,7 @@ Ensure you have `uv` installed, then run:
 uv sync
 ```
 
-### 2. Configure private authentication values
+### 2. Configure private authentication and legal values
 
 Generate a cryptographically random secret with this cross-platform Python command:
 
@@ -32,13 +32,16 @@ Generate a cryptographically random secret with this cross-platform Python comma
 uv --cache-dir .uv-cache run python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Copy `.env.example` to a private repository-root `.env` file. Replace both
-placeholders: use the generated value for `SECRET_KEY` and choose a private
-signup code to share only with invited users.
+Copy `.env.example` to a private repository-root `.env` file. Replace all four
+placeholders: use the generated value for `SECRET_KEY`, choose a private signup
+code to share only with invited users, and provide the controller's real full
+name (or registered legal name) plus a monitored contact email.
 
 ```dotenv
 SECRET_KEY=paste-the-generated-value-here
 SIGNUP_CODE=replace-with-private-signup-code
+LEGAL_CONTROLLER_NAME=replace-with-controller-legal-name
+LEGAL_CONTACT_EMAIL=replace-with-controller-contact-email
 ```
 
 The application refuses to start when `SECRET_KEY` is missing, blank, padded
@@ -54,6 +57,13 @@ padded with whitespace, or still set to the tracked example placeholder. A
 it only in the JSON body of `POST /api/signup`; successful signup creates an
 account but does not add it to BeerRunJPN or any other beer run.
 
+`LEGAL_CONTROLLER_NAME` and `LEGAL_CONTACT_EMAIL` are required to render the
+public Terms and Privacy Notice. Missing, blank, padded, malformed, or tracked
+placeholder values stop startup. Keep the real values only in private `.env` or
+process configuration; never commit them. A natural-person controller must use
+their real full name. Reassess whether more provider information is required if
+the hosting or commercial model changes.
+
 ### 3. Apply Database Migrations
 Before starting the app, bring the local database to the expected schema:
 ```powershell
@@ -64,6 +74,11 @@ For an existing database with the current `users` and `entries` tables, this rec
 ```powershell
 uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
 ```
+
+Legal acceptance uses migration `008_add_terms_acceptances`, immediately after
+the account-deletion/authentication-subject migration 007. Do not renumber either
+migration. Follow [the privacy operations runbook](docs/privacy-operations.md)
+for stopped-application, recoverable-copy, rehearsal, and post-check steps.
 
 ### Migrate legacy upload paths
 
@@ -117,6 +132,28 @@ To use Geolocation on mobile phones outside your local network, you **must** use
 .\caddy_windows_amd64.exe run
 ```
 *Replace `your-domain.com` with your actual domain or a dynamic DNS address.*
+
+## Legal Documents And Terms Agreement
+
+- `GET /terms` provides the public Terms of Service.
+- `GET /privacy` provides the public Privacy Notice.
+- `GET /api/legal/metadata` provides the active versions, effective date, and
+  document URLs used by signup.
+- Both documents remain available without login and from the signup form.
+- Signup requires an unchecked, affirmative agreement to the current Terms
+  version and acknowledgement of the Privacy Notice. The server records that
+  Terms version and timestamp atomically with account creation.
+- Existing accounts and stored bearer tokens are not retroactively gated and do
+  not receive fabricated acceptance records. They keep their existing login,
+  authenticated-feature, and self-service account-deletion behavior.
+- Update the code-owned version before future signups when the Terms change.
+  Acknowledging the Privacy Notice is not blanket GDPR consent to all processing.
+
+The initial Terms version, Privacy Notice version, and effective date are
+`2026-08-30`. The tracked documents are an operator-editable compliance baseline,
+not a guarantee of GDPR, DSA, ePrivacy, consumer-law, or other legal compliance.
+Obtain qualified Dutch/EU legal review before broad public launch and after
+material service changes.
 
 ## Testing
 To verify API and database integrity:

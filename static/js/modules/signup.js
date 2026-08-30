@@ -15,6 +15,8 @@ const FIELD_LABELS = {
     username: 'Username',
     password: 'Password',
     signup_code: 'Signup code',
+    terms_agreed: 'Terms agreement',
+    terms_version: 'Terms version',
 };
 
 /**
@@ -24,7 +26,7 @@ const FIELD_LABELS = {
  * plus a field-keyed error map. Passwords and signup codes are never echoed
  * back in error text.
  */
-export function validateSignupFields({ username, password, confirmPassword, signupCode }) {
+export function validateSignupFields({ username, password, confirmPassword, signupCode, termsAccepted }) {
     const trimmedUsername = username.trim();
     const errors = {};
 
@@ -52,6 +54,10 @@ export function validateSignupFields({ username, password, confirmPassword, sign
 
     if (!signupCode.trim()) {
         errors.signupCode = 'Signup code is required.';
+    }
+
+    if (!termsAccepted) {
+        errors.termsAccepted = 'You must be at least 18 and agree to the Terms of Service.';
     }
 
     return {

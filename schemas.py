@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from datetime import datetime
 from typing import Optional
 
@@ -34,6 +34,16 @@ class SignupRequest(BaseModel):
     username: StrictStr
     password: StrictStr
     signup_code: StrictStr
+    terms_agreed: StrictBool
+    terms_version: StrictStr
+
+
+class LegalMetadata(BaseModel):
+    terms_version: str
+    privacy_notice_version: str
+    effective_date: str
+    terms_url: str
+    privacy_url: str
 
 
 class AccountDeleteRequest(BaseModel):

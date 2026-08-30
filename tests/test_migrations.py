@@ -18,6 +18,7 @@ MIGRATION_VERSIONS = [
     "005_beer_run_name_nocase",
     "006_add_beer_run_invites",
     "007_add_user_auth_subject",
+    "008_add_terms_acceptances",
 ]
 
 
@@ -243,6 +244,7 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
         "005_beer_run_name_nocase",
         "006_add_beer_run_invites",
         "007_add_user_auth_subject",
+        "008_add_terms_acceptances",
     )
     assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
@@ -384,7 +386,7 @@ def test_case_insensitive_username_migration_refuses_legacy_collisions(tmp_path)
     for private_value in ("Alice", "alice", "first-hash", "second-hash"):
         assert private_value not in message
     # Only migrations before 004 (the one that should fail) are recorded.
-    assert migration_versions(db_path) == MIGRATION_VERSIONS[:3]
+    assert migration_versions(db_path) == [*MIGRATION_VERSIONS[:3], MIGRATION_VERSIONS[-1]]
     assert username_index_details(db_path, "ix_users_username") == (
         True,
         ["BINARY"],
@@ -724,7 +726,7 @@ def test_invite_migration_refuses_partial_existing_table(tmp_path):
     message = str(exc_info.value)
     assert "beer_run_invites already exists" in message
     assert "Repair or remove the partial table deliberately" in message
-    assert migration_versions(db_path) == MIGRATION_VERSIONS[:5]
+    assert migration_versions(db_path) == [*MIGRATION_VERSIONS[:5], MIGRATION_VERSIONS[-1]]
     assert index_names(db_path, "beer_run_invites") == set()
     assert foreign_key_targets(db_path, "beer_run_invites") == set()
     assert row_count(db_path, "beer_run_invites") == 0

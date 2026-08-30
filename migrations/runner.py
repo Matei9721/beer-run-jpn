@@ -25,6 +25,9 @@ beer_run_invites = importlib.import_module(
 user_auth_subject = importlib.import_module(
     "migrations.versions.007_add_user_auth_subject"
 )
+terms_acceptances = importlib.import_module(
+    "migrations.versions.008_add_terms_acceptances"
+)
 
 
 class MigrationError(Exception):
@@ -72,6 +75,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         user_auth_subject.ID,
         user_auth_subject.DESCRIPTION,
         user_auth_subject,
+    ),
+    Migration(
+        terms_acceptances.ID,
+        terms_acceptances.DESCRIPTION,
+        terms_acceptances,
     ),
 )
 

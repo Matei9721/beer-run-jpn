@@ -437,6 +437,10 @@ export function deleteAccount(password, confirmation, token, signal = null) {
     });
 }
 
+export async function fetchLegalMetadata() {
+    return await fetch('/api/legal/metadata');
+}
+
 export async function login(username, password) {
     const params = new URLSearchParams();
     params.append('username', username);
@@ -451,7 +455,7 @@ export async function login(username, password) {
     });
 }
 
-export async function signup(username, password, signupCode) {
+export async function signup(username, password, signupCode, termsVersion) {
     return await fetch('/api/signup', {
         method: 'POST',
         headers: {
@@ -460,7 +464,9 @@ export async function signup(username, password, signupCode) {
         body: JSON.stringify({
             username,
             password,
-            signup_code: signupCode
+            signup_code: signupCode,
+            terms_agreed: true,
+            terms_version: termsVersion,
         })
     });
 }

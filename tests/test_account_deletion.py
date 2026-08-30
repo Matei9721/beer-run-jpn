@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 import auth_routes
+import legal
 import models
 from upload_cleanup import (
     OwnedRunUpload,
@@ -97,7 +98,7 @@ def test_owned_runs_return_structured_conflict_without_changes(client):
     assert response.status_code == 409
     assert response.json()["detail"] == {
         "code": "owned_runs_block_deletion",
-        "message": "Transfer ownership or delete these runs first.",
+        "message": "Delete these runs first.",
         "owned_runs": [{"id": run_id, "name": run_name}],
     }
     assert client.get("/api/me", headers=_bearer(token)).status_code == 200
@@ -127,8 +128,12 @@ def test_success_removes_only_caller_rows_and_exclusive_photos(
         models.Entry(drink_type="Beer", abv=5, quantity=.5, latitude=1, longitude=1, image_path=own_path, user_id=user.id, beer_run_id=run.id),
         models.Entry(drink_type="Beer", abv=5, quantity=.5, latitude=1, longitude=1, image_path=shared_path, user_id=user.id, beer_run_id=run.id),
         models.Entry(drink_type="Beer", abv=5, quantity=.5, latitude=1, longitude=1, image_path=shared_path, user_id=other.id, beer_run_id=run.id),
+        models.TermsAcceptance(user_id=user.id, terms_version=legal.TERMS_VERSION, accepted_at=legal.utc_now()),
+        models.TermsAcceptance(user_id=other.id, terms_version=legal.TERMS_VERSION, accepted_at=legal.utc_now()),
     ])
     data["db"].commit()
+    assert _count("terms_acceptances", "user_id = ?", (user_id,)) == 1
+    assert _count("terms_acceptances", "user_id = ?", (other_id,)) == 1
 
     response = client.request(
         "DELETE",
@@ -142,7 +147,9 @@ def test_success_removes_only_caller_rows_and_exclusive_photos(
     assert _count("users", "id = ?", (user_id,)) == 0
     assert _count("entries", "user_id = ?", (user_id,)) == 0
     assert _count("beer_run_members", "user_id = ?", (user_id,)) == 0
+    assert _count("terms_acceptances", "user_id = ?", (user_id,)) == 0
     assert _count("users", "id = ?", (other_id,)) == 1
+    assert _count("terms_acceptances", "user_id = ?", (other_id,)) == 1
     assert _count("beer_runs", "id = ?", (run_id,)) == 1
     assert not own_file.exists()
     assert shared_file.read_bytes() == b"shared"

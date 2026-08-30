@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query, Session
 
 import auth
+import legal
 from main import app
 
 
@@ -332,11 +333,15 @@ def _signup_payload(
     username: object = "Alice_1",
     password: object = "Password1",
     signup_code: object = VALID_SIGNUP_CODE,
+    terms_agreed: object = True,
+    terms_version: object = legal.TERMS_VERSION,
 ) -> dict[str, object]:
     return {
         "username": username,
         "password": password,
         "signup_code": signup_code,
+        "terms_agreed": terms_agreed,
+        "terms_version": terms_version,
     }
 
 
@@ -446,7 +451,10 @@ def test_signup_password_is_not_trimmed_or_mutated(client):
     ).status_code == 401
 
 
-@pytest.mark.parametrize("missing_field", ["username", "password", "signup_code"])
+@pytest.mark.parametrize(
+    "missing_field",
+    ["username", "password", "signup_code", "terms_agreed", "terms_version"],
+)
 def test_signup_requires_every_json_field(client, missing_field):
     payload = _signup_payload()
     del payload[missing_field]
@@ -458,7 +466,10 @@ def test_signup_requires_every_json_field(client, missing_field):
     assert _database_rows("users") == before
 
 
-@pytest.mark.parametrize("field", ["username", "password", "signup_code"])
+@pytest.mark.parametrize(
+    "field",
+    ["username", "password", "signup_code", "terms_version"],
+)
 def test_signup_rejects_non_string_fields(client, field):
     payload = _signup_payload()
     payload[field] = 123

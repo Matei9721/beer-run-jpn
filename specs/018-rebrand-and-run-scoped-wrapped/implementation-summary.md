@@ -32,7 +32,7 @@ Rebranded the reusable service UI and policy copy to BeerRun while preserving Be
 
 - Models, schemas, route response builders, and migration registry for `has_wrapped`.
 - Wrapped generator, endpoint, client, template, and tracked legacy metadata for run-scoped recap delivery.
-- Main template, legal templates, share/invite copy, FastAPI title, and README for the BeerRun product brand.
+- Main template and header CSS, legal templates, share/invite copy, FastAPI title, and README for the BeerRun product brand.
 - Frontend orchestration for selected-run Wrapped visibility, URLs, and per-run notice dismissal.
 - Repository guidance and tests for the new data, API, generation, and operational contracts.
 
@@ -46,6 +46,7 @@ Rebranded the reusable service UI and policy copy to BeerRun while preserving Be
 - Repository hygiene: `git diff --check` passed (line-ending notice only for the existing tracked JSON file).
 - Disposable migration readiness: `Database migrations are up to date.`
 - Browser QA: desktop canonical run showed `/wrapped?run=1`; unflagged public run hid Wrapped; direct unflagged access rendered unavailable; canonical legacy recap loaded; no console errors; 390×844 viewport had `scrollWidth = 390` and a fitting completion modal.
+- Authenticated header QA: the BeerRun logo center matched the container center within 0.01 pixels on desktop and exactly on the 390-pixel viewport; account controls occupy their own centered row with no horizontal overflow.
 
 ## Spec Adherence
 

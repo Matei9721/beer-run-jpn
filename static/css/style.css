@@ -53,25 +53,26 @@ body {
 
 /* New Robust Header */
 .main-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
     align-items: center;
+    gap: 12px;
     padding: 30px 0;
     width: 100%;
 }
 
 .header-side {
-    flex: 1;
     display: flex;
     align-items: center;
 }
 
 .header-side.left {
-    justify-content: flex-start;
+    display: none;
 }
 
 .header-side.right {
-    justify-content: flex-end;
+    justify-content: center;
     gap: 6px;
 }
 
@@ -80,7 +81,7 @@ body {
     font-size: 30px;
     font-weight: 800;
     letter-spacing: 1.5px;
-    margin: 0 15px;
+    margin: 0;
     background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -2123,11 +2124,11 @@ body.account-settings-open {
 @media (max-width: 480px) {
     .main-header {
         padding: 40px 0 20px 0;
+        gap: 10px;
     }
 
     .brand-logo {
         font-size: 22px;
-        margin: 0 5px;
     }
 
     .btn-text {

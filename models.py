@@ -1,3 +1,5 @@
+import secrets
+
 from sqlalchemy import Boolean, CheckConstraint, Column, Float, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
@@ -9,6 +11,12 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(collation="NOCASE"))
     hashed_password = Column(String, nullable=True)
+    auth_subject = Column(
+        String,
+        nullable=False,
+        unique=True,
+        default=lambda: secrets.token_urlsafe(32),
+    )
     __table_args__ = (
         Index("ix_users_username", username.collate("BINARY"), unique=True),
         Index("uq_users_username_nocase", username, unique=True),

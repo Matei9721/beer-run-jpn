@@ -45,7 +45,7 @@ EXPECTED_ENTRY_FIELDS = {
 def auth_token_for(user) -> str:
     """Create a valid bearer token for a User object (mirrors conftest)."""
     import auth
-    return auth.create_access_token({"sub": str(user.id)})
+    return auth.create_access_token({"sub": user.auth_subject})
 
 
 # Sentinel so callers can explicitly request a NULL beer_run_id entry.

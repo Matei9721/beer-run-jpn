@@ -1,5 +1,6 @@
 import re
 import sqlite3
+from pathlib import Path, PurePosixPath
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -13,6 +14,13 @@ from sqlalchemy.orm import Session
 import auth
 import models
 import schemas
+from upload_cleanup import (
+    QuarantineRestoreError,
+    collect_user_uploads,
+    purge_quarantined_uploads,
+    quarantine_uploads,
+    restore_quarantined_uploads,
+)
 from database import get_db
 
 
@@ -21,6 +29,10 @@ router = APIRouter()
 SIGNUP_USERNAME_PATTERN = re.compile(r"[A-Za-z0-9_-]{3,32}\Z")
 SIGNUP_PASSWORD_LETTER_PATTERN = re.compile(r"[A-Za-z]")
 SIGNUP_PASSWORD_DIGIT_PATTERN = re.compile(r"[0-9]")
+ACCOUNT_DELETE_CONFIRMATION = "DELETE MY ACCOUNT"
+UPLOAD_ROOT = Path("static/uploads")
+UPLOAD_PATH_ROOT = PurePosixPath("static/uploads")
+ACCOUNT_DELETION_QUARANTINE_ROOT = Path(".account-deletion-quarantine")
 
 
 async def sanitize_signup_validation_error(
@@ -33,7 +45,7 @@ async def sanitize_signup_validation_error(
     # raw password would be echoed back in the response body — visible to any
     # network observer, browser dev tools, or server logs that record response
     # payloads.  We strip the response to only type/loc/msg to prevent that.
-    if request.url.path != "/api/signup":
+    if request.url.path not in {"/api/signup", "/api/me"}:
         return await request_validation_exception_handler(request, exc)
 
     # Build a sanitised version of the errors: drop the "input" key that
@@ -91,7 +103,7 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = auth.create_access_token(data={"sub": str(user.id)})
+    access_token = auth.create_access_token(data={"sub": user.auth_subject})
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -159,7 +171,7 @@ async def signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
         )
         db.add(user)
         db.flush()
-        access_token = auth.create_access_token({"sub": str(user.id)})
+        access_token = auth.create_access_token({"sub": user.auth_subject})
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -193,3 +205,131 @@ async def read_users_me(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {"username": current_user.username, "id": current_user.id}
+
+
+def _require_current_user(current_user: models.User | None) -> models.User:
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return current_user
+
+
+def _owned_runs(db: Session, user_id: int) -> list[dict[str, object]]:
+    rows = (
+        db.query(models.BeerRun.id, models.BeerRun.name)
+        .join(models.BeerRunMember)
+        .filter(
+            models.BeerRunMember.user_id == user_id,
+            models.BeerRunMember.role == "owner",
+        )
+        .order_by(models.BeerRun.name, models.BeerRun.id)
+        .all()
+    )
+    return [{"id": row.id, "name": row.name} for row in rows]
+
+
+def _begin_account_deletion(db: Session) -> None:
+    """Serialize the ownership, upload, and row-deletion decision in SQLite."""
+
+    db.connection().exec_driver_sql("BEGIN IMMEDIATE")
+
+
+def _restore_account_uploads(operation) -> None:
+    if operation is None:
+        return
+    try:
+        restore_quarantined_uploads(operation)
+    except QuarantineRestoreError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete account; photo recovery is pending",
+        ) from None
+
+
+@router.get(
+    "/api/me/deletion-summary",
+    response_model=schemas.AccountDeletionSummary,
+)
+async def account_deletion_summary(
+    current_user: models.User | None = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _require_current_user(current_user)
+    return {
+        "entry_count": db.query(models.Entry.id).filter(models.Entry.user_id == user.id).count(),
+        "membership_count": db.query(models.BeerRunMember.id).filter(models.BeerRunMember.user_id == user.id).count(),
+        "owned_runs": _owned_runs(db, user.id),
+    }
+
+
+@router.delete("/api/me", response_model=schemas.AccountDeleteResponse)
+async def delete_account(
+    request: schemas.AccountDeleteRequest,
+    current_user: models.User | None = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _require_current_user(current_user)
+    if request.confirmation != ACCOUNT_DELETE_CONFIRMATION:
+        raise HTTPException(status_code=422, detail="Type DELETE MY ACCOUNT to confirm")
+
+    password_valid = False
+    if user.hashed_password:
+        try:
+            password_valid = auth.verify_password(request.password, user.hashed_password)
+        except (TypeError, ValueError):
+            password_valid = False
+    if not password_valid:
+        raise HTTPException(status_code=401, detail="Incorrect password")
+
+    quarantine = None
+    try:
+        _begin_account_deletion(db)
+        blockers = _owned_runs(db, user.id)
+        if blockers:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "owned_runs_block_deletion",
+                    "message": "Transfer ownership or delete these runs first.",
+                    "owned_runs": blockers,
+                },
+            )
+        candidates = collect_user_uploads(
+            db,
+            user.id,
+            upload_root=UPLOAD_ROOT,
+            upload_path_root=UPLOAD_PATH_ROOT,
+        )
+        quarantine = quarantine_uploads(
+            candidates,
+            upload_root=UPLOAD_ROOT,
+            quarantine_root=ACCOUNT_DELETION_QUARANTINE_ROOT,
+        )
+        db.query(models.Entry).filter(models.Entry.user_id == user.id).delete(
+            synchronize_session=False
+        )
+        db.query(models.BeerRunMember).filter(
+            models.BeerRunMember.user_id == user.id
+        ).delete(synchronize_session=False)
+        db.delete(user)
+        db.commit()
+    except HTTPException:
+        raise
+    except QuarantineRestoreError as exc:
+        db.rollback()
+        _restore_account_uploads(exc.operation)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete account",
+        ) from None
+    except Exception:
+        db.rollback()
+        _restore_account_uploads(quarantine)
+        raise HTTPException(status_code=500, detail="Unable to delete account") from None
+
+    purge_quarantined_uploads(quarantine)
+    return {"deleted": True}

@@ -21,6 +21,7 @@ from main import app
 
 ROOT_PATH = Path(__file__).resolve().parents[1]
 VALID_SIGNUP_CODE = os.environ["SIGNUP_CODE"]
+VALID_AUTH_SUBJECT = "A" * 43
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -79,9 +80,9 @@ def test_process_secret_takes_precedence_over_env_file(monkeypatch, tmp_path):
     monkeypatch.setattr(auth, "ENV_FILE_PATH", env_path)
     monkeypatch.setenv("SECRET_KEY", process_secret)
 
-    token = auth.create_access_token({"sub": "1"})
+    token = auth.create_access_token({"sub": VALID_AUTH_SUBJECT})
 
-    assert jwt.decode(token, process_secret, algorithms=[auth.ALGORITHM])["sub"] == "1"
+    assert jwt.decode(token, process_secret, algorithms=[auth.ALGORITHM])["sub"] == VALID_AUTH_SUBJECT
     with pytest.raises(JWTError):
         jwt.decode(token, file_secret, algorithms=[auth.ALGORITHM])
 
@@ -208,7 +209,7 @@ def test_jwt_encode_and_decode_refuse_invalid_configuration(monkeypatch, tmp_pat
     monkeypatch.setenv("SECRET_KEY", "short")
 
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
-        auth.create_access_token({"sub": "1"})
+        auth.create_access_token({"sub": VALID_AUTH_SUBJECT})
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         asyncio.run(auth.get_current_user("not-a-token", db=object()))
 
@@ -360,17 +361,17 @@ def test_signup_creates_hashed_account_and_immediately_authenticates(client):
         algorithms=[auth.ALGORITHM],
     )
     assert set(payload) == {"sub", "exp", "token_version"}
-    assert payload["token_version"] == 2
+    assert payload["token_version"] == 3
     assert type(payload["token_version"]) is int
 
     me_response = client.get("/api/me", headers=_bearer(token))
     assert me_response.status_code == 200
-    assert me_response.json() == {"username": "Alice_1", "id": int(payload["sub"])}
+    assert me_response.json()["username"] == "Alice_1"
 
     with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
         stored = conn.execute(
-            "SELECT username, hashed_password FROM users WHERE id = ?",
-            (int(payload["sub"]),),
+            "SELECT username, hashed_password FROM users WHERE auth_subject = ?",
+            (payload["sub"],),
         ).fetchone()
     assert stored is not None
     assert stored[0] == "Alice_1"
@@ -745,7 +746,7 @@ def test_signup_unexpected_failure_is_sanitized_and_rolled_back(
     assert _database_rows("users") == before
 
 
-def test_login_is_case_insensitive_and_issues_versioned_id_token(client):
+def test_login_is_case_insensitive_and_issues_versioned_auth_subject_token(client):
     response = client.post("/token", data={"username": "UsEr", "password": "password"})
 
     assert response.status_code == 200
@@ -756,8 +757,13 @@ def test_login_is_case_insensitive_and_issues_versioned_id_token(client):
         auth.validate_auth_configuration(),
         algorithms=[auth.ALGORITHM],
     )
-    assert payload["sub"] == "1"
-    assert payload["token_version"] == 2
+    with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+        expected_subject = conn.execute(
+            "SELECT auth_subject FROM users WHERE id = 1"
+        ).fetchone()[0]
+    assert payload["sub"] == expected_subject
+    assert len(payload["sub"]) == 43
+    assert payload["token_version"] == 3
     assert type(payload["token_version"]) is int
     assert "exp" in payload
     assert "username" not in payload
@@ -811,20 +817,17 @@ def test_missing_or_malformed_password_hash_fails_without_diagnostics(client, ca
     [
         {"sub": "1"},
         {"sub": "1", "token_version": 1},
-        {"sub": "1", "token_version": 2.0},
-        {"sub": "1", "token_version": "2"},
-        {"sub": "1", "token_version": True},
-        {"token_version": 2},
-        {"sub": 1, "token_version": 2},
-        {"sub": "user", "token_version": 2},
-        {"sub": "0", "token_version": 2},
-        {"sub": "-1", "token_version": 2},
-        {"sub": "+1", "token_version": 2},
-        {"sub": " 1", "token_version": 2},
-        {"sub": "1.0", "token_version": 2},
-        {"sub": "01", "token_version": 2},
-        {"sub": "999999", "token_version": 2},
-        {"sub": str(2**63), "token_version": 2},
+        {"sub": VALID_AUTH_SUBJECT, "token_version": 2.0},
+        {"sub": VALID_AUTH_SUBJECT, "token_version": "3"},
+        {"sub": VALID_AUTH_SUBJECT, "token_version": True},
+        {"token_version": 3},
+        {"sub": 1, "token_version": 3},
+        {"sub": "user", "token_version": 3},
+        {"sub": "A" * 42, "token_version": 3},
+        {"sub": "A" * 44, "token_version": 3},
+        {"sub": "!" * 43, "token_version": 3},
+        {"sub": " " + "A" * 42, "token_version": 3},
+        {"sub": "999999", "token_version": 3},
     ],
 )
 def test_invalid_identity_claims_share_generic_unauthorized_response(client, claims):
@@ -834,7 +837,7 @@ def test_invalid_identity_claims_share_generic_unauthorized_response(client, cla
 
 
 def test_missing_expiration_is_rejected_generically(client):
-    token = _signed_token({"sub": "1", "token_version": 2}, include_exp=False)
+    token = _signed_token({"sub": VALID_AUTH_SUBJECT, "token_version": 3}, include_exp=False)
 
     _assert_generic_unauthorized(client.get("/api/me", headers=_bearer(token)))
 
@@ -842,8 +845,8 @@ def test_missing_expiration_is_rejected_generically(client):
 def test_expired_token_is_rejected_generically(client):
     token = jwt.encode(
         {
-            "sub": "1",
-            "token_version": 2,
+            "sub": VALID_AUTH_SUBJECT,
+            "token_version": 3,
             "exp": datetime.now(UTC) - timedelta(seconds=1),
         },
         auth.validate_auth_configuration(),
@@ -860,7 +863,7 @@ def test_malformed_token_is_rejected_generically(client, token):
 
 def test_invalid_signature_is_rejected_generically(client):
     token = _signed_token(
-        {"sub": "1", "token_version": 2},
+        {"sub": VALID_AUTH_SUBJECT, "token_version": 3},
         secret=secrets.token_urlsafe(32),
     )
 
@@ -874,7 +877,7 @@ def test_legacy_username_tokens_are_rejected_without_fallback(client, legacy_sub
     _assert_generic_unauthorized(client.get("/api/me", headers=_bearer(token)))
 
 
-def test_token_resolves_user_by_id_after_username_changes(client):
+def test_token_resolves_user_by_auth_subject_after_username_changes(client):
     login_response = client.post("/token", data={"username": "user", "password": "password"})
     token = login_response.json()["access_token"]
     with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
@@ -886,11 +889,35 @@ def test_token_resolves_user_by_id_after_username_changes(client):
     assert response.json() == {"username": "renamed", "id": 1}
 
 
+def test_deleted_users_token_cannot_authenticate_reused_numeric_id(client):
+    login_response = client.post(
+        "/token", data={"username": "user", "password": "password"}
+    )
+    old_token = login_response.json()["access_token"]
+    with sqlite3.connect(os.environ["BOOZERUN_DATABASE_PATH"]) as conn:
+        old_subject, password_hash = conn.execute(
+            "SELECT auth_subject, hashed_password FROM users WHERE id = 1"
+        ).fetchone()
+        conn.execute("DELETE FROM entries WHERE user_id = 1")
+        conn.execute("DELETE FROM beer_run_members WHERE user_id = 1")
+        conn.execute("DELETE FROM users WHERE id = 1")
+        conn.execute(
+            """
+            INSERT INTO users (id, username, hashed_password, auth_subject)
+            VALUES (1, 'replacement', ?, ?)
+            """,
+            (password_hash, "Z" * 43),
+        )
+
+    assert old_subject != "Z" * 43
+    _assert_generic_unauthorized(client.get("/api/me", headers=_bearer(old_token)))
+
+
 @pytest.mark.parametrize(
     "subject",
-    [None, "user", "0", "-1", "+1", " 1", "1.0", "01", str(auth.MAX_USER_ID + 1)],
+    [None, "user", "0", "A" * 42, "A" * 44, "!" * 43, " " + "A" * 42],
 )
-def test_access_token_creation_requires_canonical_positive_user_id(subject):
+def test_access_token_creation_requires_canonical_auth_subject(subject):
     with pytest.raises(ValueError, match="subject"):
         auth.create_access_token({"sub": subject})
 

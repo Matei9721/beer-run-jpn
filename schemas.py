@@ -36,6 +36,26 @@ class SignupRequest(BaseModel):
     signup_code: StrictStr
 
 
+class AccountDeleteRequest(BaseModel):
+    password: StrictStr
+    confirmation: StrictStr
+
+
+class OwnedRunSummary(BaseModel):
+    id: int
+    name: str
+
+
+class AccountDeletionSummary(BaseModel):
+    entry_count: int
+    membership_count: int
+    owned_runs: list[OwnedRunSummary]
+
+
+class AccountDeleteResponse(BaseModel):
+    deleted: bool
+
+
 # --- Beer-Run Schemas ---
 
 class BeerRunCreateRequest(BaseModel):

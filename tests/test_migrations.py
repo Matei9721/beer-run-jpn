@@ -17,6 +17,7 @@ MIGRATION_VERSIONS = [
     "004_case_insensitive_usernames",
     "005_beer_run_name_nocase",
     "006_add_beer_run_invites",
+    "007_add_user_auth_subject",
 ]
 
 
@@ -163,6 +164,9 @@ def restore_pre_case_insensitive_username_schema(db_path: Path) -> None:
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = '006_add_beer_run_invites'"
         )
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '007_add_user_auth_subject'"
+        )
         conn.execute("DROP INDEX IF EXISTS uq_users_username_nocase")
         conn.execute("DROP INDEX IF EXISTS uq_beer_runs_name_nocase")
         conn.execute("DROP TABLE IF EXISTS beer_run_invites")
@@ -238,6 +242,7 @@ def test_existing_current_schema_is_baselined_without_losing_rows(tmp_path):
         "004_case_insensitive_usernames",
         "005_beer_run_name_nocase",
         "006_add_beer_run_invites",
+        "007_add_user_auth_subject",
     )
     assert migration_versions(db_path) == MIGRATION_VERSIONS
     assert row_count(db_path, "users") == 1
@@ -282,7 +287,9 @@ def test_fresh_database_is_created_from_migrations(tmp_path):
 
     assert result.applied == tuple(MIGRATION_VERSIONS)
     assert {"users", "entries", "schema_migrations", "beer_runs", "beer_run_members"}.issubset(table_names(db_path))
-    assert {"id", "username", "hashed_password"}.issubset(column_names(db_path, "users"))
+    assert {"id", "username", "hashed_password", "auth_subject"}.issubset(
+        column_names(db_path, "users")
+    )
     assert {"timezone", "timezone_code", "user_id", "beer_run_id"}.issubset(column_names(db_path, "entries"))
     assert {"id", "name", "is_public", "created_at"}.issubset(column_names(db_path, "beer_runs"))
     assert {"id", "beer_run_id", "user_id", "role", "created_at"}.issubset(column_names(db_path, "beer_run_members"))
@@ -333,11 +340,13 @@ def test_case_insensitive_username_index_is_unique_and_uses_nocase(tmp_path):
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            "INSERT INTO users (username, hashed_password) VALUES ('Alice', 'first-hash')"
+            "INSERT INTO users (username, hashed_password, auth_subject) VALUES ('Alice', 'first-hash', ?)",
+            ("A" * 43,),
         )
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute(
-                "INSERT INTO users (username, hashed_password) VALUES ('alice', 'second-hash')"
+                "INSERT INTO users (username, hashed_password, auth_subject) VALUES ('alice', 'second-hash', ?)",
+                ("B" * 43,),
             )
 
     assert scalar(
@@ -353,10 +362,12 @@ def test_case_insensitive_username_migration_refuses_legacy_collisions(tmp_path)
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            "INSERT INTO users (id, username, hashed_password) VALUES (10, 'Alice', 'first-hash')"
+            "INSERT INTO users (id, username, hashed_password, auth_subject) VALUES (10, 'Alice', 'first-hash', ?)",
+            ("C" * 43,),
         )
         conn.execute(
-            "INSERT INTO users (id, username, hashed_password) VALUES (11, 'alice', 'second-hash')"
+            "INSERT INTO users (id, username, hashed_password, auth_subject) VALUES (11, 'alice', 'second-hash', ?)",
+            ("D" * 43,),
         )
 
     before = {
@@ -421,8 +432,8 @@ def test_case_insensitive_username_migration_preserves_unusual_legacy_names(tmp_
     ]
     with sqlite3.connect(db_path) as conn:
         conn.executemany(
-            "INSERT INTO users (id, username, hashed_password) VALUES (?, ?, ?)",
-            legacy_users,
+            "INSERT INTO users (id, username, hashed_password, auth_subject) VALUES (?, ?, ?, ?)",
+            [(*user, chr(69 + offset) * 43) for offset, user in enumerate(legacy_users)],
         )
 
     result = apply_migrations(db_path)
@@ -616,6 +627,9 @@ def restore_pre_invite_schema(db_path: Path) -> None:
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = '006_add_beer_run_invites'"
         )
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '007_add_user_auth_subject'"
+        )
         conn.execute("DROP TABLE IF EXISTS beer_run_invites")
 
 
@@ -793,3 +807,68 @@ def test_invite_migration_codes_are_case_sensitive(tmp_path):
             "SELECT beer_run_id FROM beer_run_invites WHERE code = ?",
             ("a" * 43,),
         ).fetchone()[0] == run_b
+
+
+# ── Authentication-subject migration (007) ─────────────────────────
+
+
+def test_auth_subject_migration_backfills_unique_non_null_random_subjects(tmp_path):
+    db_path = tmp_path / "existing.db"
+    create_pre_backfill_schema_with_history(db_path)
+
+    apply_migrations(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, username, hashed_password, auth_subject FROM users ORDER BY id"
+        ).fetchall()
+        columns = {row[1]: row for row in conn.execute("PRAGMA table_info(users)")}
+    assert [(row[0], row[1], row[2]) for row in rows] == [
+        (1, "user", "hash"),
+        (2, "Tamei", "tamei-hash"),
+    ]
+    subjects = [row[3] for row in rows]
+    assert len(subjects) == len(set(subjects))
+    assert all(
+        len(subject) == 43
+        and set(subject) <= set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        for subject in subjects
+    )
+    assert columns["auth_subject"][3] == 1
+    assert "uq_users_auth_subject" in index_names(db_path, "users")
+
+
+def test_auth_subject_migration_enforces_format_uniqueness_and_non_null(tmp_path):
+    db_path = tmp_path / "enforce.db"
+    apply_migrations(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO users (username, hashed_password, auth_subject) VALUES (?, ?, ?)",
+            ("Alice", "hash", "A" * 43),
+        )
+        for username, subject in (
+            ("Bob", None),
+            ("Carol", "short"),
+            ("Dave", "!" * 43),
+            ("Eve", "A" * 43),
+        ):
+            with pytest.raises(sqlite3.IntegrityError):
+                conn.execute(
+                    "INSERT INTO users (username, hashed_password, auth_subject) VALUES (?, ?, ?)",
+                    (username, "hash", subject),
+                )
+
+
+def test_auth_subject_migration_baselines_complete_existing_schema(tmp_path):
+    db_path = tmp_path / "complete.db"
+    apply_migrations(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version = '007_add_user_auth_subject'"
+        )
+
+    result = apply_migrations(db_path)
+
+    assert result.baselined == ("007_add_user_auth_subject",)
+    assert migration_versions(db_path) == MIGRATION_VERSIONS

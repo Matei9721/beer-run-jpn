@@ -139,7 +139,7 @@ def owner_member_nonmember_run(client):
     db.commit()
 
     def _token(user: models.User) -> str:
-        return auth.create_access_token({"sub": str(user.id)})
+        return auth.create_access_token({"sub": user.auth_subject})
 
     yield {
         "db": db,

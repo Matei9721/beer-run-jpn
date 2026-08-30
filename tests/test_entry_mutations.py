@@ -41,7 +41,7 @@ MISSING_RUN_ID = 99999
 
 
 def _bearer(user) -> dict[str, str]:
-    token = auth.create_access_token({"sub": str(user.id)})
+    token = auth.create_access_token({"sub": user.auth_subject})
     return {"Authorization": f"Bearer {token}"}
 
 

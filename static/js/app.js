@@ -1,8 +1,9 @@
-import * as api from './modules/api.js?v=20';
-import * as auth from './modules/auth.js?v=12';
+import * as api from './modules/api.js?v=21';
+import * as auth from './modules/auth.js?v=13';
 import * as signup from './modules/signup.js?v=1';
 import * as beerRuns from './modules/beer-runs.js?v=13';
-import * as invites from './modules/invites.js?v=3';
+import * as invites from './modules/invites.js?v=4';
+import { createAccountSettings } from './modules/account-settings.js?v=1';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
 import * as mapMod from './modules/map.js?v=14';
 import * as ui from './modules/ui.js?v=13';
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let mutationGeneration = 0;
     let mutationController = null;
     let inviteFlow = null;
+    let accountSettings = null;
 
     const picker = beerRuns.createBeerRunPicker({
         onSelectRun: run => selectRun(run, { persist: Boolean(currentUser) }),
@@ -399,6 +401,58 @@ document.addEventListener('DOMContentLoaded', () => {
         onRejectedSession: handleRejectedSession,
         onReconcile: reconcileInviteMembership,
         onAllowStartup: showStartupModals,
+    });
+
+    async function openOwnedRunManagement(runSummary) {
+        accountSettings?.reset();
+        const result = await api.fetchBeerRun(runSummary.id, auth.getToken());
+        if (result.status === 401) {
+            handleRejectedSession();
+            return;
+        }
+        if (!result.ok || result.data?.current_user_role !== 'owner') {
+            picker.announce('That run is no longer owned by this account. Reopen Account settings to refresh.');
+            document.getElementById('beer-run-trigger').click();
+            return;
+        }
+        if (Number(currentRun?.id) !== Number(result.data.id)) {
+            await selectRun(result.data, { persist: true });
+        } else {
+            setCurrentRun(result.data, { persist: false });
+        }
+        document.getElementById('beer-run-trigger').click();
+        document.getElementById('manage-beer-run').click();
+    }
+
+    async function deleteCurrentAccount(password, confirmation, signal) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token) return { ok: false, status: 401 };
+        const result = await api.deleteAccount(password, confirmation, token, signal);
+        if (generation !== contextGeneration || currentUser?.id !== user.id || auth.getToken() !== token) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (!result.ok || result.data?.deleted !== true) return result;
+
+        beerRuns.removeSelectedRunId(user.id);
+        inviteFlow?.reset();
+        const url = new URL(window.location.href);
+        url.searchParams.delete('invite');
+        url.searchParams.delete('run');
+        window.history.replaceState({}, '', url);
+        auth.removeToken();
+        accountSettings?.completeSuccess();
+        auth.closeLoginModal();
+        resetIdentity();
+        await initializeRunContext({ notice: 'Your account and personal data were deleted.' });
+        return result;
+    }
+
+    accountSettings = createAccountSettings({
+        onFetchSummary: signal => api.fetchAccountDeletionSummary(auth.getToken(), signal),
+        onDelete: deleteCurrentAccount,
+        onManageOwnedRun: openOwnedRunManagement,
     });
 
     async function resolveDefaultRun(signal = null) {
@@ -803,6 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
         contextGeneration += 1;
         cancelRefresh();
         inviteFlow?.invalidate();
+        accountSettings?.dismiss({ restoreFocus: false });
         currentUser = null;
         currentRun = null;
         picker.setIdentity(null);
@@ -883,6 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetIdentity();
         void initializeRunContext();
     });
+    document.getElementById('account-settings-btn').addEventListener('click', () => accountSettings.open());
     document.getElementById('close-login').addEventListener('click', () => {
         auth.closeLoginModal();
         if (!inviteFlow?.authClosed()) showStartupModals();

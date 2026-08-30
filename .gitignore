@@ -152,6 +152,7 @@ boozerun_backup.db
 test.db
 scripts/boozerun.db
 static/uploads/
+.account-deletion-quarantine/
 uploads_backup/
 users.json
 

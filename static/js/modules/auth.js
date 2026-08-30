@@ -22,6 +22,7 @@ const DEFAULT_LOGIN_ERROR = 'Invalid credentials';
 export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED, canWrite = false) {
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
+    const accountSettingsBtn = document.getElementById('account-settings-btn');
     const authRestrictedElements = document.querySelectorAll('.auth-restricted');
 
     const isAuthenticated = state === AUTH_STATES.AUTHENTICATED;
@@ -30,6 +31,7 @@ export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED, canWrite = fal
     if (isAuthenticated) {
         loginBtn.style.display = 'none';
         logoutBtn.style.display = '';
+        accountSettingsBtn.style.display = '';
         authRestrictedElements.forEach(el => el.style.display = canWrite ? '' : 'none');
         if (!canWrite) {
             const activeTab = document.querySelector('.tab-btn.active');
@@ -40,6 +42,7 @@ export function updateAuthUI(state = AUTH_STATES.UNAUTHENTICATED, canWrite = fal
     } else {
         loginBtn.style.display = isValidating ? 'none' : '';
         logoutBtn.style.display = 'none';
+        accountSettingsBtn.style.display = 'none';
         authRestrictedElements.forEach(el => el.style.display = 'none');
 
         // If on a restricted tab, switch to leaderboard

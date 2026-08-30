@@ -347,6 +347,13 @@ export function createInviteFlow({
             acceptPending = false;
             if (preview && !modal.hidden) renderPreview();
         },
+        reset() {
+            clearState();
+            active = false;
+            hideModal();
+            scrubInvite();
+            lastFocused = null;
+        },
         dismiss,
     };
 }

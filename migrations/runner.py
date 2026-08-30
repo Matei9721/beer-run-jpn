@@ -22,6 +22,9 @@ beer_run_name_nocase = importlib.import_module(
 beer_run_invites = importlib.import_module(
     "migrations.versions.006_add_beer_run_invites"
 )
+user_auth_subject = importlib.import_module(
+    "migrations.versions.007_add_user_auth_subject"
+)
 
 
 class MigrationError(Exception):
@@ -64,6 +67,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         beer_run_invites.ID,
         beer_run_invites.DESCRIPTION,
         beer_run_invites,
+    ),
+    Migration(
+        user_auth_subject.ID,
+        user_auth_subject.DESCRIPTION,
+        user_auth_subject,
     ),
 )
 

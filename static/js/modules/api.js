@@ -393,6 +393,50 @@ export async function fetchCurrentUser(token) {
     });
 }
 
+async function _accountDeletionRequest(path, options) {
+    try {
+        const response = await fetch(path, options);
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: payload?.detail ?? null,
+                network: false,
+            };
+        }
+        return { ok: true, status: response.status, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
+export function fetchAccountDeletionSummary(token, signal = null) {
+    return _accountDeletionRequest('/api/me/deletion-summary', {
+        headers: _authHeaders(token),
+        signal,
+    });
+}
+
+export function deleteAccount(password, confirmation, token, signal = null) {
+    return _accountDeletionRequest('/api/me', {
+        method: 'DELETE',
+        headers: {
+            ..._authHeaders(token),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password, confirmation }),
+        signal,
+    });
+}
+
 export async function login(username, password) {
     const params = new URLSearchParams();
     params.append('username', username);

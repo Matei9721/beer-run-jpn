@@ -49,7 +49,7 @@ def new_user(data, username):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user, auth.create_access_token({"sub": str(user.id)})
+    return user, auth.create_access_token({"sub": user.auth_subject})
 
 
 # ── Feature 2: Owner create-or-retrieve ───────────────────────────────

@@ -21,12 +21,8 @@ EXAMPLE_SECRET = "replace-with-output-from-secrets-token_urlsafe-32"
 EXAMPLE_SIGNUP_CODE = "replace-with-private-signup-code"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days
-TOKEN_VERSION = 2
-MAX_USER_ID = (2**63) - 1
-# Allow digits only, no leading zero — matches the auto-increment integer
-# primary key format SQLite produces, while rejecting ambiguous / padded
-# representations that might bypass a naive "is this numeric?" check.
-_CANONICAL_USER_ID = re.compile(r"[1-9][0-9]*\Z")
+TOKEN_VERSION = 3
+_AUTH_SUBJECT = re.compile(r"[A-Za-z0-9_-]{43}\Z")
 
 
 def validate_auth_configuration() -> str:
@@ -106,19 +102,16 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def _parse_user_id_subject(subject: object) -> int:
-    if not isinstance(subject, str) or not _CANONICAL_USER_ID.fullmatch(subject):
+def _parse_auth_subject(subject: object) -> str:
+    if not isinstance(subject, str) or not _AUTH_SUBJECT.fullmatch(subject):
         raise ValueError("Invalid token subject")
-    user_id = int(subject)
-    if user_id > MAX_USER_ID:
-        raise ValueError("Invalid token subject")
-    return user_id
+    return subject
 
 
 # --- JWT Logic ---
 def create_access_token(data: dict):
     to_encode = data.copy()
-    _parse_user_id_subject(to_encode.get("sub"))
+    _parse_auth_subject(to_encode.get("sub"))
     expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire, "token_version": TOKEN_VERSION})
     return jwt.encode(to_encode, validate_auth_configuration(), algorithm=ALGORITHM)
@@ -151,7 +144,11 @@ async def get_current_user(
         )
         if type(payload.get("token_version")) is not int or payload["token_version"] != TOKEN_VERSION:
             return None
-        user_id = _parse_user_id_subject(payload.get("sub"))
-        return db.get(models.User, user_id)
+        auth_subject = _parse_auth_subject(payload.get("sub"))
+        return (
+            db.query(models.User)
+            .filter(models.User.auth_subject == auth_subject)
+            .one_or_none()
+        )
     except (JWTError, ValueError):
         return None

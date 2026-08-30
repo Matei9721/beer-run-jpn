@@ -628,7 +628,12 @@ async function loadWrapped() {
     startBtn.textContent = 'LOADING';
 
     try {
-        const response = await fetch('/api/wrapped');
+        const runId = new URL(window.location.href).searchParams.get('run');
+        if (!runId || !/^\d+$/.test(runId)) throw new Error('Missing beer-run ID');
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/beer-runs/${encodeURIComponent(runId)}/wrapped`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         wrapped = await response.json();
         slides = Array.isArray(wrapped.slides) ? wrapped.slides : [];

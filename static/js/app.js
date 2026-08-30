@@ -1,7 +1,7 @@
 import * as api from './modules/api.js?v=22';
 import * as auth from './modules/auth.js?v=13';
 import * as signup from './modules/signup.js?v=2';
-import * as beerRuns from './modules/beer-runs.js?v=13';
+import * as beerRuns from './modules/beer-runs.js?v=14';
 import * as invites from './modules/invites.js?v=4';
 import { createAccountSettings } from './modules/account-settings.js?v=1';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
@@ -118,12 +118,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         currentRun = run || null;
         picker.setCurrentRun(currentRun);
+        updateWrappedForContext();
         if (persist && currentUser && currentRun) {
             beerRuns.saveSelectedRunId(currentUser.id, currentRun.id);
         }
         updateAuthForContext();
         if (changed) void entryManager.requestInitialLocation();
         if (message) picker.announce(message);
+    }
+
+    function wrappedNoticeStorageKey() {
+        return currentRun ? `${WRAPPED_ENDED_STORAGE_KEY}.${currentRun.id}` : null;
+    }
+
+    function updateWrappedForContext() {
+        const available = Boolean(currentRun?.has_wrapped);
+        const href = available ? `/wrapped?run=${encodeURIComponent(currentRun.id)}` : '/wrapped';
+        for (const link of [
+            document.getElementById('wrapped-tab-link'),
+            document.getElementById('wrapped-ended-open'),
+        ]) {
+            link.hidden = !available;
+            link.href = href;
+        }
+        if (!available) document.getElementById('wrapped-ended-modal').style.display = 'none';
     }
 
     function setSyncStatus(message, syncing = false) {
@@ -146,8 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function shareRun(run) {
         const url = shareUrlForRun(run);
         const shareData = {
-            title: `${run.name} · BeerRunJPN`,
-            text: `Open ${run.name} in BeerRunJPN`,
+            title: `${run.name} · BeerRun`,
+            text: `Open ${run.name} in BeerRun`,
             url,
         };
 
@@ -515,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!selected) {
                 currentRun = null;
                 picker.setCurrentRun(null);
+                updateWrappedForContext();
                 picker.setAvailability('error', fallback.reason === 'network'
                     ? 'Connection unavailable. Refresh to try again.'
                     : 'BeerRunJPN is not available.');
@@ -547,6 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         currentRun = null;
         picker.setCurrentRun(null);
+        updateWrappedForContext();
         clearTripState('This beer run is no longer available.');
         updateAuthForContext();
         await initializeRunContext({ notice });
@@ -825,12 +845,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeWrappedEndedModal() {
         const modal = document.getElementById('wrapped-ended-modal');
-        if (document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
+        const storageKey = wrappedNoticeStorageKey();
+        if (storageKey && document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(storageKey, 'true');
         modal.style.display = 'none';
     }
 
     function showWrappedEndedModal() {
-        if (localStorage.getItem(WRAPPED_ENDED_STORAGE_KEY) === 'true') return;
+        if (!currentRun?.has_wrapped) return;
+        const storageKey = wrappedNoticeStorageKey();
+        if (storageKey && localStorage.getItem(storageKey) === 'true') return;
         if (document.getElementById('instructions-modal').style.display === 'flex') return;
         document.getElementById('wrapped-ended-modal').style.display = 'flex';
     }
@@ -839,7 +862,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('close-wrapped-ended').addEventListener('click', closeWrappedEndedModal);
         document.getElementById('wrapped-ended-done').addEventListener('click', closeWrappedEndedModal);
         document.getElementById('wrapped-ended-open').addEventListener('click', () => {
-            if (document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(WRAPPED_ENDED_STORAGE_KEY, 'true');
+            const storageKey = wrappedNoticeStorageKey();
+            if (storageKey && document.getElementById('hide-wrapped-ended').checked) localStorage.setItem(storageKey, 'true');
         });
     }
 

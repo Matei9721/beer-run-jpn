@@ -73,6 +73,7 @@ class TestCreateBeerRun:
         assert data["is_public"] is False
         assert data["member_count"] == 1
         assert data["current_user_role"] == "owner"
+        assert data["has_wrapped"] is False
         assert "id" in data
         assert "created_at" in data
 
@@ -312,6 +313,7 @@ class TestListBeerRuns:
         bj = [r for r in response.json() if r["name"] == "BeerRunJPN"][0]
         assert bj["is_public"] is True
         assert bj["current_user_role"] is None  # logged-out
+        assert bj["has_wrapped"] is True
 
         # Authenticated (user fixture has a membership in BeerRunJPN).
         token = _login(client)

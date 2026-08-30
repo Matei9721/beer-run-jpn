@@ -315,7 +315,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         currentSummary.hidden = true;
         rosterSection.hidden = true;
         document.getElementById('beer-run-picker-title').textContent = 'Manage run';
-        pickerIntro.textContent = 'Update the name shown across BeerRunJPN.';
+        pickerIntro.textContent = 'Update the name shown across BeerRun.';
         renameNameInput.value = currentRun.name;
         setRenameFeedback();
         renameNameInput.focus();
@@ -619,8 +619,8 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         if (!inviteData || !navigator.share) return;
         try {
             await navigator.share({
-                title: `${inviteData.beer_run_name} · BeerRunJPN`,
-                text: `Join ${inviteData.beer_run_name} in BeerRunJPN`,
+                title: `${inviteData.beer_run_name} · BeerRun`,
+                text: `Join ${inviteData.beer_run_name} in BeerRun`,
                 url: inviteOwnerUrl.value,
             });
             setInviteFeedback('Share sheet opened.');

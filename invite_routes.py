@@ -147,6 +147,7 @@ def _beer_run_response(
         id=beer_run.id,
         name=beer_run.name,
         is_public=beer_run.is_public,
+        has_wrapped=beer_run.has_wrapped,
         created_at=beer_run.created_at,
         member_count=member_count,
         current_user_role=role,

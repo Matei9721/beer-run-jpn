@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 DEFAULT_DB_PATH = Path("boozerun.db")
-DEFAULT_OUTPUT_PATH = Path("data/wrapped.json")
+DEFAULT_OUTPUT_DIR = Path("data/wrapped")
 DEFAULT_ROOT = Path(".")
 DEFAULT_AUDIO_PATH = "/static/audio/wrapped.mp3"
 
@@ -68,7 +68,7 @@ def image_exists(root, image_path):
     return candidate.is_file() and candidate.stat().st_size > 0
 
 
-def load_entries(db_path, root):
+def load_entries(db_path, root, beer_run_id):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -86,8 +86,10 @@ def load_entries(db_path, root):
                    timestamp
             from entries
             join users on users.id = entries.user_id
+            where entries.beer_run_id = ?
             order by timestamp asc, entries.id asc
-            """
+            """,
+            (beer_run_id,),
         ).fetchall()
     finally:
         conn.close()
@@ -383,9 +385,10 @@ def images_from_ids(entries, preferred_ids, limit):
     return images
 
 
-def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH, root=DEFAULT_ROOT):
+def build_wrapped_data(beer_run_id, db_path=DEFAULT_DB_PATH, output_path=None, root=DEFAULT_ROOT):
     root = Path(root)
-    entries = load_entries(Path(db_path), root)
+    beer_run_id = int(beer_run_id)
+    entries = load_entries(Path(db_path), root, beer_run_id)
     valid_photo_count = sum(1 for entry in entries if entry.get("image_url"))
     leaderboard = build_leaderboard(entries)
     locations = build_location_stats(entries)
@@ -627,6 +630,7 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
 
     data = {
         "meta": {
+            "beer_run_id": beer_run_id,
             "title": "BeerRunJPN Wrapped",
             "subtitle": "The final trip recap",
             "generated_at": datetime.now(UTC).isoformat(),
@@ -646,7 +650,7 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
         "slides": slides,
     }
 
-    output_path = Path(output_path)
+    output_path = Path(output_path) if output_path else DEFAULT_OUTPUT_DIR / f"{beer_run_id}.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     return data
@@ -654,13 +658,20 @@ def build_wrapped_data(db_path=DEFAULT_DB_PATH, output_path=DEFAULT_OUTPUT_PATH,
 
 def main():
     parser = argparse.ArgumentParser(description="Build BeerRunJPN Wrapped JSON from the trip database.")
+    parser.add_argument("--run-id", type=int, required=True, help="Beer-run ID to include")
     parser.add_argument("--db", default=str(DEFAULT_DB_PATH), help="SQLite database path")
-    parser.add_argument("--out", default=str(DEFAULT_OUTPUT_PATH), help="Output JSON path")
+    parser.add_argument("--out", help="Output JSON path (defaults to data/wrapped/<run-id>.json)")
     parser.add_argument("--root", default=str(DEFAULT_ROOT), help="Project root for validating static images")
     args = parser.parse_args()
 
-    data = build_wrapped_data(db_path=args.db, output_path=args.out, root=args.root)
-    print(f"Wrote {args.out} with {len(data['slides'])} slides")
+    output_path = Path(args.out) if args.out else DEFAULT_OUTPUT_DIR / f"{args.run_id}.json"
+    data = build_wrapped_data(
+        args.run_id,
+        db_path=args.db,
+        output_path=output_path,
+        root=args.root,
+    )
+    print(f"Wrote {output_path} with {len(data['slides'])} slides")
 
 
 if __name__ == "__main__":

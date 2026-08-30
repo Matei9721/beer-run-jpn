@@ -29,6 +29,10 @@ from database import get_db
 from migrations.runner import MigrationRequired, validate_database_ready
 from upload_cleanup import persisted_upload_target
 
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+WRAPPED_DATA_DIR = PROJECT_ROOT / "data" / "wrapped"
+
 auth.validate_auth_configuration()
 auth.validate_signup_configuration()
 legal.validate_legal_configuration()
@@ -38,7 +42,7 @@ try:
 except MigrationRequired as exc:
     raise RuntimeError(f"Database migration required: {exc}") from exc
 
-app = FastAPI(title="BoozeRunJpn")
+app = FastAPI(title="BeerRun")
 # Register the signup validation handler globally (FastAPI exception handlers
 # are route-agnostic — the filter inside the function ensures it only applies
 # to /api/signup, while other routes still use the default handler).
@@ -309,21 +313,35 @@ async def legal_metadata():
 
 @app.get("/wrapped")
 async def wrapped():
-    return FileResponse("templates/wrapped.html")
+    return FileResponse(PROJECT_ROOT / "templates" / "wrapped.html")
 
 @app.get("/api/config")
 async def get_config():
     return get_drink_config()
 
-@app.get("/api/wrapped")
-async def get_wrapped():
+@app.get("/api/beer-runs/{beer_run_id}/wrapped")
+async def get_wrapped(
+    access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
+):
+    if not access.beer_run.has_wrapped:
+        raise permissions.not_found_error()
+    artifact_path = WRAPPED_DATA_DIR / f"{access.beer_run.id}.json"
+    legacy_artifact = PROJECT_ROOT / "data" / "wrapped.json"
+    if not artifact_path.exists() and access.beer_run.name.casefold() == "beerrunjpn".casefold():
+        artifact_path = legacy_artifact
     try:
-        with open("data/wrapped.json", "r", encoding="utf-8") as f:
-            return JSONResponse(json.load(f))
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Wrapped data has not been generated yet")
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail=f"Wrapped data is invalid JSON: {exc}")
+        data = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        raise permissions.not_found_error()
+    meta = data.get("meta", {})
+    matches_id = meta.get("beer_run_id") == access.beer_run.id
+    matches_legacy_canonical = (
+        artifact_path == legacy_artifact
+        and str(meta.get("beer_run_name", "")).casefold() == access.beer_run.name.casefold()
+    )
+    if not (matches_id or matches_legacy_canonical):
+        raise permissions.not_found_error()
+    return JSONResponse(data)
 
 @app.get(
     "/api/beer-runs/{beer_run_id}/leaderboard",

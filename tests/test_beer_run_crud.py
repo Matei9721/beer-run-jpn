@@ -697,6 +697,43 @@ class TestUpdateBeerRun:
         )
         assert response.status_code == 409
 
+    @pytest.mark.parametrize("name", ["", "ab", "bad/name", "éclair", "x" * 65])
+    def test_rename_reuses_creation_name_validation(self, client, name):
+        token = _login(client)
+        created = client.post(
+            "/api/beer-runs", json={"name": "Valid Rename"}, headers=_bearer(token)
+        )
+        run_id = created.json()["id"]
+
+        response = client.patch(
+            f"/api/beer-runs/{run_id}", json={"name": name}, headers=_bearer(token)
+        )
+
+        assert response.status_code == 422
+        assert client.get(f"/api/beer-runs/{run_id}", headers=_bearer(token)).json()["name"] == "Valid Rename"
+
+    def test_rename_preserves_identity_membership_and_invite(self, client, owner_member_nonmember_run):
+        data = owner_member_nonmember_run
+        run = data["private_run"]
+        invite = client.post(
+            f"/api/beer-runs/{run.id}/invites", headers=_bearer(data["owner_token"])
+        ).json()
+
+        response = client.patch(
+            f"/api/beer-runs/{run.id}",
+            json={"name": "Renamed Private Run"},
+            headers=_bearer(data["owner_token"]),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] == run.id
+        assert response.json()["member_count"] == 2
+        assert response.json()["current_user_role"] == "owner"
+        assert client.post(
+            f"/api/beer-runs/{run.id}/invites", headers=_bearer(data["owner_token"])
+        ).json()["code"] == invite["code"]
+        assert client.get(f"/api/invites/{invite['code']}").json()["beer_run_name"] == "Renamed Private Run"
+
 
 # ── Delete ───────────────────────────────────────────────────────────
 

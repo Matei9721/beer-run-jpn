@@ -1,7 +1,7 @@
-import * as api from './modules/api.js?v=17';
+import * as api from './modules/api.js?v=18';
 import * as auth from './modules/auth.js?v=12';
 import * as signup from './modules/signup.js?v=1';
-import * as beerRuns from './modules/beer-runs.js?v=8';
+import * as beerRuns from './modules/beer-runs.js?v=11';
 import * as invites from './modules/invites.js?v=3';
 import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
 import * as mapMod from './modules/map.js?v=14';
@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         onSearchPublicRuns: (query, signal) => api.searchPublicBeerRuns(query, auth.getToken(), signal),
         onShareRun: shareRun,
         onCreateRun: handleCreateBeerRun,
+        onRenameRun: handleRenameBeerRun,
         onCreateInvite: handleCreateInvite,
         onFetchMembers: (beerRunId, signal) => api.fetchBeerRunMembers(beerRunId, auth.getToken(), signal),
     });
@@ -220,6 +221,32 @@ document.addEventListener('DOMContentLoaded', () => {
         picker.setAvailability('ready');
         await refreshData(true);
         return { ok: true, data: created };
+    }
+
+    async function handleRenameBeerRun(run, name) {
+        const user = currentUser;
+        const token = auth.getToken();
+        const generation = contextGeneration;
+        if (!user || !token || !run || Number(currentRun?.id) !== Number(run.id)) {
+            return { ok: false, status: 401 };
+        }
+        const result = await api.updateBeerRun(run.id, { name }, token);
+        if (createRequestIsStale(user, token, generation)) {
+            return { ok: false, aborted: true, stale: true };
+        }
+        if (result.status === 401) {
+            handleRejectedSession();
+            return { ok: false, status: 401, handled: true };
+        }
+        if (result.status === 403 || result.status === 404) {
+            await initializeRunContext({ notice: 'Your owner access changed. Refreshing runs.' });
+            return { ok: false, status: result.status, detail: result.detail };
+        }
+        if (result.ok) {
+            setCurrentRun(result.data, { persist: false });
+            await refreshData(true);
+        }
+        return result;
     }
 
     async function handleCreateInvite(run) {

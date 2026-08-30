@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BeerRunJPN</title>
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
-    <link rel="stylesheet" href="/static/css/style.css?v=25">
+    <link rel="stylesheet" href="/static/css/style.css?v=28">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
@@ -162,10 +162,15 @@
             </div>
             <p id="beer-run-picker-status" class="run-picker-status" role="status" aria-live="polite"></p>
             <div id="beer-run-picker-current" class="run-picker-current" hidden>
-                <span class="run-picker-current-label">Viewing</span>
-                <span id="beer-run-picker-current-name"></span>
-                <button id="share-beer-run" class="run-share-button" type="button">Share link</button>
-                <button id="invite-beer-run" class="run-invite-button" type="button" hidden>Invite people</button>
+                <div class="run-picker-current-copy">
+                    <span class="run-picker-current-label">Viewing</span>
+                    <span id="beer-run-picker-current-name"></span>
+                </div>
+                <div class="run-picker-current-actions">
+                    <button id="share-beer-run" class="run-share-button" type="button">Share link</button>
+                    <button id="invite-beer-run" class="run-invite-button" type="button" hidden>Invite people</button>
+                    <button id="manage-beer-run" class="run-manage-button" type="button" hidden>Manage</button>
+                </div>
             </div>
             <section id="beer-run-roster" class="run-roster" hidden aria-labelledby="beer-run-roster-title">
                 <h3 id="beer-run-roster-title">Members</h3>
@@ -222,6 +227,23 @@
                     </div>
                 </form>
             </section>
+            <section id="rename-beer-run-view" class="create-run-view" hidden aria-labelledby="rename-beer-run-title">
+                <h3 id="rename-beer-run-title">Rename this run</h3>
+                <p class="run-picker-intro">Keep the run’s members, entries, invite link, and history.</p>
+                <form id="rename-beer-run-form" novalidate>
+                    <div class="create-run-field">
+                        <label for="rename-beer-run-name">Run name</label>
+                        <input id="rename-beer-run-name" name="name" type="text" maxlength="64" autocomplete="off" required aria-describedby="rename-beer-run-help rename-beer-run-error">
+                        <p id="rename-beer-run-help" class="run-picker-note">3–64 characters: letters, numbers, spaces, underscores, or hyphens.</p>
+                        <p id="rename-beer-run-error" class="create-run-error" role="alert" aria-live="assertive"></p>
+                        <p id="rename-beer-run-status" class="create-run-status" role="status" aria-live="polite"></p>
+                    </div>
+                    <div class="create-run-actions">
+                        <button id="cancel-rename-beer-run" class="run-create-secondary" type="button">Back</button>
+                        <button id="submit-rename-beer-run" class="run-create-submit" type="submit">Save name</button>
+                    </div>
+                </form>
+            </section>
             <section id="invite-beer-run-view" class="invite-owner-view" hidden aria-labelledby="invite-beer-run-title">
                 <h3 id="invite-beer-run-title">Invite people</h3>
                 <p class="run-picker-intro">Create or retrieve the permanent link for this run.</p>
@@ -245,6 +267,21 @@
                 </div>
             </section>
         </section>
+        <div id="rename-beer-run-confirm" class="invite-modal-backdrop" hidden>
+            <section id="rename-beer-run-confirm-dialog" class="invite-dialog card" role="dialog" aria-modal="true" aria-labelledby="rename-beer-run-confirm-title" aria-describedby="rename-beer-run-confirm-copy">
+                <div class="invite-dialog-heading">
+                    <div>
+                        <p class="invite-dialog-kicker">Confirm rename</p>
+                        <h2 id="rename-beer-run-confirm-title">Rename this run?</h2>
+                    </div>
+                </div>
+                <p id="rename-beer-run-confirm-copy" class="invite-dialog-copy"></p>
+                <div class="invite-dialog-actions">
+                    <button id="cancel-rename-beer-run-confirm" class="invite-action-secondary" type="button">Cancel</button>
+                    <button id="confirm-rename-beer-run" class="invite-action-primary" type="button">Rename run</button>
+                </div>
+            </section>
+        </div>
     </div>
 
     <div id="invite-modal" class="invite-modal-backdrop" hidden>

@@ -144,6 +144,39 @@ export async function fetchBeerRun(beerRunId, token = null, signal = null) {
     }
 }
 
+export async function updateBeerRun(beerRunId, updates, token, signal = null) {
+    try {
+        const response = await fetch(`/api/beer-runs/${encodeURIComponent(beerRunId)}`, {
+            method: 'PATCH',
+            headers: {
+                ..._authHeaders(token),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+            signal,
+        });
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            return {
+                ok: false,
+                status: response.status,
+                detail: typeof payload?.detail === 'string' ? payload.detail : null,
+                network: false,
+            };
+        }
+        return { ok: true, data: payload };
+    } catch (error) {
+        const aborted = _abortedResult(error);
+        if (aborted) return aborted;
+        return { ok: false, network: true };
+    }
+}
+
 async function _inviteRequest(path, options = {}) {
     try {
         const response = await fetch(path, options);

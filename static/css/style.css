@@ -1126,7 +1126,8 @@ body.entry-delete-open {
 }
 
 .run-picker-current {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
     margin: 4px 0 14px;
@@ -1137,6 +1138,20 @@ body.entry-delete-open {
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 700;
+}
+
+.run-picker-current-copy {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: 8px;
+}
+
+.run-picker-current-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 #beer-run-picker-current-name {
@@ -1177,6 +1192,7 @@ body.entry-delete-open {
 }
 
 .run-invite-button,
+.run-manage-button,
 .invite-action-button,
 .invite-action-primary,
 .invite-action-secondary {
@@ -1185,6 +1201,17 @@ body.entry-delete-open {
 }
 
 .run-invite-button,
+.run-manage-button {
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.run-invite-button,
+.run-manage-button,
 .run-create-button,
 .invite-action-button,
 .invite-action-primary,
@@ -1954,6 +1981,7 @@ body.invite-dialog-open {
 /* Shared glass treatment for picker and invite controls. */
 .run-share-button,
 .run-invite-button,
+.run-manage-button,
 .run-create-button,
 .invite-action-button,
 .invite-action-secondary,
@@ -1972,6 +2000,8 @@ body.invite-dialog-open {
 .run-share-button:focus-visible,
 .run-invite-button:hover,
 .run-invite-button:focus-visible,
+.run-manage-button:hover,
+.run-manage-button:focus-visible,
 .run-create-button:hover,
 .run-create-button:focus-visible,
 .invite-action-button:hover,
@@ -1990,6 +2020,7 @@ body.invite-dialog-open {
 
 .run-share-button:active,
 .run-invite-button:active,
+.run-manage-button:active,
 .run-create-button:active,
 .invite-action-button:active,
 .invite-action-secondary:active,
@@ -2027,6 +2058,7 @@ body.invite-dialog-open {
 @media (max-width: 480px) {
     .run-share-button,
     .run-invite-button,
+    .run-manage-button,
     .run-create-button,
     .invite-action-button,
     .invite-action-primary,
@@ -2041,8 +2073,19 @@ body.invite-dialog-open {
     }
 
     .run-picker-current {
+        grid-template-columns: 1fr;
         gap: 6px;
         padding: 8px 9px;
+    }
+
+    .run-picker-current-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+        justify-content: stretch;
+    }
+
+    .run-picker-current-actions button {
+        width: 100%;
     }
 
     .invite-owner-actions,

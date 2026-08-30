@@ -68,7 +68,7 @@ function runButton(run, currentRunId, selectRun) {
     return button;
 }
 
-export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onFetchMembers, onCreateInvite }) {
+export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRun, onCreateRun, onRenameRun, onFetchMembers, onCreateInvite }) {
     const trigger = document.getElementById('beer-run-trigger');
     const triggerName = document.getElementById('beer-run-trigger-name');
     const triggerMeta = document.getElementById('beer-run-trigger-meta');
@@ -84,6 +84,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const rosterList = document.getElementById('beer-run-roster-list');
     const shareButton = document.getElementById('share-beer-run');
     const inviteButton = document.getElementById('invite-beer-run');
+    const manageButton = document.getElementById('manage-beer-run');
     const membershipSection = document.getElementById('beer-run-members-section');
     const memberships = document.getElementById('beer-run-members');
     const createAction = document.getElementById('create-beer-run');
@@ -96,6 +97,17 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     const createStatus = document.getElementById('create-beer-run-status');
     const createSubmit = document.getElementById('submit-create-beer-run');
     const createCancel = document.getElementById('cancel-create-beer-run');
+    const renameView = document.getElementById('rename-beer-run-view');
+    const renameForm = document.getElementById('rename-beer-run-form');
+    const renameNameInput = document.getElementById('rename-beer-run-name');
+    const renameError = document.getElementById('rename-beer-run-error');
+    const renameStatus = document.getElementById('rename-beer-run-status');
+    const renameSubmit = document.getElementById('submit-rename-beer-run');
+    const renameCancel = document.getElementById('cancel-rename-beer-run');
+    const renameConfirmBackdrop = document.getElementById('rename-beer-run-confirm');
+    const renameConfirmCopy = document.getElementById('rename-beer-run-confirm-copy');
+    const renameConfirmCancel = document.getElementById('cancel-rename-beer-run-confirm');
+    const renameConfirmSubmit = document.getElementById('confirm-rename-beer-run');
     const searchInput = document.getElementById('public-run-search');
     const searchStatus = document.getElementById('public-run-search-status');
     const searchResults = document.getElementById('public-run-results');
@@ -121,6 +133,11 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     let createLastFocusedElement = null;
     let createMode = false;
     let createPending = false;
+    let renameLastFocusedElement = null;
+    let renameMode = false;
+    let renamePending = false;
+    let renameConfirmationName = '';
+    let renameConfirmationLastFocusedElement = null;
     let memberGeneration = 0;
     let memberController = null;
     let inviteMode = false;
@@ -144,6 +161,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             triggerMeta.textContent = '';
             currentSummary.hidden = true;
             inviteButton.hidden = true;
+            manageButton.hidden = true;
             return;
         }
         triggerName.textContent = currentRun.name;
@@ -152,6 +170,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         currentSummaryName.textContent = currentRun.name;
         currentSummary.hidden = false;
         inviteButton.hidden = !(identity && currentRun.current_user_role === 'owner');
+        manageButton.hidden = !(identity && currentRun.current_user_role === 'owner');
     }
 
     function renderMemberships() {
@@ -215,6 +234,115 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     function setCreateFeedback(message = '', assertive = false) {
         createError.textContent = assertive ? message : '';
         createStatus.textContent = assertive ? '' : message;
+    }
+
+    function setRenameFeedback(message = '', assertive = false) {
+        renameError.textContent = assertive ? message : '';
+        renameStatus.textContent = assertive ? '' : message;
+    }
+
+    function closeRenameConfirmation({ restoreFocus = true } = {}) {
+        if (renameConfirmBackdrop.hidden) return;
+        renameConfirmBackdrop.hidden = true;
+        sheet.inert = false;
+        const focusTarget = renameConfirmationLastFocusedElement || renameNameInput;
+        renameConfirmationName = '';
+        renameConfirmationLastFocusedElement = null;
+        if (restoreFocus) focusTarget?.focus?.();
+    }
+
+    function openRenameConfirmation(name) {
+        renameConfirmationName = name;
+        renameConfirmationLastFocusedElement = document.activeElement;
+        renameConfirmCopy.textContent = `Are you sure you want to rename “${currentRun.name}” to “${name}”? Your members, entries, invite link, and history will stay attached to this run.`;
+        sheet.inert = true;
+        renameConfirmBackdrop.hidden = false;
+        renameConfirmCancel.focus();
+    }
+
+    function resetRenameView({ restoreFocus = false } = {}) {
+        closeRenameConfirmation({ restoreFocus: false });
+        renameMode = false;
+        renamePending = false;
+        renameForm.reset();
+        setRenameFeedback();
+        renameSubmit.disabled = false;
+        renameView.hidden = true;
+        libraryView.hidden = false;
+        document.getElementById('beer-run-picker-title').textContent = 'Choose a run';
+        pickerIntro.textContent = 'Switch the whole trip view, or discover a public crew.';
+        renderTrigger();
+        if (restoreFocus) (renameLastFocusedElement || manageButton)?.focus?.();
+        renameLastFocusedElement = null;
+    }
+
+    function openRename() {
+        if (!identity || !currentRun || currentRun.current_user_role !== 'owner' || renamePending) return;
+        renameLastFocusedElement = document.activeElement;
+        renameMode = true;
+        libraryView.hidden = true;
+        createView.hidden = true;
+        renameView.hidden = false;
+        inviteView.hidden = true;
+        currentSummary.hidden = true;
+        rosterSection.hidden = true;
+        document.getElementById('beer-run-picker-title').textContent = 'Manage run';
+        pickerIntro.textContent = 'Update the name shown across BeerRunJPN.';
+        renameNameInput.value = currentRun.name;
+        setRenameFeedback();
+        renameNameInput.focus();
+        renameNameInput.select();
+    }
+
+    async function submitRename(event) {
+        event.preventDefault();
+        if (renamePending || !identity || !currentRun) return;
+        const validation = validateBeerRunName(renameNameInput.value);
+        if (!validation.valid) {
+            setRenameFeedback(validation.message, true);
+            renameNameInput.focus();
+            return;
+        }
+        openRenameConfirmation(validation.name);
+    }
+
+    async function confirmRename() {
+        if (renamePending || !identity || !currentRun || !renameConfirmationName) return;
+        const newName = renameConfirmationName;
+        closeRenameConfirmation({ restoreFocus: false });
+        renamePending = true;
+        renameSubmit.disabled = true;
+        setRenameFeedback('Saving the new name...');
+        const originalRunId = currentRun.id;
+        const result = await onRenameRun?.(currentRun, newName);
+        if (result?.ok && result.data && Number(result.data.id) === Number(originalRunId)
+            && result.data.name === newName && result.data.current_user_role === 'owner') {
+            currentRun = result.data;
+            upsertMembership(result.data);
+            resetRenameView();
+            status.textContent = `Renamed to ${result.data.name}.`;
+            return;
+        }
+        renamePending = false;
+        renameSubmit.disabled = false;
+        if (result?.aborted || result?.stale) {
+            setRenameFeedback();
+            return;
+        }
+        if (result?.status === 401 && result?.handled) {
+            resetRenameView();
+            close({ focusElement: trigger });
+            return;
+        }
+        if (result?.status === 409) {
+            setRenameFeedback('That run name is already in use. Try another.', true);
+        } else if (result?.status === 422) {
+            setRenameFeedback(result.detail || 'Use 3–64 characters: letters, numbers, spaces, underscores, or hyphens.', true);
+        } else {
+            setRenameFeedback(result?.detail || 'We could not save the new name. Try again.', true);
+        }
+        renameNameInput.focus();
+        renameNameInput.select();
     }
 
     function setInviteFeedback(message = '', assertive = false) {
@@ -462,12 +590,21 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     }
 
     function focusableElements() {
-        return [...sheet.querySelectorAll('button:not([disabled]), input:not([disabled]), [href]')]
-            .filter(element => !element.hidden && element.offsetParent !== null);
+        const root = renameConfirmBackdrop.hidden ? sheet : renameConfirmBackdrop;
+        return [...root.querySelectorAll('button:not([disabled]), input:not([disabled]), [href]')]
+            .filter(element => !element.hidden
+                && element.offsetParent !== null
+                && !element.closest('[hidden]')
+                && !element.closest('[inert]'));
     }
 
     function onKeyDown(event) {
         if (dialog.hidden) return;
+        if (!renameConfirmBackdrop.hidden && event.key === 'Escape') {
+            event.preventDefault();
+            closeRenameConfirmation();
+            return;
+        }
         if (event.key === 'Escape') {
             event.preventDefault();
             close();
@@ -499,6 +636,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     function close({ focusElement = null } = {}) {
         if (dialog.hidden) return;
         if (createMode) resetCreateView();
+        if (renameMode) resetRenameView();
         if (inviteMode) resetInviteView();
         dialog.hidden = true;
         trigger.setAttribute('aria-expanded', 'false');
@@ -514,11 +652,16 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     closeButton.addEventListener('click', close);
     createAction.addEventListener('click', openCreate);
     inviteButton.addEventListener('click', openInvite);
+    manageButton.addEventListener('click', openRename);
     createCancel.addEventListener('click', () => {
         resetCreateView({ restoreFocus: true });
         if (!dialog.hidden) void loadRoster();
     });
     createForm.addEventListener('submit', submitCreate);
+    renameForm.addEventListener('submit', submitRename);
+    renameCancel.addEventListener('click', () => resetRenameView({ restoreFocus: true }));
+    renameConfirmCancel.addEventListener('click', () => closeRenameConfirmation());
+    renameConfirmSubmit.addEventListener('click', confirmRename);
     shareButton.addEventListener('click', () => {
         if (currentRun) void onShareRun?.(currentRun);
     });
@@ -530,6 +673,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
     cancelInvite.addEventListener('click', () => resetInviteView({ restoreFocus: true }));
     dialog.addEventListener('click', event => {
         if (event.target === dialog) close();
+    });
+    renameConfirmBackdrop.addEventListener('click', event => {
+        if (event.target === renameConfirmBackdrop) closeRenameConfirmation();
     });
     document.addEventListener('keydown', onKeyDown);
     searchInput.addEventListener('input', search);
@@ -547,8 +693,9 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
             status.textContent = message;
         },
         setIdentity(user) {
-            if ((createMode || inviteMode) && (!user || user.id !== identity?.id)) {
+            if ((createMode || renameMode || inviteMode) && (!user || user.id !== identity?.id)) {
                 resetCreateView();
+                resetRenameView();
                 resetInviteView();
                 if (!dialog.hidden) close({ focusElement: trigger });
             }
@@ -564,6 +711,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         upsertMembership,
         setCurrentRun(run) {
             if (inviteMode && Number(run?.id) !== Number(currentRun?.id)) resetInviteView();
+            if (renameMode && Number(run?.id) !== Number(currentRun?.id)) resetRenameView();
             currentRun = run || null;
             renderTrigger();
             renderMemberships();

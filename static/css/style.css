@@ -1237,6 +1237,75 @@ body.entry-delete-open {
     background: rgba(255, 42, 109, 0.16);
 }
 
+.run-danger-zone {
+    display: grid;
+    gap: 8px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 42, 109, 0.28);
+}
+
+.run-danger-zone h4,
+.run-danger-zone p {
+    margin: 0;
+}
+
+.run-danger-zone h4 {
+    color: #ffb1c7;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.run-danger-zone p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.run-delete-button {
+    width: auto;
+    min-width: 138px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 42, 109, 0.56);
+    border-radius: 11px;
+    background: linear-gradient(180deg, rgba(107, 28, 61, 0.94), rgba(63, 18, 39, 0.98));
+    color: #ffe8ef;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.run-delete-button:hover,
+.run-delete-button:focus-visible {
+    border-color: #ff6d9c;
+    background: linear-gradient(180deg, rgba(137, 32, 72, 0.98), rgba(82, 20, 49, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 22px rgba(255, 42, 109, 0.16);
+    transform: translateY(-1px);
+}
+
+.run-delete-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+}
+
+.delete-run-confirm-label {
+    display: block;
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.delete-run-confirm-input {
+    width: 100%;
+    margin-top: 7px;
+}
+
 .run-invite-button,
 .run-manage-button,
 .run-create-button,
@@ -2087,6 +2156,7 @@ body.invite-dialog-open {
     .run-invite-button,
     .run-manage-button,
     .run-leave-button,
+    .run-delete-button,
     .run-create-button,
     .invite-action-button,
     .invite-action-primary,

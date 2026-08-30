@@ -67,6 +67,13 @@ class BeerRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BeerRunDeleteResponse(BaseModel):
+    """Stable response returned after a beer-run has been deleted."""
+
+    status: str
+    beer_run_id: int
+
+
 class BeerRunMemberResponse(BaseModel):
     """A member visible to anyone authorized to read the beer-run."""
 

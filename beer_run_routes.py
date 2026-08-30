@@ -19,6 +19,7 @@ import models
 import permissions
 import schemas
 from database import get_db
+from upload_cleanup import cleanup_run_uploads, collect_run_uploads
 
 router = APIRouter()
 
@@ -525,23 +526,50 @@ async def update_beer_run(
 
 # ── Delete (Feature 5) ───────────────────────────────────────────────
 
-@router.delete("/api/beer-runs/{beer_run_id}")
+@router.delete(
+    "/api/beer-runs/{beer_run_id}",
+    response_model=schemas.BeerRunDeleteResponse,
+)
 async def delete_beer_run(
     access: permissions.OwnerAccess = Depends(permissions.authorize_owner_access),
     db: Session = Depends(get_db),
 ):
-    """Delete a beer-run and all its entries + memberships.  Owner-only.
+    """Delete a beer-run and all its entries + memberships. Owner-only.
 
     Authorization is delegated to the shared owner policy, which returns the
-    already-authorized run. The cascade delete transaction and rollback behavior
-    are unchanged.
+    already-authorized run. Files are removed only after the database commit so a
+    failed transaction cannot leave a live entry pointing at a deleted photo.
     """
     beer_run = access.beer_run
+    beer_run_id_val = beer_run.id
+
+    if beer_run.is_public and beer_run.name.casefold() == "beerrunjpn".casefold():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The canonical BeerRunJPN run cannot be deleted",
+        )
+
+    # Importing the application module here avoids the existing route-registration
+    # cycle while keeping test and operator upload-root overrides authoritative.
+    import main as app_module
+
+    try:
+        owned_uploads = collect_run_uploads(
+            db,
+            beer_run_id_val,
+            upload_root=app_module.UPLOAD_ROOT,
+            upload_path_root=app_module.UPLOAD_PATH_ROOT,
+        )
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete beer-run",
+        ) from None
 
     try:
         # Cascade delete in explicit order: invites and entries first,
         # then memberships, then the run itself — all in one transaction.
-        beer_run_id_val = beer_run.id
         db.query(models.BeerRunInvite).filter(
             models.BeerRunInvite.beer_run_id == beer_run_id_val
         ).delete(synchronize_session="fetch")
@@ -559,5 +587,18 @@ async def delete_beer_run(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to delete beer-run",
         ) from None
+
+    try:
+        cleanup_run_uploads(
+            db,
+            beer_run_id_val,
+            owned_uploads,
+            upload_root=app_module.UPLOAD_ROOT,
+            upload_path_root=app_module.UPLOAD_PATH_ROOT,
+        )
+    except Exception:
+        # The database commit succeeded; cleanup failure must not turn that
+        # success into a misleading error or expose a broken live reference.
+        pass
 
     return {"status": "deleted", "beer_run_id": beer_run_id_val}

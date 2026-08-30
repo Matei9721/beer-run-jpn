@@ -67,6 +67,7 @@ class BeerRun(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(collation="NOCASE"), nullable=False, index=True)
     is_public = Column(Boolean, nullable=False, default=False)
+    has_wrapped = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 
     memberships = relationship("BeerRunMember", back_populates="beer_run")

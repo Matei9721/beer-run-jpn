@@ -1,4 +1,4 @@
-# BoozeRunJpn 🍺🇯🇵
+# BeerRun 🍺
 
 A lightweight, high-performance web application designed to track drink consumption during a trip to Japan. Optimized for Raspberry Pi 3.
 

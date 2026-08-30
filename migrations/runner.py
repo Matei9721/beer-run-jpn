@@ -28,6 +28,9 @@ user_auth_subject = importlib.import_module(
 terms_acceptances = importlib.import_module(
     "migrations.versions.008_add_terms_acceptances"
 )
+beer_run_wrapped_flag = importlib.import_module(
+    "migrations.versions.009_add_beer_run_wrapped_flag"
+)
 
 
 class MigrationError(Exception):
@@ -80,6 +83,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         terms_acceptances.ID,
         terms_acceptances.DESCRIPTION,
         terms_acceptances,
+    ),
+    Migration(
+        beer_run_wrapped_flag.ID,
+        beer_run_wrapped_flag.DESCRIPTION,
+        beer_run_wrapped_flag,
     ),
 )
 

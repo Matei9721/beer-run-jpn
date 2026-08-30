@@ -37,7 +37,7 @@ uv --cache-dir .uv-cache run python scripts/migrate_db.py
 uv --cache-dir .uv-cache run python scripts/migrate_db.py --check
 
 # Generate Wrapped data
-uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py
+uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py --run-id <id>
 ```
 
 ## Architecture At A Glance

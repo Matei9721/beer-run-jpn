@@ -90,6 +90,7 @@ class BeerRunResponse(BaseModel):
     id: int
     name: str
     is_public: bool
+    has_wrapped: bool
     created_at: datetime
     member_count: int
     current_user_role: Optional[str] = None

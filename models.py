@@ -23,6 +23,39 @@ class User(Base):
     )
     entries = relationship("Entry", back_populates="owner")
     memberships = relationship("BeerRunMember", back_populates="user")
+    terms_acceptances = relationship(
+        "TermsAcceptance",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class TermsAcceptance(Base):
+    __tablename__ = "terms_acceptances"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "terms_version",
+            name="uq_terms_acceptances_user_version",
+        ),
+        CheckConstraint(
+            "length(trim(terms_version)) > 0",
+            name="ck_terms_acceptances_version_nonblank",
+        ),
+        Index("ix_terms_acceptances_user_id", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    terms_version = Column(String, nullable=False)
+    accepted_at = Column(DateTime(timezone=True), nullable=False)
+
+    user = relationship("User", back_populates="terms_acceptances")
 
 class BeerRun(Base):
     __tablename__ = "beer_runs"

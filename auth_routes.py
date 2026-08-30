@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import auth
+import legal
 import models
 import schemas
 from upload_cleanup import (
@@ -77,6 +78,19 @@ def _is_username_unique_violation(exc: IntegrityError) -> bool:
     )
 
 
+def _validate_terms_agreement(terms_agreed: bool, terms_version: str) -> None:
+    if not terms_agreed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="You must agree to the Terms of Service",
+        )
+    if terms_version != legal.TERMS_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Review and agree to the current Terms of Service",
+        )
+
+
 @router.post("/token", response_model=schemas.Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -113,6 +127,7 @@ async def login_for_access_token(
     status_code=status.HTTP_201_CREATED,
 )
 async def signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
+    _validate_terms_agreement(request.terms_agreed, request.terms_version)
     if not auth.signup_code_matches(request.signup_code):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -170,6 +185,14 @@ async def signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
             hashed_password=auth.get_password_hash(request.password),
         )
         db.add(user)
+        db.flush()
+        db.add(
+            models.TermsAcceptance(
+                user_id=user.id,
+                terms_version=legal.TERMS_VERSION,
+                accepted_at=legal.utc_now(),
+            )
+        )
         db.flush()
         access_token = auth.create_access_token({"sub": user.auth_subject})
         db.commit()
@@ -294,7 +317,7 @@ async def delete_account(
                 status_code=409,
                 detail={
                     "code": "owned_runs_block_deletion",
-                    "message": "Transfer ownership or delete these runs first.",
+                    "message": "Delete these runs first.",
                     "owned_runs": blockers,
                 },
             )
@@ -314,6 +337,9 @@ async def delete_account(
         )
         db.query(models.BeerRunMember).filter(
             models.BeerRunMember.user_id == user.id
+        ).delete(synchronize_session=False)
+        db.query(models.TermsAcceptance).filter(
+            models.TermsAcceptance.user_id == user.id
         ).delete(synchronize_session=False)
         db.delete(user)
         db.commit()

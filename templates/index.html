@@ -7,6 +7,7 @@
     <link rel="icon" type="image/jpeg" href="/static/img/logo.png">
     <link rel="stylesheet" href="/static/css/style.css?v=31">
     <link rel="stylesheet" href="/static/css/auth.css?v=9">
+    <link rel="stylesheet" href="/static/css/legal.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -152,7 +153,14 @@
                 </div>
             </form>
         </section>
+
     </div>
+
+    <footer class="site-legal-links" aria-label="Legal information">
+        <a href="/terms">Terms</a>
+        <span aria-hidden="true">·</span>
+        <a href="/privacy">Privacy</a>
+    </footer>
 
     <div id="beer-run-picker" class="run-picker-backdrop" hidden>
         <section id="beer-run-picker-sheet" class="run-picker-sheet card" role="dialog" aria-modal="true" aria-labelledby="beer-run-picker-title">
@@ -410,14 +418,14 @@
                     <div><dt>Owned runs</dt><dd id="account-owned-run-count">0</dd></div>
                 </dl>
                 <div id="account-owned-runs-blocker" class="account-owned-runs-blocker" hidden>
-                    <h3>Resolve owned runs first</h3>
-                    <p>Transfer ownership to another member, or delete each run, before deleting your account.</p>
+                    <h3>Delete owned runs first</h3>
+                    <p>Delete each run before deleting your account.</p>
                     <ul id="account-owned-runs-list"></ul>
                 </div>
                 <form id="delete-account-form" class="delete-account-form" novalidate>
                     <div class="account-danger-zone">
                         <h3>Delete account</h3>
-                        <p>This permanently removes your account, your drink entries, and their exclusively owned photos. This cannot be undone.</p>
+                        <p>This permanently removes your account, memberships, drink entries, Terms-acceptance records, and photos uploaded for your entries. This cannot be undone.</p>
                         <div class="form-group">
                             <label for="delete-account-password">Current password</label>
                             <input id="delete-account-password" name="password" type="password" autocomplete="current-password" required>
@@ -474,6 +482,10 @@
                     <label for="signup-code">Signup Code</label>
                     <input type="password" id="signup-code" name="signup_code" autocomplete="off" required>
                 </div>
+                <label class="signup-terms" for="signup-terms-agreement">
+                    <input type="checkbox" id="signup-terms-agreement" name="terms_agreed" required>
+                    <span>I am at least 18 and agree to the <a id="signup-terms-link" href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>. I have read the <a id="signup-privacy-link" href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Notice</a>.</span>
+                </label>
                 <button type="submit" id="signup-submit">CREATE ACCOUNT</button>
                 <p id="signup-error" class="auth-error" role="alert"></p>
             </form>
@@ -553,6 +565,6 @@
     <!-- Leaflet & App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/static/js/app.js?v=31"></script>
+    <script type="module" src="/static/js/app.js?v=33"></script>
 </body>
 </html>

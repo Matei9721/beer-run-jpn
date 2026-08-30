@@ -15,6 +15,8 @@ os.environ["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
 TEST_SIGNUP_CODE = "test-only-private-signup-code"
 os.environ["SIGNUP_CODE"] = TEST_SIGNUP_CODE
+os.environ["LEGAL_CONTROLLER_NAME"] = "Test Controller"
+os.environ["LEGAL_CONTACT_EMAIL"] = "privacy@example.test"
 
 import auth
 import models

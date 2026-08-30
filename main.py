@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 
 import models
 import auth
+import legal
 import auth_routes
 import beer_run_routes
 import invite_routes
@@ -30,6 +31,7 @@ from upload_cleanup import persisted_upload_target
 
 auth.validate_auth_configuration()
 auth.validate_signup_configuration()
+legal.validate_legal_configuration()
 
 try:
     validate_database_ready()
@@ -289,6 +291,21 @@ def _cleanup_persisted_upload_safely(
 @app.get("/")
 async def root():
     return FileResponse("templates/index.html")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms():
+    return HTMLResponse(legal.render_document("terms.html"))
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy():
+    return HTMLResponse(legal.render_document("privacy.html"))
+
+
+@app.get("/api/legal/metadata", response_model=schemas.LegalMetadata)
+async def legal_metadata():
+    return legal.public_metadata()
 
 @app.get("/wrapped")
 async def wrapped():

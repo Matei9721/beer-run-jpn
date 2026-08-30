@@ -13,6 +13,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from conftest import engine
+import legal
 from main import app
 
 VALID_SIGNUP_CODE = os.environ["SIGNUP_CODE"]
@@ -46,6 +47,8 @@ def _signup(client: TestClient, username: str, password: str = "Password1") -> t
             "username": username,
             "password": password,
             "signup_code": VALID_SIGNUP_CODE,
+            "terms_agreed": True,
+            "terms_version": legal.TERMS_VERSION,
         },
     )
     assert response.status_code == 201, response.text

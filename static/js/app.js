@@ -1,6 +1,6 @@
-import * as api from './modules/api.js?v=21';
+import * as api from './modules/api.js?v=22';
 import * as auth from './modules/auth.js?v=13';
-import * as signup from './modules/signup.js?v=1';
+import * as signup from './modules/signup.js?v=2';
 import * as beerRuns from './modules/beer-runs.js?v=13';
 import * as invites from './modules/invites.js?v=4';
 import { createAccountSettings } from './modules/account-settings.js?v=1';
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEntries = [];
     let currentRun = null;
     let currentUser = null;
+    let legalMetadata = null;
     let startupModalsPending = true;
     let authValidationComplete = false;
     let contextGeneration = 0;
@@ -874,6 +875,23 @@ document.addEventListener('DOMContentLoaded', () => {
         void initializeRunContext();
     }
 
+    async function ensureLegalMetadata({ refresh = false } = {}) {
+        if (legalMetadata && !refresh) return legalMetadata;
+        try {
+            const response = await api.fetchLegalMetadata();
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (!data?.terms_version || !data?.terms_url || !data?.privacy_url) return null;
+            legalMetadata = data;
+            document.getElementById('signup-terms-link').href = data.terms_url;
+            document.getElementById('signup-privacy-link').href = data.privacy_url;
+            return data;
+        } catch (error) {
+            console.error('Legal metadata request failed');
+            return null;
+        }
+    }
+
     async function establishAuthenticatedContext() {
         const token = auth.getToken();
         if (!token) return false;
@@ -1001,6 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
             password: document.getElementById('signup-password').value,
             confirmPassword: document.getElementById('signup-confirm').value,
             signupCode: document.getElementById('signup-code').value,
+            termsAccepted: document.getElementById('signup-terms-agreement').checked,
         };
         const validation = signup.validateSignupFields(fields);
         if (!validation.valid) {
@@ -1010,7 +1029,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitButton = document.getElementById('signup-submit');
         submitButton.disabled = true;
         try {
-            const response = await api.signup(validation.username, fields.password, fields.signupCode);
+            const metadata = await ensureLegalMetadata();
+            if (!metadata) {
+                auth.showSignupError('Could not load the current Terms. Check your connection and try again.');
+                submitButton.disabled = false;
+                return;
+            }
+            const response = await api.signup(
+                validation.username,
+                fields.password,
+                fields.signupCode,
+                metadata.terms_version,
+            );
             if (response.status === 201) {
                 await handleAuthenticated(await response.json());
                 return;
@@ -1059,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => refreshData(false), 30000);
 
     (async () => {
+        await ensureLegalMetadata();
         const authPromptShown = await validateStoredSession();
         const inviteShown = inviteFlow.initialize();
         if (inviteShown) auth.closeLoginModal();

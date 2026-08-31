@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict
+from typing import Any, BinaryIO, Dict, Literal
 from uuid import UUID, uuid4
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -359,6 +359,7 @@ async def get_wrapped(
     response_model=list[schemas.LeaderboardUser],
 )
 async def get_scoped_leaderboard(
+    rank_by: Literal["alcohol", "volume"] = "alcohol",
     access: permissions.PublicReadAccess = Depends(permissions.authorize_public_read),
     db: Session = Depends(get_db),
 ):
@@ -367,13 +368,16 @@ async def get_scoped_leaderboard(
     Only run members with at least one entry in this run appear, and totals
     include only entries assigned to the requested run. The aggregation runs as
     one run-scoped SQL query, so query count never grows with the number of
-    entrants. Rows are ordered by total alcohol, highest first.
+    entrants. Rows are ordered by the requested aggregate, highest first.
     """
+    volume_total = func.sum(models.Entry.quantity)
+    alcohol_total = func.sum(models.Entry.quantity * (models.Entry.abv / 100.0))
+    ranking_total = volume_total if rank_by == "volume" else alcohol_total
     rows = (
         db.query(
             models.User.username,
-            func.sum(models.Entry.quantity).label("total_liters"),
-            func.sum(models.Entry.quantity * (models.Entry.abv / 100.0)).label("total_alcohol"),
+            volume_total.label("total_liters"),
+            alcohol_total.label("total_alcohol"),
         )
         .join(models.BeerRunMember, models.BeerRunMember.user_id == models.User.id)
         .join(models.Entry, models.Entry.user_id == models.User.id)
@@ -382,7 +386,7 @@ async def get_scoped_leaderboard(
             models.Entry.beer_run_id == access.beer_run.id,
         )
         .group_by(models.User.id)
-        .order_by(func.sum(models.Entry.quantity * (models.Entry.abv / 100.0)).desc())
+        .order_by(ranking_total.desc(), models.User.username.asc())
         .all()
     )
     return [

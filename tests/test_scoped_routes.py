@@ -179,6 +179,30 @@ class TestScopedLeaderboard:
         assert rows[0]["total_alcohol"] == 1.0 * (9.0 / 100.0)
         assert rows[1]["total_alcohol"] == 0.5 * (5.0 / 100.0)
 
+    def test_leaderboard_can_rank_by_volume_with_stable_ties(self, client, owner_member_nonmember_run):
+        """Volume ranking is backend-owned and alphabetic ties are deterministic."""
+        data = owner_member_nonmember_run
+        db = data["db"]
+        _add_entry(db, data["owner"], data["public_run"], quantity=1.0, abv=5.0)
+        _add_entry(db, data["member"], data["public_run"], quantity=1.0, abv=9.0)
+        db.commit()
+
+        response = client.get(
+            f"/api/beer-runs/{data['public_run'].id}/leaderboard?rank_by=volume"
+        )
+
+        assert response.status_code == 200
+        assert [row["username"] for row in response.json()] == sorted(
+            [data["owner"].username, data["member"].username]
+        )
+
+    def test_leaderboard_rejects_unknown_ranking(self, client, owner_member_nonmember_run):
+        response = client.get(
+            f"/api/beer-runs/{owner_member_nonmember_run['public_run'].id}/leaderboard?rank_by=drinks"
+        )
+
+        assert response.status_code == 422
+
 
 class TestScopedEntries:
     def test_entries_isolated_shape_and_ordering(self, client, owner_member_nonmember_run):

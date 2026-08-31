@@ -49,8 +49,9 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
       return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}`, { token, signal });
     },
 
-    fetchLeaderboard(beerRunId, token = null, signal = null) {
-      return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/leaderboard`, { token, signal });
+    fetchLeaderboard(beerRunId, token = null, signal = null, rankBy = "alcohol") {
+      const query = new URLSearchParams({ rank_by: rankBy });
+      return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/leaderboard?${query.toString()}`, { token, signal });
     },
 
     fetchEntries(beerRunId, token = null, signal = null) {

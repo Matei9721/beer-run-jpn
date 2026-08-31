@@ -2,7 +2,7 @@ import {
   DEFAULT_RUN_NAME,
   readSelectedRunId,
   removeSelectedRunId,
-} from "./run-selection.js?v=revamp-020-7";
+} from "./run-selection.js?v=revamp-021-19";
 import {
   renderRunHome,
   renderRunHomeError,
@@ -10,7 +10,7 @@ import {
   renderRunHomeUnavailable,
   setRefreshPending,
   setSyncStatus,
-} from "./ui.js?v=revamp-020-7";
+} from "./ui.js?v=revamp-021-19";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);
@@ -32,6 +32,11 @@ export function createRunHomeController({ api, auth, selection, root = document,
   let contextGeneration = 0;
   let refreshGeneration = 0;
   let refreshController = null;
+  const listeners = new Set();
+
+  function notify() {
+    listeners.forEach((listener) => listener({ currentRun, currentUser, data: lastData }));
+  }
 
   function invalidateRefreshWork() {
     refreshGeneration += 1;
@@ -149,6 +154,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
       entries: Array.isArray(entriesResult.data) ? entriesResult.data : [],
     };
     renderRunHome(root, { ...lastData, now: now() });
+    notify();
     setSyncStatus(root, "Synced just now");
     return { ok: true, data: lastData };
   }
@@ -200,6 +206,14 @@ export function createRunHomeController({ api, auth, selection, root = document,
     initialize,
     refresh: () => refresh(),
     selectRun,
+    showHome: () => {
+      if (lastData) renderRunHome(root, { ...lastData, now: now() });
+      else renderRunHomeLoading(root);
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     getSnapshot: () => ({ currentRun, currentUser, data: lastData, contextGeneration, refreshGeneration }),
   };
 }

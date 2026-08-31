@@ -146,56 +146,6 @@ function createEmptyState(title, copy, actionLabel = "") {
   return wrapper;
 }
 
-function createPlayerHistoryDialog(username, entries, now) {
-  const dialog = element("dialog", "player-history");
-  dialog.setAttribute("aria-labelledby", "player-history-heading");
-  const surface = element("section", "player-history__surface");
-  const header = element("header", "player-history__header");
-  const headingCopy = element("div", "player-history__heading");
-  headingCopy.append(element("p", "eyebrow", "Player log"));
-  const heading = element("h2", "", `${username}'s pours`);
-  heading.id = "player-history-heading";
-  const playerEntries = entries.filter((entry) => entry.username === username);
-  headingCopy.append(heading, element("p", "player-history__summary", `${pluralize(playerEntries.length, "pour")} in this run`));
-  const close = element("button", "player-history__close", "Close");
-  close.type = "button";
-  close.addEventListener("click", () => dialog.close());
-  header.append(headingCopy, close);
-  surface.append(header);
-
-  if (!playerEntries.length) {
-    surface.append(createEmptyState("No pours in this view", "This runner has no entries in the currently loaded run history."));
-  } else {
-    const list = element("ul", "player-history__list");
-    playerEntries.forEach((entry) => {
-      const item = element("li", "player-history__item");
-      const copy = element("span", "player-history__item-copy");
-      const title = element("span", "activity-title");
-      title.append(element("strong", "", entry.drink_type || "Drink"));
-      if (entry.brand) title.append(element("span", "activity-brand", entry.brand));
-      const meta = element("span", "activity-meta");
-      appendMeta(meta, [formatQuantity(entry.quantity), formatAbv(entry.abv), formatRelativeTime(entry.timestamp, now)]);
-      copy.append(title, meta);
-      item.append(createActivityMark(entry), copy);
-      list.append(item);
-    });
-    surface.append(list);
-  }
-
-  dialog.append(surface);
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-  });
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
-  return dialog;
-}
-
-function openPlayerHistory(username, entries, now) {
-  const dialog = createPlayerHistoryDialog(username, entries, now);
-  document.body.append(dialog);
-  dialog.showModal();
-}
-
 function createStandings(leaderboard, entries, now) {
   const section = element("section", "home-section standings-card");
   const heading = element("div", "home-section__header");
@@ -238,7 +188,9 @@ function createStandings(leaderboard, entries, now) {
       measures,
       element("span", "standings-disclosure", "›"),
     );
-    action.addEventListener("click", () => openPlayerHistory(username, entries, now));
+    action.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("beer-run:open-player", { detail: { username } }));
+    });
     row.append(action);
     list.append(row);
   });

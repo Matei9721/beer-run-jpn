@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-020-7"
+ASSET_VERSION = "revamp-021-19"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -56,6 +56,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "navigation.js",
         "run-selection.js",
         "run-home.js",
+        "standings.js",
         "theme.js",
         "ui.js",
     }
@@ -92,6 +93,7 @@ def test_run_home_preserves_scoped_data_and_stale_refresh_boundaries():
     selection = (javascript_root / "run-selection.js").read_text(encoding="utf-8")
     home = (javascript_root / "run-home.js").read_text(encoding="utf-8")
     ui = (javascript_root / "ui.js").read_text(encoding="utf-8")
+    standings = (javascript_root / "standings.js").read_text(encoding="utf-8")
 
     assert '"/api/me"' in api
     assert '"/api/beer-runs"' in api
@@ -105,8 +107,15 @@ def test_run_home_preserves_scoped_data_and_stale_refresh_boundaries():
     assert "has_wrapped" in ui
     assert "textContent" in ui
     assert "innerHTML" not in ui
-    assert "showModal" in ui
-    assert "playerHistory" in ui
+    assert "showModal" not in ui
+    assert "fetchLeaderboard" in standings
+    assert "metricRequest" in standings
+    assert "history.pushState" in standings
+    assert "sessionStorage" in standings
+    assert "metricLeaderboard" in standings
+    assert "Load more" in standings
+    assert "showSelectedEntryContext" in standings
+    assert "Drink map context" in standings
     assert "activityBars" not in ui
     assert "createRouteLine" not in ui
     assert "pulse-bars" not in ui

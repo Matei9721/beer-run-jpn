@@ -16,18 +16,18 @@
         document.documentElement.dataset.theme = resolved;
       })();
     </script>
-    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-019-1">
-    <script type="module" src="/revamp-assets/js/app.js?v=revamp-019-1"></script>
+    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-020-7">
+    <script type="module" src="/revamp-assets/js/app.js?v=revamp-020-7"></script>
   </head>
   <body>
     <div class="app-shell" data-revamp-preview>
       <header class="app-header">
-        <a class="product-identity" href="#preview" aria-label="BeerRun foundation preview">
+        <a class="product-identity" href="#run" data-destination="run" aria-label="BeerRun run home">
           <span class="product-mark" aria-hidden="true">B</span>
           <span class="product-wordmark">BeerRun</span>
         </a>
-        <button class="run-switcher" type="button" aria-describedby="preview-boundary">
-          <span class="run-switcher__copy"><strong>Lisbon Long Weekend</strong><span>Day 3 · Public run</span></span>
+        <button class="run-switcher" type="button" data-run-switcher aria-label="Selected run. Open run library">
+          <span class="run-switcher__copy"><strong data-run-name>Loading run...</strong><span data-run-meta>Loading current run</span></span>
           <span class="icon icon--caret-down" aria-hidden="true"></span>
         </button>
       </header>
@@ -42,53 +42,25 @@
             <a class="nav-item" href="#you" data-destination="you"><span class="icon icon--user" aria-hidden="true"></span><span>You</span></a>
           </nav>
           <div class="desktop-sidebar__footer sync-controls">
-            <p class="sync-status" data-sync-status role="status" aria-live="polite">Preview shell ready</p>
+            <p class="sync-status" data-sync-status role="status" aria-live="polite">Loading run data</p>
             <button class="button button--quiet refresh-button" type="button" data-refresh><span class="icon icon--refresh" aria-hidden="true"></span><span>Refresh</span></button>
           </div>
         </aside>
 
-        <main class="main-content" id="preview" tabindex="-1">
-          <section class="ticket-surface route-foundation" aria-labelledby="preview-heading">
-            <div class="eyebrow">Technical foundation · Task 01</div>
-            <h1 id="preview-heading">Route Stamp shell</h1>
-            <p id="preview-boundary">This isolated preview demonstrates the shared shell, themes, controls, and module boundaries. Live run data arrives in later tasks.</p>
-            <div class="route-line" aria-hidden="true"><span></span><span></span><span></span></div>
-          </section>
-
-          <section class="foundation-grid" aria-labelledby="components-heading">
-            <div>
-              <div class="section-heading">
-                <div><div class="eyebrow">Shared components</div><h2 id="components-heading">Control language</h2></div>
-                <span class="status-tag">Preview only</span>
-              </div>
-              <form class="control-sample" action="#" data-preview-form>
-                <label for="sample-run-name">Run name</label>
-                <input id="sample-run-name" name="sample-run-name" value="Lisbon Long Weekend">
-                <p class="field-help">Labels remain visible and user content keeps its original casing.</p>
-                <div class="button-row">
-                  <button class="button button--primary" type="submit">Primary action</button>
-                  <button class="button button--secondary" type="button">Secondary</button>
-                  <button class="button button--secondary" type="button" disabled>Unavailable</button>
-                </div>
-              </form>
-            </div>
-
-            <fieldset class="theme-preview" data-theme-controls>
-              <legend>Preview appearance</legend>
-              <p>System is the default. The production Account preference arrives in Task 10.</p>
-              <div class="segmented-control">
-                <label><input type="radio" name="preview-theme" value="system"><span>System</span></label>
-                <label><input type="radio" name="preview-theme" value="light"><span>Light</span></label>
-                <label><input type="radio" name="preview-theme" value="dark"><span>Dark</span></label>
-              </div>
-            </fieldset>
-          </section>
+        <main class="main-content" id="run" tabindex="-1">
+          <div class="home-content" data-run-home data-home-state="loading">
+            <section class="ticket-surface home-skeleton home-skeleton--identity" aria-label="Loading run home">
+              <span class="skeleton-line skeleton-line--eyebrow"></span>
+              <span class="skeleton-line skeleton-line--heading"></span>
+              <span class="skeleton-line skeleton-line--copy"></span>
+            </section>
+          </div>
         </main>
       </div>
 
       <footer class="mobile-footer">
         <div class="mobile-sync sync-controls">
-          <p class="sync-status" data-sync-status role="status" aria-live="polite">Preview shell ready</p>
+          <p class="sync-status" data-sync-status role="status" aria-live="polite">Loading run data</p>
           <button class="button button--quiet refresh-button" type="button" data-refresh><span class="icon icon--refresh" aria-hidden="true"></span><span>Refresh</span></button>
         </div>
         <nav class="mobile-navigation" aria-label="Primary">

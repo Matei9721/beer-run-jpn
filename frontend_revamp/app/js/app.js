@@ -1,11 +1,12 @@
-import { createApiClient } from "./api.js?v=revamp-019-1";
-import { createAuthState } from "./auth.js?v=revamp-019-1";
-import { createFormState } from "./form-state.js?v=revamp-019-1";
-import { createMapState } from "./map.js?v=revamp-019-1";
-import { bindNavigation } from "./navigation.js?v=revamp-019-1";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-019-1";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-019-1";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-019-1";
+import { createApiClient } from "./api.js?v=revamp-020-7";
+import { createAuthState } from "./auth.js?v=revamp-020-7";
+import { createFormState } from "./form-state.js?v=revamp-020-7";
+import { createMapState } from "./map.js?v=revamp-020-7";
+import { bindNavigation } from "./navigation.js?v=revamp-020-7";
+import { createRunHomeController } from "./run-home.js?v=revamp-020-7";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-020-7";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-020-7";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-020-7";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -14,8 +15,16 @@ const services = Object.freeze({
   map: createMapState(),
   runs: createRunSelectionState(),
 });
+
 const theme = createThemeController();
 bindThemeControls(theme, document.querySelector("[data-theme-controls]"));
 bindNavigation();
-bindPreviewFeedback();
-void services;
+
+const runHome = createRunHomeController({
+  api: services.api,
+  auth: services.auth,
+  selection: services.runs,
+  root: document,
+});
+bindPreviewFeedback(document, { onRefresh: () => runHome.refresh() });
+void runHome.initialize();

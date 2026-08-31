@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#F3F1E8">
+    <title>BeerRun · Route Stamp preview</title>
+    <script>
+      (() => {
+        const key = "beer_run_revamp_theme_preference";
+        const saved = localStorage.getItem(key);
+        const preference = ["system", "light", "dark"].includes(saved) ? saved : "system";
+        const resolved = preference === "system"
+          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : preference;
+        document.documentElement.dataset.theme = resolved;
+      })();
+    </script>
+    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-019-1">
+    <script type="module" src="/revamp-assets/js/app.js?v=revamp-019-1"></script>
+  </head>
+  <body>
+    <div class="app-shell" data-revamp-preview>
+      <header class="app-header">
+        <a class="product-identity" href="#preview" aria-label="BeerRun foundation preview">
+          <span class="product-mark" aria-hidden="true">B</span>
+          <span class="product-wordmark">BeerRun</span>
+        </a>
+        <button class="run-switcher" type="button" aria-describedby="preview-boundary">
+          <span class="run-switcher__copy"><strong>Lisbon Long Weekend</strong><span>Day 3 · Public run</span></span>
+          <span class="icon icon--caret-down" aria-hidden="true"></span>
+        </button>
+      </header>
+
+      <div class="shell-body">
+        <aside class="desktop-sidebar" aria-label="Desktop application navigation">
+          <nav class="primary-navigation" aria-label="Primary">
+            <a class="nav-item is-current" href="#run" data-destination="run" aria-current="page"><span class="icon icon--house" aria-hidden="true"></span><span>Run</span></a>
+            <a class="nav-item" href="#standings" data-destination="standings"><span class="icon icon--trophy" aria-hidden="true"></span><span>Standings</span></a>
+            <a class="nav-item nav-item--log" href="#log" data-destination="log"><span class="icon icon--plus" aria-hidden="true"></span><span>Log</span></a>
+            <a class="nav-item" href="#map" data-destination="map"><span class="icon icon--map" aria-hidden="true"></span><span>Map</span></a>
+            <a class="nav-item" href="#you" data-destination="you"><span class="icon icon--user" aria-hidden="true"></span><span>You</span></a>
+          </nav>
+          <div class="desktop-sidebar__footer sync-controls">
+            <p class="sync-status" data-sync-status role="status" aria-live="polite">Preview shell ready</p>
+            <button class="button button--quiet refresh-button" type="button" data-refresh><span class="icon icon--refresh" aria-hidden="true"></span><span>Refresh</span></button>
+          </div>
+        </aside>
+
+        <main class="main-content" id="preview" tabindex="-1">
+          <section class="ticket-surface route-foundation" aria-labelledby="preview-heading">
+            <div class="eyebrow">Technical foundation · Task 01</div>
+            <h1 id="preview-heading">Route Stamp shell</h1>
+            <p id="preview-boundary">This isolated preview demonstrates the shared shell, themes, controls, and module boundaries. Live run data arrives in later tasks.</p>
+            <div class="route-line" aria-hidden="true"><span></span><span></span><span></span></div>
+          </section>
+
+          <section class="foundation-grid" aria-labelledby="components-heading">
+            <div>
+              <div class="section-heading">
+                <div><div class="eyebrow">Shared components</div><h2 id="components-heading">Control language</h2></div>
+                <span class="status-tag">Preview only</span>
+              </div>
+              <form class="control-sample" action="#" data-preview-form>
+                <label for="sample-run-name">Run name</label>
+                <input id="sample-run-name" name="sample-run-name" value="Lisbon Long Weekend">
+                <p class="field-help">Labels remain visible and user content keeps its original casing.</p>
+                <div class="button-row">
+                  <button class="button button--primary" type="submit">Primary action</button>
+                  <button class="button button--secondary" type="button">Secondary</button>
+                  <button class="button button--secondary" type="button" disabled>Unavailable</button>
+                </div>
+              </form>
+            </div>
+
+            <fieldset class="theme-preview" data-theme-controls>
+              <legend>Preview appearance</legend>
+              <p>System is the default. The production Account preference arrives in Task 10.</p>
+              <div class="segmented-control">
+                <label><input type="radio" name="preview-theme" value="system"><span>System</span></label>
+                <label><input type="radio" name="preview-theme" value="light"><span>Light</span></label>
+                <label><input type="radio" name="preview-theme" value="dark"><span>Dark</span></label>
+              </div>
+            </fieldset>
+          </section>
+        </main>
+      </div>
+
+      <footer class="mobile-footer">
+        <div class="mobile-sync sync-controls">
+          <p class="sync-status" data-sync-status role="status" aria-live="polite">Preview shell ready</p>
+          <button class="button button--quiet refresh-button" type="button" data-refresh><span class="icon icon--refresh" aria-hidden="true"></span><span>Refresh</span></button>
+        </div>
+        <nav class="mobile-navigation" aria-label="Primary">
+          <a class="nav-item is-current" href="#run" data-destination="run" aria-current="page"><span class="icon icon--house" aria-hidden="true"></span><span>Run</span></a>
+          <a class="nav-item" href="#standings" data-destination="standings"><span class="icon icon--trophy" aria-hidden="true"></span><span>Standings</span></a>
+          <a class="nav-item nav-item--log" href="#log" data-destination="log"><span class="icon icon--plus" aria-hidden="true"></span><span>Log</span></a>
+          <a class="nav-item" href="#map" data-destination="map"><span class="icon icon--map" aria-hidden="true"></span><span>Map</span></a>
+          <a class="nav-item" href="#you" data-destination="you"><span class="icon icon--user" aria-hidden="true"></span><span>You</span></a>
+        </nav>
+      </footer>
+    </div>
+  </body>
+</html>

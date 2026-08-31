@@ -32,6 +32,7 @@ from upload_cleanup import persisted_upload_target
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 WRAPPED_DATA_DIR = PROJECT_ROOT / "data" / "wrapped"
+REVAMP_APP_DIR = PROJECT_ROOT / "frontend_revamp" / "app"
 
 auth.validate_auth_configuration()
 auth.validate_signup_configuration()
@@ -63,6 +64,11 @@ os.makedirs("templates", exist_ok=True)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/revamp-assets",
+    StaticFiles(directory=REVAMP_APP_DIR),
+    name="revamp-assets",
+)
 
 
 UPLOAD_ROOT = Path("static/uploads")
@@ -295,6 +301,11 @@ def _cleanup_persisted_upload_safely(
 @app.get("/")
 async def root():
     return FileResponse("templates/index.html")
+
+
+@app.get("/revamp-preview")
+async def revamp_preview():
+    return FileResponse(REVAMP_APP_DIR / "index.html")
 
 
 @app.get("/terms", response_class=HTMLResponse)

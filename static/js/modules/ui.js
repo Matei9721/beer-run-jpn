@@ -43,7 +43,7 @@ export function showMapHint() {
 
     const hint = document.createElement('div');
     hint.className = 'map-hint';
-    hint.innerHTML = '<span class="map-hint-icon">💡</span> Tap markers to see details <span class="map-hint-close">&times;</span>';
+    hint.innerHTML = '<span class="map-hint-icon">TIP</span> Tap markers to see details <span class="map-hint-close">&times;</span>';
 
     hint.addEventListener('click', () => {
         hint.classList.remove('visible');
@@ -202,9 +202,9 @@ export function renderLeaderboard(data, leaderboardContainer) {
         let rankClass = '';
         let rankLabel = rank;
 
-        if (rank === 1) { rankClass = 'rank-1'; rankLabel = '👑 1st'; }
-        else if (rank === 2) { rankClass = 'rank-2'; rankLabel = '🥈 2nd'; }
-        else if (rank === 3) { rankClass = 'rank-3'; rankLabel = '🥉 3rd'; }
+        if (rank === 1) { rankClass = 'rank-1'; rankLabel = '1st'; }
+        else if (rank === 2) { rankClass = 'rank-2'; rankLabel = '2nd'; }
+        else if (rank === 3) { rankClass = 'rank-3'; rankLabel = '3rd'; }
 
         html += `
             <div class="card rank-card ${rankClass}" data-username="${user.username}" style="cursor: pointer;">

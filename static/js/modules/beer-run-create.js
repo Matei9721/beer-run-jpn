@@ -9,7 +9,7 @@ export function validateBeerRunName(value) {
         return {
             valid: false,
             name,
-            message: 'Use 3–64 characters: letters, numbers, spaces, underscores, or hyphens.',
+            message: 'Use 3-64 characters: letters, numbers, spaces, underscores, or hyphens.',
         };
     }
     return { valid: true, name };

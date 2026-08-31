@@ -3,7 +3,7 @@
  *
  * Scoped read helpers (leaderboard, entries, beer-runs) return a normalized
  * result so callers can distinguish successful array data from a non-OK HTTP
- * response or a network failure — renderers must never receive an error object
+ * response or a network failure - renderers must never receive an error object
  * as if it were an array:
  *
  *   { ok: true,  data: <parsed array> }

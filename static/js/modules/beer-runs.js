@@ -510,7 +510,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         if (result?.status === 409) {
             setRenameFeedback('That run name is already in use. Try another.', true);
         } else if (result?.status === 422) {
-            setRenameFeedback(result.detail || 'Use 3–64 characters: letters, numbers, spaces, underscores, or hyphens.', true);
+            setRenameFeedback(result.detail || 'Use 3-64 characters: letters, numbers, spaces, underscores, or hyphens.', true);
         } else {
             setRenameFeedback(result?.detail || 'We could not save the new name. Try again.', true);
         }
@@ -700,7 +700,7 @@ export function createBeerRunPicker({ onSelectRun, onSearchPublicRuns, onShareRu
         if (result?.status === 409) {
             setCreateFeedback('That run name is already in use. Try another.', true);
         } else if (result?.status === 422) {
-            setCreateFeedback(result.detail || 'Use 3–64 characters: letters, numbers, spaces, underscores, or hyphens.', true);
+            setCreateFeedback(result.detail || 'Use 3-64 characters: letters, numbers, spaces, underscores, or hyphens.', true);
         } else {
             setCreateFeedback(result?.detail || 'We could not confirm the new run. Check My runs before trying again.', true);
         }

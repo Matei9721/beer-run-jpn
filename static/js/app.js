@@ -1,12 +1,12 @@
 import * as api from './modules/api.js?v=22';
 import * as auth from './modules/auth.js?v=13';
 import * as signup from './modules/signup.js?v=2';
-import * as beerRuns from './modules/beer-runs.js?v=14';
+import * as beerRuns from './modules/beer-runs.js?v=15';
 import * as invites from './modules/invites.js?v=4';
 import { createAccountSettings } from './modules/account-settings.js?v=1';
-import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=2';
+import { isCreatedBeerRunResponse } from './modules/beer-run-create.js?v=3';
 import * as mapMod from './modules/map.js?v=14';
-import * as ui from './modules/ui.js?v=13';
+import * as ui from './modules/ui.js?v=15';
 import { createEntryManagement } from './modules/entry-management.js?v=4';
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,19 +1,18 @@
-import { createApiClient } from "./api.js?v=revamp-021-19";
-import { createAuthState } from "./auth.js?v=revamp-021-19";
-import { createFormState } from "./form-state.js?v=revamp-021-19";
-import { createMapState } from "./map.js?v=revamp-021-19";
-import { bindNavigation } from "./navigation.js?v=revamp-021-19";
-import { createRunHomeController } from "./run-home.js?v=revamp-021-19";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-021-19";
-import { createStandingsController } from "./standings.js?v=revamp-021-19";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-021-19";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-021-19";
+import { createApiClient } from "./api.js?v=revamp-022-15";
+import { createAuthState } from "./auth.js?v=revamp-022-15";
+import { createFormState } from "./form-state.js?v=revamp-022-15";
+import { createMapController } from "./map.js?v=revamp-022-15";
+import { bindNavigation } from "./navigation.js?v=revamp-022-15";
+import { createRunHomeController } from "./run-home.js?v=revamp-022-15";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-022-15";
+import { createStandingsController } from "./standings.js?v=revamp-022-15";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-022-15";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-022-15";
 
 const services = Object.freeze({
   api: createApiClient(),
   auth: createAuthState(),
   form: createFormState(),
-  map: createMapState(),
   runs: createRunSelectionState(),
 });
 
@@ -26,11 +25,29 @@ const runHome = createRunHomeController({
   root: document,
 });
 let standings;
+let mapController;
+const ensureContentSurface = () => {
+  let surface = document.querySelector("[data-run-home]");
+  if (surface) return surface;
+  surface = document.createElement("div");
+  surface.className = "home-content";
+  surface.dataset.runHome = "";
+  document.querySelector("main")?.replaceChildren(surface);
+  return surface;
+};
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
-  if (destination === "standings") standings.showStandings();
-  else if (destination === "map" && standings.showSelectedEntryContext()) return;
+  if (destination === "standings") {
+    mapController.hide();
+    ensureContentSurface();
+    standings.showStandings();
+  } else if (destination === "map") {
+    standings.hide();
+    mapController.show();
+  }
   else {
     standings.hide();
+    mapController.hide();
+    ensureContentSurface();
     if (destination === "run") runHome.showHome();
   }
 } });
@@ -44,11 +61,27 @@ standings = createStandingsController({
     navigation.selectDestination(destination);
   },
 });
+mapController = createMapController({
+  root: document,
+  getSnapshot: runHome.getSnapshot,
+  navigate: (destination) => {
+    history.pushState(null, "", `#${destination}`);
+    navigation.selectDestination(destination);
+  },
+});
 document.addEventListener("beer-run:open-player", (event) => {
   navigation.selectDestination("standings");
   standings.showPlayer(event.detail.username);
 });
-runHome.subscribe(() => standings.refresh());
+runHome.subscribe(() => {
+  standings.refresh();
+  mapController.refresh();
+});
+document.addEventListener("click", (event) => {
+  const entryLink = event.target.closest("[data-entry-id][data-destination='map']");
+  if (!entryLink) return;
+  mapController.show(entryLink.dataset.entryId);
+});
 bindPreviewFeedback(document, { onRefresh: () => runHome.refresh() });
 const restoreDestination = () => {
   const match = location.hash.match(/^#standings\/(.+)$/);
@@ -56,6 +89,7 @@ const restoreDestination = () => {
     navigation.selectDestination("standings");
     standings.showPlayer(decodeURIComponent(match[1]), false);
   } else if (location.hash === "#standings") navigation.selectDestination("standings");
+  else if (location.hash === "#map") navigation.selectDestination("map");
 };
 window.addEventListener("popstate", restoreDestination);
 void runHome.initialize().then(() => {

@@ -34,6 +34,17 @@ export function createRunHomeController({ api, auth, selection, root = document,
   let refreshController = null;
   const listeners = new Set();
 
+  function ensureHomeTarget() {
+    let target = root.querySelector("[data-run-home]");
+    if (target) return target;
+    target = document.createElement("div");
+    target.className = "home-content";
+    target.dataset.runHome = "";
+    target.dataset.homeState = "loading";
+    root.querySelector("main")?.replaceChildren(target);
+    return target;
+  }
+
   function notify() {
     listeners.forEach((listener) => listener({ currentRun, currentUser, data: lastData }));
   }
@@ -207,6 +218,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     refresh: () => refresh(),
     selectRun,
     showHome: () => {
+      ensureHomeTarget();
       if (lastData) renderRunHome(root, { ...lastData, now: now() });
       else renderRunHomeLoading(root);
     },

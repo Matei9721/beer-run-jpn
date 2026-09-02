@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-021-19"
+ASSET_VERSION = "revamp-022-15"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -152,6 +152,42 @@ def test_run_home_has_responsive_content_and_feedback_contracts():
     assert "prefers-reduced-motion: reduce" in css
 
 
+def test_map_and_drink_detail_contracts_are_present():
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+    source = (REVAMP_ROOT / "js" / "map.js").read_text(encoding="utf-8")
+
+    assert "leaflet.markercluster" in html
+    assert "leaflet.js" in html
+    assert "markerClusterGroup" in source
+    assert '"Show all pins"' in source
+    assert 'event.key === "Escape"' in source
+    assert 'alt: accessibleTitle' in source
+    assert "tileerror" in source
+    assert "Map tiles are offline" in source
+    assert "Photo unavailable" in source
+    assert "missing or invalid coordinates" in source
+    assert "sessionStorage.removeItem(SELECTED_ENTRY_KEY)" in source
+    assert 'entry.username === snapshot.identity.username' in source
+    assert 'role === "owner" || role === "member"' in source
+    assert "Open details" not in source
+    assert ".main-content--map" in css
+    assert ".map-workspace.has-detail .map-unmapped" in css
+    assert "z-index: 1100" in css
+    assert "@media (max-width: 767px)" in css
+    assert "object-fit: contain" in css
+    assert "requestFullscreen" in source
+    assert "document.exitFullscreen" in source
+    assert "is-fullscreen-fallback" in source
+    assert "invalidateSize" in source
+    assert "refreshClusters" in source
+    assert "Enter full screen map" in source
+    assert "Exit full screen map" in source
+    assert "map-fullscreen-control__icon--expand" in source
+    assert "map-fullscreen-control__icon--collapse" in source
+    assert ".map-workspace:fullscreen" in css
+
+
 def test_vendored_foundation_assets_and_licenses_are_present():
     assets = REVAMP_ROOT / "assets"
     required = [
@@ -164,7 +200,7 @@ def test_vendored_foundation_assets_and_licenses_are_present():
     ]
     required.extend(
         assets / "icons" / f"{name}.svg"
-        for name in ("house", "trophy", "plus", "map-trifold", "user", "caret-down", "arrow-clockwise")
+        for name in ("house", "trophy", "plus", "map-trifold", "user", "caret-down", "arrow-clockwise", "beer-stein")
     )
 
     assert all(path.is_file() and path.stat().st_size > 0 for path in required)

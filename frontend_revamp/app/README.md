@@ -14,14 +14,14 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 - `js/standings.js`: full standings and run-scoped participant history surfaces.
 - `js/ui.js`: rendering and status feedback.
 - `js/navigation.js`: shared destination state.
-- `js/map.js`: future Leaflet instance boundary; Task 01 does not load Leaflet.
+- `js/map.js`: Leaflet markers, runner filtering, selected-entry state, and contextual drink detail.
 - `js/form-state.js`: form interaction state.
 - `js/theme.js`: frontend-only System, Light, and Dark resolution.
 - `assets/`: locally vendored font/icon files and their license notices.
 
 ## Asset cache busting
 
-Task 03 uses `revamp-021-19` for its changed stylesheet and JavaScript references. Unchanged font and icon URLs retain their earlier version. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+Task 04 uses `revamp-022-15` for its changed stylesheet, application entry point, direct module imports, BeerStein marker icon, contained responsive detail view, and compact full-screen map control. Unchanged fonts and navigation icons retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 
@@ -29,6 +29,6 @@ When Task 14 promotes revamp files to production paths, copy this convention int
 
 - Atkinson Hyperlegible Next Latin variable WOFF2: Fontsource distribution, SIL Open Font License 1.1.
 - Barlow Condensed Latin 600/700 WOFF2: Fontsource 5.3.0 distribution, SIL Open Font License 1.1.
-- House, Trophy, Plus, MapTrifold, User, CaretDown, and ArrowClockwise regular SVGs: Phosphor Icons core, MIT License.
+- House, Trophy, Plus, MapTrifold, User, CaretDown, ArrowClockwise, and BeerStein regular SVGs: Phosphor Icons core, MIT License.
 
-The corresponding notices are in `assets/licenses/`. No font, icon, or JavaScript runtime CDN request is made by the preview.
+The corresponding notices are in `assets/licenses/`. Fonts and icons are local. The map retains the app's existing Leaflet 1.9.4 and Leaflet.markercluster 1.4.1 CDN dependencies, while all revamp application modules remain isolated under `/revamp-assets/`.

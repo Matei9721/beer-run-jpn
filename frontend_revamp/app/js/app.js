@@ -1,13 +1,14 @@
-import { createApiClient } from "./api.js?v=revamp-022-15";
-import { createAuthState } from "./auth.js?v=revamp-022-15";
-import { createFormState } from "./form-state.js?v=revamp-022-15";
-import { createMapController } from "./map.js?v=revamp-022-15";
-import { bindNavigation } from "./navigation.js?v=revamp-022-15";
-import { createRunHomeController } from "./run-home.js?v=revamp-022-15";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-022-15";
-import { createStandingsController } from "./standings.js?v=revamp-022-15";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-022-15";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-022-15";
+import { createApiClient } from "./api.js?v=revamp-023-15";
+import { createAuthState } from "./auth.js?v=revamp-023-15";
+import { createFormState } from "./form-state.js?v=revamp-023-15";
+import { createMapController } from "./map.js?v=revamp-023-15";
+import { createLogController } from "./log.js?v=revamp-023-15";
+import { bindNavigation } from "./navigation.js?v=revamp-023-15";
+import { createRunHomeController } from "./run-home.js?v=revamp-023-15";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-023-15";
+import { createStandingsController } from "./standings.js?v=revamp-023-15";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-023-15";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-023-15";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -26,6 +27,7 @@ const runHome = createRunHomeController({
 });
 let standings;
 let mapController;
+let logController;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -37,14 +39,22 @@ const ensureContentSurface = () => {
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
   if (destination === "standings") {
+    logController.hide();
     mapController.hide();
     ensureContentSurface();
     standings.showStandings();
   } else if (destination === "map") {
+    logController.hide();
     standings.hide();
     mapController.show();
   }
+  else if (destination === "log") {
+    standings.hide();
+    mapController.hide();
+    logController.show();
+  }
   else {
+    logController.hide();
     standings.hide();
     mapController.hide();
     ensureContentSurface();
@@ -64,6 +74,18 @@ standings = createStandingsController({
 mapController = createMapController({
   root: document,
   getSnapshot: runHome.getSnapshot,
+  navigate: (destination) => {
+    history.pushState(null, "", `#${destination}`);
+    navigation.selectDestination(destination);
+  },
+});
+logController = createLogController({
+  root: document,
+  api: services.api,
+  auth: services.auth,
+  formState: services.form,
+  getSnapshot: runHome.getSnapshot,
+  refresh: runHome.refresh,
   navigate: (destination) => {
     history.pushState(null, "", `#${destination}`);
     navigation.selectDestination(destination);
@@ -90,6 +112,7 @@ const restoreDestination = () => {
     standings.showPlayer(decodeURIComponent(match[1]), false);
   } else if (location.hash === "#standings") navigation.selectDestination("standings");
   else if (location.hash === "#map") navigation.selectDestination("map");
+  else if (location.hash === "#log") navigation.selectDestination("log");
 };
 window.addEventListener("popstate", restoreDestination);
 void runHome.initialize().then(() => {

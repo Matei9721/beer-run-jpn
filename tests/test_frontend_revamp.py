@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-022-15"
+ASSET_VERSION = "revamp-023-15"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -52,6 +52,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "app.js",
         "auth.js",
         "form-state.js",
+        "log.js",
         "map.js",
         "navigation.js",
         "run-selection.js",
@@ -160,6 +161,8 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "leaflet.markercluster" in html
     assert "leaflet.js" in html
     assert "markerClusterGroup" in source
+    assert "const requestedEntryId = entryId ?? sessionStorage.getItem(SELECTED_ENTRY_KEY);" in source
+    assert "marker.setZIndexOffset?.(selected ? 1000 : 0);" in source
     assert '"Show all pins"' in source
     assert 'event.key === "Escape"' in source
     assert 'alt: accessibleTitle' in source
@@ -186,6 +189,41 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "map-fullscreen-control__icon--expand" in source
     assert "map-fullscreen-control__icon--collapse" in source
     assert ".map-workspace:fullscreen" in css
+
+
+def test_log_edit_photo_location_and_success_contracts_are_present():
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+    source = (REVAMP_ROOT / "js" / "log.js").read_text(encoding="utf-8")
+    api = (REVAMP_ROOT / "js" / "api.js").read_text(encoding="utf-8")
+
+    assert 'field("Custom drink name", "drink_type_custom"' in source
+    assert 'event.target.name === "drink_type"' in source
+    assert 'event.target.value === "Other"' in source
+    assert 'URL.createObjectURL(file)' in source
+    assert 'dataset.clearSelectedPhoto' in source
+    assert 'input.value = ""' in source
+    assert '["750 ml", 0.75]' in source
+    assert '["1 L", 1]' in source
+    assert 'data.photoPreview' not in source
+    assert 'dataset.photoPreview' in source
+    assert 'navigator.geolocation.getCurrentPosition' in source
+    assert 'enableHighAccuracy: false' in source
+    assert 'maximumAge: 300000' in source
+    assert 'captureLocation();' in source
+    assert '"Recapture location"' in source
+    assert '"icon icon--refresh"' in source
+    assert '"Show captured coordinates"' in source
+    assert '"Captured coordinates"' in source
+    assert '.log-coordinate-info:focus-within .log-coordinate-info__tooltip' in css
+    assert 'photo_action' in source
+    assert 'snapshotKey()' in source
+    assert 'receiptView(saved)' in source
+    assert 'createEntry(beerRunId' in api
+    assert 'updateEntry(beerRunId' in api
+    assert '.log-photo-preview' in css
+    assert 'object-fit: contain' in css
+    assert '.log-location-field__dot' in css
+    assert '.success-receipt' in css
 
 
 def test_vendored_foundation_assets_and_licenses_are_present():

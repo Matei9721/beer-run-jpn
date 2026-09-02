@@ -15,13 +15,14 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 - `js/ui.js`: rendering and status feedback.
 - `js/navigation.js`: shared destination state.
 - `js/map.js`: Leaflet markers, runner filtering, selected-entry state, and contextual drink detail.
+- `js/log.js`: authenticated create/edit form, GPS and photo state, stale-save protection, and success receipt.
 - `js/form-state.js`: form interaction state.
 - `js/theme.js`: frontend-only System, Light, and Dark resolution.
 - `assets/`: locally vendored font/icon files and their license notices.
 
 ## Asset cache busting
 
-Task 04 uses `revamp-022-15` for its changed stylesheet, application entry point, direct module imports, BeerStein marker icon, contained responsive detail view, and compact full-screen map control. Unchanged fonts and navigation icons retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+Task 05 feedback assets use `revamp-023-15` for the stylesheet, application entry point, and application module imports. Unchanged font and icon URLs retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 

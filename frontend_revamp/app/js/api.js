@@ -57,5 +57,23 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
     fetchEntries(beerRunId, token = null, signal = null) {
       return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/entries`, { token, signal });
     },
+
+    createEntry(beerRunId, formData, token, signal = null) {
+      return this.request(`/api/beer-runs/${encodeURIComponent(beerRunId)}/entries`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: formData,
+        signal,
+      });
+    },
+
+    updateEntry(beerRunId, entryId, formData, token, signal = null) {
+      return this.request(`/api/beer-runs/${encodeURIComponent(beerRunId)}/entries/${encodeURIComponent(entryId)}`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: formData,
+        signal,
+      });
+    },
   };
 }

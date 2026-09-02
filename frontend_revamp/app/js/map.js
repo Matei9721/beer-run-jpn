@@ -172,7 +172,10 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
   function clearSelection() {
     selectedEntryId = null;
     sessionStorage.removeItem(SELECTED_ENTRY_KEY);
-    markers.forEach((marker) => marker.getElement()?.classList.remove("is-selected"));
+    markers.forEach((marker) => {
+      marker.getElement()?.classList.remove("is-selected");
+      marker.setZIndexOffset?.(0);
+    });
     map?.closePopup();
   }
   function destroyMap() {
@@ -218,7 +221,11 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
         root.querySelector("[data-map-status]").textContent = "Delete confirmation will be added with drink editing.";
       },
     }));
-    markers.forEach((marker, id) => marker.getElement()?.classList.toggle("is-selected", id === selectedEntryId));
+    markers.forEach((marker, id) => {
+      const selected = id === selectedEntryId;
+      marker.getElement()?.classList.toggle("is-selected", selected);
+      marker.setZIndexOffset?.(selected ? 1000 : 0);
+    });
     const focusTarget = window.matchMedia("(max-width: 767px)").matches
       ? workspace.querySelector(".map-detail__back")
       : workspace.querySelector(".map-detail__close");
@@ -228,10 +235,12 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
     const marker = markers.get(Number(entry.id));
     if (marker && markerGroup?.zoomToShowLayer) {
       markerGroup.zoomToShowLayer(marker, () => {
-        map.setView(marker.getLatLng(), Math.max(map.getZoom(), 15));
         showDetail(entry);
       });
-    } else showDetail(entry);
+    } else {
+      if (marker) map?.setView(marker.getLatLng(), Math.max(map.getZoom(), 15));
+      showDetail(entry);
+    }
   }
   function markerFor(entry) {
     const icon = window.L.divIcon({
@@ -371,9 +380,10 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
   return {
     show(entryId = null) {
       active = true;
-      if (entryId) {
+      const requestedEntryId = entryId ?? sessionStorage.getItem(SELECTED_ENTRY_KEY);
+      selectedEntryId = requestedEntryId === null ? null : Number(requestedEntryId);
+      if (entryId !== null) {
         selectedUsername = "";
-        selectedEntryId = Number(entryId);
         sessionStorage.setItem(SELECTED_ENTRY_KEY, String(entryId));
       }
       render();

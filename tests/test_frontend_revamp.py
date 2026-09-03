@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-023-15"
+ASSET_VERSION = "revamp-025-12"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -55,6 +55,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "log.js",
         "map.js",
         "navigation.js",
+        "run-library.js",
         "run-selection.js",
         "run-home.js",
         "standings.js",
@@ -151,6 +152,97 @@ def test_run_home_has_responsive_content_and_feedback_contracts():
     assert "repeat(5, minmax(0, 1fr))" in css
     assert "min-height: 100dvh" in css
     assert "prefers-reduced-motion: reduce" in css
+
+
+def test_run_library_and_quick_switcher_contracts_are_present():
+    javascript_root = REVAMP_ROOT / "js"
+    api = (javascript_root / "api.js").read_text(encoding="utf-8")
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    library = (javascript_root / "run-library.js").read_text(encoding="utf-8")
+    home = (javascript_root / "run-home.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+
+    assert 'new URLSearchParams({ view: "mine" })' in api
+    assert 'new URLSearchParams({ view: "public", q: search })' in api
+    assert "createRunLibraryController" in app
+    assert "openSwitcher" in app
+    assert "selectedPrimaryDestination" in app
+    assert "QUICK_SWITCHER_LIMIT = 6" in library
+    assert "QUICK_SEARCH_LIMIT = 20" in library
+    assert 'dialog.showModal()' in library
+    assert 'dialog.addEventListener("keydown"' in library
+    assert 'event.key !== "Escape"' in library
+    assert 'dialog.addEventListener("cancel"' in library
+    assert 'event.target === dialog' in library
+    assert "dataset.quickRunSearch" in library
+    assert 'action("Open full run library"' in library
+    assert 'action("Manage run"' in library
+    assert "current_user_role === \"owner\"" in library
+    assert "Open Wrapped" not in library
+    assert "[401, 403, 404]" in home
+    assert "removeSelectedRunId" in home
+    assert "firstFallbackRun" in home
+    assert "run-switcher-dialog" in html
+    assert 'aria-expanded="false"' in html
+    assert ".run-quick-switcher" in css
+    assert ".quick-switcher-panel" in css
+    assert "body.run-switcher-open" in css
+    assert "--run-switcher-scrollbar-width" in css
+    assert ".run-library-discovery" in css
+
+
+def test_create_and_manage_run_contracts_are_present():
+    javascript_root = REVAMP_ROOT / "js"
+    api = (javascript_root / "api.js").read_text(encoding="utf-8")
+    library = (javascript_root / "run-library.js").read_text(encoding="utf-8")
+    home = (javascript_root / "run-home.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    for method in (
+        "createBeerRun",
+        "updateBeerRun",
+        "fetchBeerRunMembers",
+        "createBeerRunInvite",
+        "leaveBeerRun",
+        "deleteBeerRun",
+    ):
+        assert method in api
+    assert 'method: "POST"' in api
+    assert 'method: "PATCH"' in api
+    assert 'method: "DELETE"' in api
+    assert '"Content-Type": "application/json"' in api
+
+    assert 'renderCreate()' in library
+    assert 'renderManage()' in library
+    assert '/^[A-Za-z0-9 _-]{3,64}$/' in library
+    assert 'form.elements.visibility.value === "public"' in library
+    assert '["owner", "member"].includes' in library
+    assert 'exactText: run.name' in library
+    assert 'confirmationInput.value !== exactText' in library
+    assert 'confirm.disabled = true' in library
+    assert '"Keep this run"' in library
+    assert 'members.length === 1 ? "person" : "people"' in library
+    assert 'eyebrow: "Membership change"' in library
+    assert 'run.is_public' in library
+    assert 'const trigger = event.currentTarget' in library
+    assert '[401, 403, 404].includes(result.status)' in library
+    assert 'navigator.clipboard.writeText' in library
+    assert "let inviteStatus = null;" in library
+    assert 'innerHTML' not in library
+    assert "currentRun = { ...currentRun, ...run };" in home
+    assert "updateRunSwitcher(root, currentRun, currentUser);" in home
+
+    for class_name in (
+        "manage-flow",
+        "manage-form",
+        "manage-choice-group",
+        "manage-members",
+        "manage-danger",
+        "manage-confirmation",
+    ):
+        assert f".{class_name}" in css
+    assert '.manage-confirmation .button--danger:disabled' in css
 
 
 def test_map_and_drink_detail_contracts_are_present():

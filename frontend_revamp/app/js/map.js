@@ -182,7 +182,7 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
     const workspace = root.querySelector("[data-map-workspace]");
     workspace?.classList.remove("is-fullscreen-fallback");
     document.body.classList.remove("map-fallback-fullscreen");
-    if (document.fullscreenElement === workspace) void document.exitFullscreen();
+    if (document.fullscreenElement === workspace) void document.exitFullscreen().catch(() => {});
     map?.remove();
     map = null;
     markerGroup = null;
@@ -391,6 +391,15 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
     },
     hide() {
       active = false;
+      destroyMap();
+      document.body.classList.remove("map-view");
+      root.querySelector("main")?.classList.remove("main-content--map");
+    },
+    reset() {
+      active = false;
+      selectedUsername = "";
+      clearSelection();
+      renderedRunId = null;
       destroyMap();
       document.body.classList.remove("map-view");
       root.querySelector("main")?.classList.remove("main-content--map");

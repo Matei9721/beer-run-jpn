@@ -2,7 +2,8 @@ import {
   DEFAULT_RUN_NAME,
   readSelectedRunId,
   removeSelectedRunId,
-} from "./run-selection.js?v=revamp-021-19";
+  saveSelectedRunId,
+} from "./run-selection.js?v=revamp-025-12";
 import {
   renderRunHome,
   renderRunHomeError,
@@ -10,7 +11,8 @@ import {
   renderRunHomeUnavailable,
   setRefreshPending,
   setSyncStatus,
-} from "./ui.js?v=revamp-021-19";
+  updateRunSwitcher,
+} from "./ui.js?v=revamp-025-12";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);
@@ -32,6 +34,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
   let contextGeneration = 0;
   let refreshGeneration = 0;
   let refreshController = null;
+  let resolutionController = null;
   const listeners = new Set();
 
   function ensureHomeTarget() {
@@ -52,7 +55,9 @@ export function createRunHomeController({ api, auth, selection, root = document,
   function invalidateRefreshWork() {
     refreshGeneration += 1;
     refreshController?.abort();
+    resolutionController?.abort();
     refreshController = null;
+    resolutionController = null;
   }
 
   async function resolveCurrentRun(signal) {
@@ -65,23 +70,21 @@ export function createRunHomeController({ api, auth, selection, root = document,
     }
 
     if (identity) {
-      const runsResult = await api.fetchBeerRuns(token, signal);
-      if (runsResult.ok) {
-        const storedRunId = readSelectedRunId(identity.id, storage);
-        let selected = storedRunId
-          ? runsResult.data.find((run) => Number(run.id) === Number(storedRunId))
-          : null;
+      const storedRunId = readSelectedRunId(identity.id, storage);
+      const runsResult = await api.fetchMyBeerRuns(token, signal);
+      let selected = runsResult.ok && storedRunId
+        ? runsResult.data.find((run) => Number(run.id) === Number(storedRunId))
+        : null;
 
-        if (!selected && storedRunId) {
-          const storedResult = await api.fetchBeerRun(storedRunId, token, signal);
-          if (storedResult.ok) selected = storedResult.data;
-          else if (storedResult.status === 404) removeSelectedRunId(identity.id, storage);
-        }
-
-        if (selected) return { run: selected, identity, reason: "ready" };
-        const fallback = firstFallbackRun(runsResult.data);
-        if (fallback) return { run: fallback, identity, reason: "ready" };
+      if (!selected && storedRunId) {
+        const storedResult = await api.fetchBeerRun(storedRunId, token, signal);
+        if (storedResult.ok) selected = storedResult.data;
+        else if ([403, 404].includes(storedResult.status)) removeSelectedRunId(identity.id, storage);
       }
+
+      if (selected) return { run: selected, identity, reason: "ready" };
+      const fallback = runsResult.ok ? firstFallbackRun(runsResult.data) : null;
+      if (fallback) return { run: fallback, identity, reason: "ready" };
     }
 
     const fallbackResult = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, identity ? token : null, signal);
@@ -110,6 +113,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     currentRun = null;
     lastData = null;
     selection.clear();
+    notify();
     renderRunHomeUnavailable(root, {
       title: "This run is no longer available",
       message: "Choosing the next public run now.",
@@ -139,7 +143,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     setRefreshPending(root, false);
 
     const results = [runResult, leaderboardResult, entriesResult];
-    if (results.some((result) => result.status === 404)) {
+    if (results.some((result) => [401, 403, 404].includes(result.status))) {
       return recoverFromAccessLoss(run, context);
     }
 
@@ -177,12 +181,15 @@ export function createRunHomeController({ api, auth, selection, root = document,
     currentRun = null;
     lastData = null;
     selection.clear();
+    notify();
     renderRunHomeLoading(root);
     setRefreshPending(root, false);
     setSyncStatus(root, "Loading run data");
 
-    const resolved = await resolveCurrentRun();
+    resolutionController = new AbortController();
+    const resolved = await resolveCurrentRun(resolutionController.signal);
     if (context !== contextGeneration) return { stale: true };
+    resolutionController = null;
     currentUser = resolved.identity;
     if (!resolved.run) {
       renderRunHomeUnavailable(root, {
@@ -201,13 +208,23 @@ export function createRunHomeController({ api, auth, selection, root = document,
     return refresh({ initial: true, context, run: currentRun });
   }
 
-  function selectRun(run) {
-    if (!run || sameRun(run, currentRun)) return refresh({ run: currentRun });
+  function selectRun(run, { persist = false } = {}) {
+    if (!run) return refresh({ run: currentRun });
+    if (sameRun(run, currentRun)) {
+      currentRun = { ...currentRun, ...run };
+      selection.selectRun(currentRun);
+      if (persist && currentUser) saveSelectedRunId(currentUser.id, currentRun.id, storage);
+      updateRunSwitcher(root, currentRun, currentUser);
+      notify();
+      return refresh({ run: currentRun });
+    }
     invalidateRefreshWork();
     contextGeneration += 1;
     currentRun = run;
     lastData = null;
     selection.selectRun(run);
+    if (persist && currentUser) saveSelectedRunId(currentUser.id, run.id, storage);
+    notify();
     renderRunHomeLoading(root);
     setSyncStatus(root, `Loading ${run.name}`);
     return refresh({ initial: true, context: contextGeneration, run });

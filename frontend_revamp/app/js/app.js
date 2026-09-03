@@ -1,14 +1,15 @@
-import { createApiClient } from "./api.js?v=revamp-023-15";
-import { createAuthState } from "./auth.js?v=revamp-023-15";
-import { createFormState } from "./form-state.js?v=revamp-023-15";
-import { createMapController } from "./map.js?v=revamp-023-15";
-import { createLogController } from "./log.js?v=revamp-023-15";
-import { bindNavigation } from "./navigation.js?v=revamp-023-15";
-import { createRunHomeController } from "./run-home.js?v=revamp-023-15";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-023-15";
-import { createStandingsController } from "./standings.js?v=revamp-023-15";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-023-15";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-023-15";
+import { createApiClient } from "./api.js?v=revamp-025-12";
+import { createAuthState } from "./auth.js?v=revamp-025-12";
+import { createFormState } from "./form-state.js?v=revamp-025-12";
+import { createMapController } from "./map.js?v=revamp-025-12";
+import { createLogController } from "./log.js?v=revamp-025-12";
+import { bindNavigation } from "./navigation.js?v=revamp-025-12";
+import { createRunHomeController } from "./run-home.js?v=revamp-025-12";
+import { createRunLibraryController } from "./run-library.js?v=revamp-025-12";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-025-12";
+import { createStandingsController } from "./standings.js?v=revamp-025-12";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-025-12";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-025-12";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -28,6 +29,7 @@ const runHome = createRunHomeController({
 let standings;
 let mapController;
 let logController;
+let runLibrary;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -38,6 +40,7 @@ const ensureContentSurface = () => {
   return surface;
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
+  runLibrary?.hide();
   if (destination === "standings") {
     logController.hide();
     mapController.hide();
@@ -91,11 +94,64 @@ logController = createLogController({
     navigation.selectDestination(destination);
   },
 });
+const showRun = () => {
+  history.pushState(null, "", "#run");
+  navigation.selectDestination("run");
+};
+const showLibrary = (view = "library", { push = true } = {}) => {
+  runLibrary.closeSwitcher({ restoreFocus: false, immediate: true });
+  logController.hide();
+  standings.hide();
+  mapController.hide();
+  navigation.clearDestination();
+  if (push) history.pushState(null, "", `#${view === "library" ? "runs" : view}`);
+  runLibrary.show(view);
+};
+const selectedPrimaryDestination = () => (
+  document.querySelector(".nav-item[aria-current='page']")?.dataset.destination || "run"
+);
+const quickSwitchRun = async (run, options) => {
+  const destination = selectedPrimaryDestination();
+  const result = await runHome.selectRun(run, options);
+  const restoredDestination = result?.ok ? destination : "run";
+  history.replaceState(null, "", `#${restoredDestination}`);
+  navigation.selectDestination(restoredDestination);
+  document.querySelector("main")?.focus({ preventScroll: true });
+  return result;
+};
+const reconcileSelectionIdentity = async () => {
+  const destination = selectedPrimaryDestination();
+  const result = await runHome.initialize();
+  if (!runLibrary?.isActive()) {
+    const restoredDestination = result?.ok ? destination : "run";
+    history.replaceState(null, "", `#${restoredDestination}`);
+    navigation.selectDestination(restoredDestination);
+  }
+  return result;
+};
+runLibrary = createRunLibraryController({
+  root: document,
+  api: services.api,
+  auth: services.auth,
+  getSnapshot: runHome.getSnapshot,
+  onSelectRun: runHome.selectRun,
+  onQuickSelectRun: quickSwitchRun,
+  onIdentityChange: reconcileSelectionIdentity,
+  onOpenLibrary: () => showLibrary(),
+  onShowRun: showRun,
+});
+document.querySelector("[data-run-switcher]")?.addEventListener("click", () => runLibrary.openSwitcher());
 document.addEventListener("beer-run:open-player", (event) => {
   navigation.selectDestination("standings");
   standings.showPlayer(event.detail.username);
 });
-runHome.subscribe(() => {
+runHome.subscribe((snapshot) => {
+  if (!snapshot.data) {
+    standings.reset();
+    mapController.reset();
+    logController.reset();
+    return;
+  }
   standings.refresh();
   mapController.refresh();
 });
@@ -104,17 +160,32 @@ document.addEventListener("click", (event) => {
   if (!entryLink) return;
   mapController.show(entryLink.dataset.entryId);
 });
-bindPreviewFeedback(document, { onRefresh: () => runHome.refresh() });
+bindPreviewFeedback(document, { onRefresh: () => (
+  runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
+) });
 const restoreDestination = () => {
   const match = location.hash.match(/^#standings\/(.+)$/);
-  if (match) {
+  if (location.hash === "#runs") showLibrary("library", { push: false });
+  else if (location.hash === "#create") showLibrary("create", { push: false });
+  else if (location.hash === "#manage") showLibrary("manage", { push: false });
+  else if (match) {
     navigation.selectDestination("standings");
     standings.showPlayer(decodeURIComponent(match[1]), false);
   } else if (location.hash === "#standings") navigation.selectDestination("standings");
   else if (location.hash === "#map") navigation.selectDestination("map");
   else if (location.hash === "#log") navigation.selectDestination("log");
+  else navigation.selectDestination("run");
 };
 window.addEventListener("popstate", restoreDestination);
+const reconcileIdentity = async () => {
+  await reconcileSelectionIdentity();
+  if (runLibrary.isActive()) await runLibrary.refresh();
+  if (runLibrary.isSwitcherOpen()) await runLibrary.refreshSwitcher();
+};
+window.addEventListener("storage", (event) => {
+  if (event.key === "access_token") void reconcileIdentity();
+});
+document.addEventListener("beer-run:auth-changed", () => void reconcileIdentity());
 void runHome.initialize().then(() => {
   restoreDestination();
 });

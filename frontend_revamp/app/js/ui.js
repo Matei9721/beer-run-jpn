@@ -62,15 +62,18 @@ function isSafeImagePath(imagePath) {
   return typeof imagePath === "string" && /^\/?static\/uploads\//i.test(imagePath);
 }
 
-function updateRunSwitcher(root, run, identity = null) {
+export function updateRunSwitcher(root, run, identity = null) {
+  const trigger = root.querySelector("[data-run-switcher]");
   setText(root, "[data-run-name]", run?.name || "No run selected");
   if (!run) {
     setText(root, "[data-run-meta]", "Choose a public run");
+    trigger?.setAttribute("aria-label", "No run selected. Open run switcher");
     return;
   }
   const visibility = run.is_public ? "Public run" : "Private run";
   const role = identity && run.current_user_role ? ` · ${run.current_user_role}` : "";
   setText(root, "[data-run-meta]", `${visibility}${role}`);
+  trigger?.setAttribute("aria-label", `${run.name} selected. Open run switcher`);
 }
 
 function appendMeta(container, values) {
@@ -341,8 +344,5 @@ export function bindPreviewFeedback(root = document, { onRefresh = null } = {}) 
       }
       announce("Preview shell checked just now");
     });
-  });
-  root.querySelector("[data-run-switcher]")?.addEventListener("click", () => {
-    announce("Run switching is available from the run library.");
   });
 }

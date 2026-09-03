@@ -21,6 +21,26 @@ async function readJson(fetchImpl, path, { token = null, signal = null } = {}) {
   }
 }
 
+async function writeJson(fetchImpl, path, { method, token, body = null, signal = null } = {}) {
+  try {
+    const response = await fetchImpl(path, {
+      method,
+      headers: { ...authHeaders(token), ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : null,
+      signal,
+    });
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      // A valid empty response does not need a synthetic parsing error.
+    }
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    return abortedResult(error) || { ok: false, network: true };
+  }
+}
+
 export function createApiClient({ fetchImpl = fetch } = {}) {
   return {
     async request(path, options = {}) {
@@ -40,8 +60,18 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
       return readJson(fetchImpl, "/api/beer-runs", { token, signal });
     },
 
+    fetchMyBeerRuns(token, signal = null) {
+      const query = new URLSearchParams({ view: "mine" });
+      return readJson(fetchImpl, `/api/beer-runs?${query.toString()}`, { token, signal });
+    },
+
     findPublicBeerRunByName(name, token = null, signal = null) {
       const query = new URLSearchParams({ view: "public", name });
+      return readJson(fetchImpl, `/api/beer-runs?${query.toString()}`, { token, signal });
+    },
+
+    searchPublicBeerRuns(search, token = null, signal = null) {
+      const query = new URLSearchParams({ view: "public", q: search });
       return readJson(fetchImpl, `/api/beer-runs?${query.toString()}`, { token, signal });
     },
 
@@ -56,6 +86,30 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
 
     fetchEntries(beerRunId, token = null, signal = null) {
       return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/entries`, { token, signal });
+    },
+
+    createBeerRun(payload, token, signal = null) {
+      return writeJson(fetchImpl, "/api/beer-runs", { method: "POST", token, body: payload, signal });
+    },
+
+    updateBeerRun(beerRunId, payload, token, signal = null) {
+      return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}`, { method: "PATCH", token, body: payload, signal });
+    },
+
+    fetchBeerRunMembers(beerRunId, token = null, signal = null) {
+      return readJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/members`, { token, signal });
+    },
+
+    createBeerRunInvite(beerRunId, token, signal = null) {
+      return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/invites`, { method: "POST", token, signal });
+    },
+
+    leaveBeerRun(beerRunId, token, signal = null) {
+      return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/members/me`, { method: "DELETE", token, signal });
+    },
+
+    deleteBeerRun(beerRunId, token, signal = null) {
+      return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}`, { method: "DELETE", token, signal });
     },
 
     createEntry(beerRunId, formData, token, signal = null) {

@@ -482,6 +482,16 @@ export function createLogController({ root = document, api, auth, formState, get
     captureLocation();
   }
   function hide() { active = false; requestController?.abort(); requestController = null; formState.setPending(false); }
+  function reset() {
+    hide();
+    entry = null;
+    location = null;
+    locationState = "idle";
+    locationError = "";
+    photoAction = "keep";
+    error = "";
+    formState.reset();
+  }
   root.addEventListener("beer-run:edit-entry", (event) => show(event.detail));
-  return { show, hide };
+  return { show, hide, reset };
 }

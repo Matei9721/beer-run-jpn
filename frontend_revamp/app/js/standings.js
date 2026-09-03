@@ -305,6 +305,14 @@ export function createStandingsController({ root = document, api, auth, getSnaps
       });
     },
     hide() { active = false; selectedPlayer = null; },
+    reset() {
+      active = false;
+      selectedPlayer = null;
+      selectedEntry = null;
+      metricLeaderboard = null;
+      metricRequest += 1;
+      sessionStorage.removeItem("beerRun.revamp.selectedEntry");
+    },
     refresh() { if (active) selectedPlayer ? paintPlayer() : paintStandings(); },
   };
 }

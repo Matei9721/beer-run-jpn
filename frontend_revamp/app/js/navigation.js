@@ -1,9 +1,15 @@
 const DESTINATIONS = new Set(["run", "standings", "log", "map", "you"]);
 
 export function bindNavigation(root = document, { onNavigate = null } = {}) {
+  const clearDestination = () => {
+    root.querySelectorAll(".nav-item[data-destination]").forEach((candidate) => {
+      candidate.classList.remove("is-current");
+      candidate.removeAttribute("aria-current");
+    });
+  };
   const selectDestination = (destination) => {
     if (!DESTINATIONS.has(destination)) return;
-    root.querySelectorAll("[data-destination]").forEach((candidate) => {
+    root.querySelectorAll(".nav-item[data-destination]").forEach((candidate) => {
       const isCurrent = candidate.dataset.destination === destination;
       candidate.classList.toggle("is-current", isCurrent);
       if (isCurrent) candidate.setAttribute("aria-current", "page");
@@ -19,5 +25,5 @@ export function bindNavigation(root = document, { onNavigate = null } = {}) {
     selectDestination(link.dataset.destination);
   });
   window.addEventListener("popstate", () => selectDestination(location.hash.slice(1) || "run"));
-  return { selectDestination };
+  return { clearDestination, selectDestination };
 }

@@ -41,6 +41,26 @@ async function writeJson(fetchImpl, path, { method, token, body = null, signal =
   }
 }
 
+async function writeForm(fetchImpl, path, fields, signal = null) {
+  try {
+    const response = await fetchImpl(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(fields),
+      signal,
+    });
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      // Authentication failures are still represented by their HTTP status.
+    }
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    return abortedResult(error) || { ok: false, network: true };
+  }
+}
+
 export function createApiClient({ fetchImpl = fetch } = {}) {
   return {
     async request(path, options = {}) {
@@ -54,6 +74,18 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
 
     fetchCurrentUser(token, signal = null) {
       return readJson(fetchImpl, "/api/me", { token, signal });
+    },
+
+    fetchLegalMetadata(signal = null) {
+      return readJson(fetchImpl, "/api/legal/metadata", { signal });
+    },
+
+    login(username, password, signal = null) {
+      return writeForm(fetchImpl, "/token", { username, password }, signal);
+    },
+
+    signup(payload, signal = null) {
+      return writeJson(fetchImpl, "/api/signup", { method: "POST", body: payload, signal });
     },
 
     fetchBeerRuns(token = null, signal = null) {

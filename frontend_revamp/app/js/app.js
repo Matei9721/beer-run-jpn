@@ -1,15 +1,15 @@
-import { createApiClient } from "./api.js?v=revamp-025-12";
-import { createAuthState } from "./auth.js?v=revamp-025-12";
-import { createFormState } from "./form-state.js?v=revamp-025-12";
-import { createMapController } from "./map.js?v=revamp-025-12";
-import { createLogController } from "./log.js?v=revamp-025-12";
-import { bindNavigation } from "./navigation.js?v=revamp-025-12";
-import { createRunHomeController } from "./run-home.js?v=revamp-025-12";
-import { createRunLibraryController } from "./run-library.js?v=revamp-025-12";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-025-12";
-import { createStandingsController } from "./standings.js?v=revamp-025-12";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-025-12";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-025-12";
+import { createApiClient } from "./api.js?v=revamp-026-09";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-026-09";
+import { createFormState } from "./form-state.js?v=revamp-026-09";
+import { createMapController } from "./map.js?v=revamp-026-09";
+import { createLogController } from "./log.js?v=revamp-026-09";
+import { bindNavigation } from "./navigation.js?v=revamp-026-09";
+import { createRunHomeController } from "./run-home.js?v=revamp-026-09";
+import { createRunLibraryController } from "./run-library.js?v=revamp-026-09";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-026-09";
+import { createStandingsController } from "./standings.js?v=revamp-026-09";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-026-09";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-026-09";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -30,6 +30,7 @@ let standings;
 let mapController;
 let logController;
 let runLibrary;
+let authController;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -40,6 +41,7 @@ const ensureContentSurface = () => {
   return surface;
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
+  if (authController?.isActive()) authController.close({ notify: false });
   runLibrary?.hide();
   if (destination === "standings") {
     logController.hide();
@@ -56,7 +58,13 @@ const navigation = bindNavigation(document, { onNavigate: (destination) => {
     mapController.hide();
     logController.show();
   }
-  else {
+  else if (destination === "you" && !runHome.getSnapshot().currentUser) {
+    logController.hide();
+    standings.hide();
+    mapController.hide();
+    history.replaceState(null, "", "#login");
+    authController.show("login", { returnTo: "#run" });
+  } else {
     logController.hide();
     standings.hide();
     mapController.hide();
@@ -140,6 +148,38 @@ runLibrary = createRunLibraryController({
   onOpenLibrary: () => showLibrary(),
   onShowRun: showRun,
 });
+const restoreAuthDestination = (destination = "#run") => {
+  const safeDestination = ["#run", "#standings", "#log", "#map", "#runs", "#create", "#manage", "#you"].includes(destination)
+    ? destination
+    : destination.startsWith("#invite") ? destination : "#run";
+  const isInviteDestination = safeDestination.startsWith("#invite");
+  history.replaceState(null, "", safeDestination);
+  if (safeDestination === "#runs") showLibrary("library", { push: false });
+  else if (safeDestination === "#create") showLibrary("create", { push: false });
+  else if (safeDestination === "#manage") showLibrary("manage", { push: false });
+  else navigation.selectDestination(isInviteDestination ? "run" : safeDestination.slice(1));
+  document.querySelector("main")?.focus({ preventScroll: true });
+};
+authController = createAuthController({
+  root: document,
+  api: services.api,
+  auth: services.auth,
+  onAuthenticated: async ({ returnTo }) => {
+    ensureContentSurface();
+    const result = await reconcileSelectionIdentity();
+    restoreAuthDestination(returnTo);
+    return result?.data?.identity || runHome.getSnapshot().currentUser;
+  },
+  onClose: ({ returnTo }) => restoreAuthDestination(returnTo),
+});
+document.addEventListener("beer-run:session-rejected", () => {
+  const destination = ["#login", "#signup"].includes(location.hash) ? "#run" : location.hash || "#run";
+  history.replaceState(null, "", "#login");
+  authController.show("login", {
+    returnTo: destination,
+    message: "Your session is no longer valid. Log in again to continue.",
+  });
+});
 document.querySelector("[data-run-switcher]")?.addEventListener("click", () => runLibrary.openSwitcher());
 document.addEventListener("beer-run:open-player", (event) => {
   navigation.selectDestination("standings");
@@ -164,6 +204,11 @@ bindPreviewFeedback(document, { onRefresh: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
 const restoreDestination = () => {
+  if (location.hash === "#login" || location.hash === "#signup") {
+    authController.show(location.hash.slice(1));
+    return;
+  }
+  if (authController.isActive()) authController.close({ notify: false });
   const match = location.hash.match(/^#standings\/(.+)$/);
   if (location.hash === "#runs") showLibrary("library", { push: false });
   else if (location.hash === "#create") showLibrary("create", { push: false });
@@ -186,6 +231,17 @@ window.addEventListener("storage", (event) => {
   if (event.key === "access_token") void reconcileIdentity();
 });
 document.addEventListener("beer-run:auth-changed", () => void reconcileIdentity());
-void runHome.initialize().then(() => {
+void (async () => {
+  const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash) ? "#run" : location.hash || "#run";
+  const session = await authController.validateStoredSession();
+  await runHome.initialize();
+  if (session.status === "stale") {
+    history.replaceState(null, "", "#login");
+    authController.show("login", {
+      returnTo: destinationBeforeValidation,
+      message: "Your session is no longer valid. Log in again to continue.",
+    });
+    return;
+  }
   restoreDestination();
-});
+})();

@@ -225,6 +225,28 @@ function receiptView(entry) {
   return content;
 }
 
+function authRequiredView() {
+  const content = el("div", "log-content");
+  content.dataset.logView = "";
+  content.append(pageHeading("create"));
+  const prompt = el("section", "log-auth-prompt");
+  prompt.append(
+    el("h2", "", "Log in before the next pour"),
+    el("p", "", "Your run stays selected while you log in. Then you can return here and add the drink."),
+  );
+  const actions = el("div", "log-auth-prompt__actions");
+  const login = el("button", "button button--primary", "Log in");
+  login.type = "button";
+  login.dataset.authOpen = "";
+  const signup = el("button", "button button--secondary", "Create an account");
+  signup.type = "button";
+  signup.dataset.authSignup = "";
+  actions.append(login, signup);
+  prompt.append(actions);
+  content.append(prompt);
+  return content;
+}
+
 export function createLogController({ root = document, api, auth, formState, getSnapshot, refresh, navigate }) {
   let active = false;
   let entry = null;
@@ -243,7 +265,10 @@ export function createLogController({ root = document, api, auth, formState, get
   const render = () => {
     if (!active) return;
     main()?.classList.remove("main-content--map");
-    main()?.replaceChildren(formView({ entry, location, locationState, photoAction, error, pending: formState.isPending() }));
+    const snapshot = getSnapshot();
+    main()?.replaceChildren(!snapshot.currentUser || !auth.getAccessToken()
+      ? authRequiredView()
+      : formView({ entry, location, locationState, photoAction, error, pending: formState.isPending() }));
     bind();
   };
   const setError = (message) => {
@@ -463,6 +488,12 @@ export function createLogController({ root = document, api, auth, formState, get
     root.querySelector("[data-cancel-log]")?.addEventListener("click", () => navigate("run"));
     root.querySelector("[data-success-run]")?.addEventListener("click", () => navigate("run"));
     root.querySelector("[data-log-another]")?.addEventListener("click", () => { formState.reset(); show(); });
+    root.querySelector("[data-auth-open]")?.addEventListener("click", () => {
+      root.dispatchEvent(new CustomEvent("beer-run:open-auth", { detail: { mode: "login", returnTo: "#log" } }));
+    });
+    root.querySelector("[data-auth-signup]")?.addEventListener("click", () => {
+      root.dispatchEvent(new CustomEvent("beer-run:open-auth", { detail: { mode: "signup", returnTo: "#log" } }));
+    });
   }
 
   function show(nextEntry = null) {
@@ -479,7 +510,7 @@ export function createLogController({ root = document, api, auth, formState, get
     error = "";
     formState.reset();
     render();
-    captureLocation();
+    if (getSnapshot().currentUser && auth.getAccessToken()) captureLocation();
   }
   function hide() { active = false; requestController?.abort(); requestController = null; formState.setPending(false); }
   function reset() {

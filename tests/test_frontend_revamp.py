@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-025-12"
+ASSET_VERSION = "revamp-026-09"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -180,7 +180,13 @@ def test_run_library_and_quick_switcher_contracts_are_present():
     assert 'action("Manage run"' in library
     assert "current_user_role === \"owner\"" in library
     assert "Open Wrapped" not in library
-    assert "[401, 403, 404]" in home
+    assert 'result.status === 401' in home
+    assert '[403, 404]' in home
+    assert 'beer-run:session-rejected' in home
+    rejected_session_handler = home.split("async function recoverFromRejectedSession", 1)[1].split(
+        "async function refresh", 1
+    )[0]
+    assert "removeSelectedRunId" not in rejected_session_handler
     assert "removeSelectedRunId" in home
     assert "firstFallbackRun" in home
     assert "run-switcher-dialog" in html
@@ -243,6 +249,69 @@ def test_create_and_manage_run_contracts_are_present():
     ):
         assert f".{class_name}" in css
     assert '.manage-confirmation .button--danger:disabled' in css
+
+
+def test_login_and_signup_preserve_auth_and_resume_contracts():
+    javascript_root = REVAMP_ROOT / "js"
+    api = (javascript_root / "api.js").read_text(encoding="utf-8")
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    auth = (javascript_root / "auth.js").read_text(encoding="utf-8")
+    log = (javascript_root / "log.js").read_text(encoding="utf-8")
+    library = (javascript_root / "run-library.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    assert '"/token"' in api
+    assert '"/api/signup"' in api
+    assert '"/api/legal/metadata"' in api
+    assert '"Content-Type": "application/x-www-form-urlencoded"' in api
+    assert '"Content-Type": "application/json"' in api
+
+    assert 'autocomplete: "username"' in auth
+    assert 'autocomplete: "current-password"' in auth
+    assert auth.count('autocomplete: "new-password"') == 2
+    assert 'form.autocomplete = "on"' in auth
+    assert 'terms_version: legalMetadata.terms_version' in auth
+    assert 'terms_agreed: true' in auth
+    assert 'role", "alert"' in auth
+    assert 'aria-live", "assertive"' in auth
+    assert 'setPending(form, true, "Logging in...")' in auth
+    assert 'setPending(form, true, "Creating account...")' in auth
+    assert 'The username or password is incorrect.' in auth
+    assert 'That signup code is not valid.' in auth
+    assert 'Check your connection and try again.' in auth
+    assert 'input:not(:disabled)' in auth
+    assert 'scrollIntoView({ block: "center", behavior: "smooth" })' in auth
+    assert 'storage.setItem(ACCESS_TOKEN_KEY, token)' in auth
+    assert 'storage.removeItem(ACCESS_TOKEN_KEY)' in auth
+    assert 'innerHTML' not in auth
+    assert 'window.alert' not in auth
+
+    assert 'createAuthController' in app
+    assert 'validateStoredSession' in app
+    assert 'beer-run:session-rejected' in app
+    assert 'destination.startsWith("#invite")' in app
+    assert 'ensureContentSurface();' in app
+    assert 'restoreAuthDestination(returnTo)' in app
+    assert 'beer-run:open-auth' in log
+    assert 'returnTo: "#log"' in log
+    assert 'beer-run:open-auth' in library
+    assert 'returnTo: "#runs"' in library
+
+    for class_name in (
+        "auth-view",
+        "auth-mobile-header",
+        "auth-panel",
+        "auth-form",
+        "auth-field__input",
+        "auth-legal__choice",
+        "auth-submit",
+        "auth-alternate",
+        "log-auth-prompt",
+    ):
+        assert f".{class_name}" in css
+    assert 'body.auth-view-open' in css
+    assert 'scroll-padding-block: 88px 42dvh' in css
+    assert 'scroll-margin-block: 88px 44dvh' in css
 
 
 def test_map_and_drink_detail_contracts_are_present():

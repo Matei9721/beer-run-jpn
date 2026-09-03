@@ -70,12 +70,12 @@ function runRow(run, { currentRunId = null, knownMembership = false } = {}) {
   return button;
 }
 
-function emptyState(title, copy, actionLabel = "") {
+function emptyState(title, copy, actionLabel = "", actionName = "libraryCreate") {
   const state = element("div", "run-library-empty");
   state.append(element("strong", "", title), element("p", "", copy));
   if (actionLabel) {
     const button = action(actionLabel, "button button--secondary");
-    button.dataset.libraryCreate = "";
+    button.dataset[actionName] = "";
     state.append(button);
   }
   return state;
@@ -467,7 +467,12 @@ export function createRunLibraryController({
     if (loadError) {
       section.append(inlineError(loadError));
     } else if (!identity) {
-      section.append(emptyState("Sign in to see My runs", "Public runs remain available below while you are signed out."));
+      section.append(emptyState(
+        "Log in to see My runs",
+        "Public runs remain available below while you are logged out.",
+        "Log in",
+        "authOpen",
+      ));
     } else {
       const otherRuns = memberships.filter((run) => !sameId(run.id, currentRun?.id));
       if (!otherRuns.length) {
@@ -530,6 +535,9 @@ export function createRunLibraryController({
 
   function bindLibrary() {
     const target = main();
+    target?.querySelector("[data-auth-open]")?.addEventListener("click", () => {
+      root.dispatchEvent(new CustomEvent("beer-run:open-auth", { detail: { mode: "login", returnTo: "#runs" } }));
+    });
     target?.querySelectorAll("[data-library-create]").forEach((button) => {
       button.addEventListener("click", () => openView("create"));
     });

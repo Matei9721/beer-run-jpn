@@ -61,12 +61,18 @@ export function createRunHomeController({ api, auth, selection, root = document,
   }
 
   async function resolveCurrentRun(signal) {
-    const token = auth.getAccessToken();
+    let token = auth.getAccessToken();
     let identity = null;
+    let sessionRejected = false;
 
     if (token) {
       const identityResult = await api.fetchCurrentUser(token, signal);
       if (identityResult.ok) identity = identityResult.data;
+      else if (identityResult.status === 401) {
+        auth.removeAccessToken();
+        token = null;
+        sessionRejected = true;
+      }
     }
 
     if (identity) {
@@ -82,19 +88,20 @@ export function createRunHomeController({ api, auth, selection, root = document,
         else if ([403, 404].includes(storedResult.status)) removeSelectedRunId(identity.id, storage);
       }
 
-      if (selected) return { run: selected, identity, reason: "ready" };
+      if (selected) return { run: selected, identity, reason: "ready", sessionRejected };
       const fallback = runsResult.ok ? firstFallbackRun(runsResult.data) : null;
-      if (fallback) return { run: fallback, identity, reason: "ready" };
+      if (fallback) return { run: fallback, identity, reason: "ready", sessionRejected };
     }
 
     const fallbackResult = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, identity ? token : null, signal);
     if (fallbackResult.ok && fallbackResult.data.length) {
-      return { run: fallbackResult.data[0], identity, reason: "ready" };
+      return { run: fallbackResult.data[0], identity, reason: "ready", sessionRejected };
     }
     return {
       run: null,
       identity,
       reason: fallbackResult.network ? "network" : "missing",
+      sessionRejected,
     };
   }
 
@@ -122,6 +129,21 @@ export function createRunHomeController({ api, auth, selection, root = document,
     return initialize();
   }
 
+  async function recoverFromRejectedSession(run, context) {
+    if (context !== contextGeneration || !sameRun(run, currentRun)) return { stale: true };
+    auth.removeAccessToken();
+    invalidateRefreshWork();
+    contextGeneration += 1;
+    currentUser = null;
+    currentRun = null;
+    lastData = null;
+    selection.clear();
+    notify();
+    const result = await initialize();
+    root.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
+    return result;
+  }
+
   async function refresh({ initial = false, context = contextGeneration, run = currentRun } = {}) {
     if (!run) return initialize();
     const request = ++refreshGeneration;
@@ -143,7 +165,10 @@ export function createRunHomeController({ api, auth, selection, root = document,
     setRefreshPending(root, false);
 
     const results = [runResult, leaderboardResult, entriesResult];
-    if (results.some((result) => [401, 403, 404].includes(result.status))) {
+    if (results.some((result) => result.status === 401)) {
+      return recoverFromRejectedSession(run, context);
+    }
+    if (results.some((result) => [403, 404].includes(result.status))) {
       return recoverFromAccessLoss(run, context);
     }
 
@@ -200,12 +225,15 @@ export function createRunHomeController({ api, auth, selection, root = document,
       });
       setRefreshPending(root, false);
       setSyncStatus(root, resolved.reason === "network" ? "Connection unavailable" : "No run available");
+      if (resolved.sessionRejected) root.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
       return resolved;
     }
 
     currentRun = resolved.run;
     selection.selectRun(currentRun);
-    return refresh({ initial: true, context, run: currentRun });
+    const result = await refresh({ initial: true, context, run: currentRun });
+    if (resolved.sessionRejected) root.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
+    return result;
   }
 
   function selectRun(run, { persist = false } = {}) {

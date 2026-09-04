@@ -1,15 +1,16 @@
-import { createApiClient } from "./api.js?v=revamp-026-09";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-026-09";
-import { createFormState } from "./form-state.js?v=revamp-026-09";
-import { createMapController } from "./map.js?v=revamp-026-09";
-import { createLogController } from "./log.js?v=revamp-026-09";
-import { bindNavigation } from "./navigation.js?v=revamp-026-09";
-import { createRunHomeController } from "./run-home.js?v=revamp-026-09";
-import { createRunLibraryController } from "./run-library.js?v=revamp-026-09";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-026-09";
-import { createStandingsController } from "./standings.js?v=revamp-026-09";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-026-09";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-026-09";
+import { createApiClient } from "./api.js?v=revamp-029-08";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-029-08";
+import { createFormState } from "./form-state.js?v=revamp-029-08";
+import { createInviteController } from "./invite.js?v=revamp-029-08";
+import { createMapController } from "./map.js?v=revamp-029-08";
+import { createLogController } from "./log.js?v=revamp-029-08";
+import { bindNavigation } from "./navigation.js?v=revamp-029-08";
+import { createRunHomeController } from "./run-home.js?v=revamp-029-08";
+import { createRunLibraryController } from "./run-library.js?v=revamp-029-08";
+import { createRunSelectionState } from "./run-selection.js?v=revamp-029-08";
+import { createStandingsController } from "./standings.js?v=revamp-029-08";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-029-08";
+import { bindPreviewFeedback } from "./ui.js?v=revamp-029-08";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -31,6 +32,7 @@ let mapController;
 let logController;
 let runLibrary;
 let authController;
+let inviteController;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -42,6 +44,7 @@ const ensureContentSurface = () => {
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
   if (authController?.isActive()) authController.close({ notify: false });
+  if (inviteController?.isActive()) inviteController.dismiss({ notify: false });
   runLibrary?.hide();
   if (destination === "standings") {
     logController.hide();
@@ -106,6 +109,12 @@ const showRun = () => {
   history.pushState(null, "", "#run");
   navigation.selectDestination("run");
 };
+const showJoinedRun = ({ joinedRun } = {}) => {
+  history.replaceState(null, "", `${location.pathname}#run`);
+  navigation.selectDestination("run");
+  const status = document.querySelector("[data-sync-status]");
+  if (status && joinedRun?.name) status.textContent = `Joined ${joinedRun.name}`;
+};
 const showLibrary = (view = "library", { push = true } = {}) => {
   runLibrary.closeSwitcher({ restoreFocus: false, immediate: true });
   logController.hide();
@@ -148,13 +157,29 @@ runLibrary = createRunLibraryController({
   onOpenLibrary: () => showLibrary(),
   onShowRun: showRun,
 });
+inviteController = createInviteController({
+  root: document,
+  api: services.api,
+  auth: services.auth,
+  getSnapshot: runHome.getSnapshot,
+  onSelectRun: runHome.selectRun,
+  onShowRun: showJoinedRun,
+  onDismiss: () => {
+    history.replaceState(null, "", `${location.pathname}#run`);
+    navigation.selectDestination("run");
+  },
+});
 const restoreAuthDestination = (destination = "#run") => {
   const safeDestination = ["#run", "#standings", "#log", "#map", "#runs", "#create", "#manage", "#you"].includes(destination)
     ? destination
     : destination.startsWith("#invite") ? destination : "#run";
   const isInviteDestination = safeDestination.startsWith("#invite");
   history.replaceState(null, "", safeDestination);
-  if (safeDestination === "#runs") showLibrary("library", { push: false });
+  if (safeDestination === "#invite") {
+    navigation.selectDestination("run", { notify: false });
+    void inviteController.show();
+  }
+  else if (safeDestination === "#runs") showLibrary("library", { push: false });
   else if (safeDestination === "#create") showLibrary("create", { push: false });
   else if (safeDestination === "#manage") showLibrary("manage", { push: false });
   else navigation.selectDestination(isInviteDestination ? "run" : safeDestination.slice(1));
@@ -170,7 +195,10 @@ authController = createAuthController({
     restoreAuthDestination(returnTo);
     return result?.data?.identity || runHome.getSnapshot().currentUser;
   },
-  onClose: ({ returnTo }) => restoreAuthDestination(returnTo),
+  onClose: ({ returnTo }) => {
+    if (returnTo.startsWith("#invite")) inviteController.cancelAuthContinuation();
+    restoreAuthDestination(returnTo);
+  },
 });
 document.addEventListener("beer-run:session-rejected", () => {
   const destination = ["#login", "#signup"].includes(location.hash) ? "#run" : location.hash || "#run";
@@ -205,10 +233,22 @@ bindPreviewFeedback(document, { onRefresh: () => (
 ) });
 const restoreDestination = () => {
   if (location.hash === "#login" || location.hash === "#signup") {
-    authController.show(location.hash.slice(1));
+    authController.show(location.hash.slice(1), {
+      returnTo: inviteController.hasInviteRoute() ? "#invite" : "#run",
+    });
     return;
   }
   if (authController.isActive()) authController.close({ notify: false });
+  if (location.hash === "#invite") {
+    runLibrary.hide();
+    logController.hide();
+    standings.hide();
+    mapController.hide();
+    navigation.selectDestination("run", { notify: false });
+    void inviteController.show();
+    return;
+  }
+  inviteController.hide();
   const match = location.hash.match(/^#standings\/(.+)$/);
   if (location.hash === "#runs") showLibrary("library", { push: false });
   else if (location.hash === "#create") showLibrary("create", { push: false });
@@ -223,7 +263,12 @@ const restoreDestination = () => {
 };
 window.addEventListener("popstate", restoreDestination);
 const reconcileIdentity = async () => {
+  const inviteWasActive = inviteController.isActive();
   await reconcileSelectionIdentity();
+  if (inviteWasActive && location.hash === "#invite") {
+    await inviteController.show();
+    return;
+  }
   if (runLibrary.isActive()) await runLibrary.refresh();
   if (runLibrary.isSwitcherOpen()) await runLibrary.refreshSwitcher();
 };
@@ -232,7 +277,12 @@ window.addEventListener("storage", (event) => {
 });
 document.addEventListener("beer-run:auth-changed", () => void reconcileIdentity());
 void (async () => {
-  const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash) ? "#run" : location.hash || "#run";
+  if (inviteController.hasInviteRoute() && !["#login", "#signup"].includes(location.hash)) {
+    history.replaceState(null, "", `${location.pathname}${location.search}#invite`);
+  }
+  const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash)
+    ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
+    : location.hash || "#run";
   const session = await authController.validateStoredSession();
   await runHome.initialize();
   if (session.status === "stale") {

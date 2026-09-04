@@ -1,4 +1,5 @@
 import { updateRunSwitcher } from "./ui.js?v=revamp-025-12";
+import { buildInviteShareUrl } from "./invite.js?v=revamp-029-08";
 
 const SEARCH_MIN_LENGTH = 2;
 const QUICK_SWITCHER_LIMIT = 6;
@@ -857,11 +858,6 @@ export function createRunLibraryController({
       ? `${members.length} ${members.length === 1 ? "person" : "people"}`
       : apiMessage(result, "The roster could not be loaded.")));
     head.append(headCopy);
-    if (isOwner) {
-      const invite = action("Invite people", "button button--primary");
-      invite.dataset.manageInvite = "";
-      head.append(invite);
-    }
     roster.append(head);
     if (members.length) {
       const list = element("ul", "manage-members");
@@ -872,14 +868,25 @@ export function createRunLibraryController({
 
     let inviteStatus = null;
     if (isOwner) {
-      const tools = element("section", "manage-tools");
+      const inviteSection = element("section", "manage-invite");
+      const inviteHeading = element("div", "manage-invite__heading");
+      inviteHeading.append(
+        element("h2", "", "Invite people"),
+        element("p", "", "Create one reusable link for this run, then copy or share it."),
+      );
       inviteStatus = element("p", "manage-form__status");
       inviteStatus.dataset.inviteStatus = "";
-      const share = action("Get invite link", "button button--secondary");
+      inviteStatus.setAttribute("role", "status");
+      inviteStatus.setAttribute("aria-live", "polite");
+      const share = action("Get invite link", "button button--primary");
       share.dataset.manageInvite = "";
+      inviteSection.append(inviteHeading, share, inviteStatus);
+      content.append(inviteSection);
+
+      const tools = element("section", "manage-tools");
       const rename = action("Rename run", "button button--secondary");
       rename.dataset.manageRename = "";
-      tools.append(share, rename, inviteStatus);
+      tools.append(rename);
       content.append(tools);
 
       const renameForm = element("form", "manage-form manage-form--rename");
@@ -935,24 +942,87 @@ export function createRunLibraryController({
     back.dataset.libraryBack = "";
     content.append(back);
 
-    content.querySelectorAll("[data-manage-invite]").forEach((button) => button.addEventListener("click", async () => {
+    content.querySelector("[data-manage-invite]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const inviteRequest = ++managementGeneration;
       button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      inviteStatus.textContent = "Preparing the invite link...";
+      inviteStatus.classList.remove("is-error");
       const invite = await api.createBeerRunInvite(run.id, auth.getAccessToken());
-      button.disabled = false;
+      if (inviteRequest !== managementGeneration || !active || view !== "manage"
+        || Number(getSnapshot().currentRun?.id) !== Number(run.id)) return;
+      button.removeAttribute("aria-busy");
       if (!invite.ok) {
+        if ([401, 403, 404].includes(invite.status)) {
+          announcement = invite.status === 403
+            ? "You are no longer the owner of this run."
+            : "Your run access changed while preparing the invite.";
+          await onIdentityChange?.();
+          if (inviteRequest !== managementGeneration || !active) return;
+          view = "library";
+          history.replaceState(null, "", "#runs");
+          await load();
+          return;
+        }
+        button.disabled = false;
         inviteStatus.textContent = apiMessage(invite, "An invite link could not be created.");
         inviteStatus.classList.add("is-error");
+        inviteStatus.setAttribute("role", "alert");
         return;
       }
-      const url = new URL(invite.data.invite_url, location.origin).href;
-      try {
-        await navigator.clipboard.writeText(url);
-        inviteStatus.textContent = "Invite link copied.";
-      } catch {
-        inviteStatus.textContent = url;
+      const url = buildInviteShareUrl(invite.data, run.id);
+      if (!url) {
+        button.disabled = false;
+        inviteStatus.textContent = "BeerRun returned an invalid invite link. Try again.";
+        inviteStatus.classList.add("is-error");
+        inviteStatus.setAttribute("role", "alert");
+        return;
       }
+      button.hidden = true;
+      const inviteSection = button.closest(".manage-invite");
+      const linkPanel = element("div", "manage-invite__link");
+      const linkInput = element("input", "manage-invite__url");
+      linkInput.type = "text";
+      linkInput.readOnly = true;
+      linkInput.value = url;
+      linkInput.setAttribute("aria-label", `Invite link for ${run.name}`);
+      linkInput.addEventListener("focus", () => linkInput.select());
+      const inviteActions = element("div", "manage-actions");
+      const copy = action("Copy link", "button button--primary");
+      copy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          inviteStatus.textContent = "Invite link copied.";
+        } catch {
+          linkInput.focus();
+          linkInput.select();
+          inviteStatus.textContent = "Copy the selected link from the field above.";
+        }
+      });
+      inviteActions.append(copy);
+      if (typeof navigator.share === "function") {
+        const shareLink = action("Share invite", "button button--secondary");
+        shareLink.addEventListener("click", async () => {
+          try {
+            await navigator.share({
+              title: `Join ${run.name} on BeerRun`,
+              text: `Join ${run.name} on BeerRun.`,
+              url,
+            });
+            inviteStatus.textContent = "Invite shared.";
+          } catch (error) {
+            if (error?.name !== "AbortError") inviteStatus.textContent = "Sharing did not open. You can copy the link instead.";
+          }
+        });
+        inviteActions.append(shareLink);
+      }
+      linkPanel.append(linkInput, inviteActions);
+      inviteSection.insertBefore(linkPanel, inviteStatus);
+      inviteStatus.textContent = "Invite ready to share.";
       inviteStatus.classList.remove("is-error");
-    }));
+      inviteStatus.setAttribute("role", "status");
+    });
     back.addEventListener("click", () => openView("library"));
     content.querySelector("[data-manage-leave]")?.addEventListener("click", async (event) => {
       const trigger = event.currentTarget;

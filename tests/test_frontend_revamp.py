@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-026-09"
+ASSET_VERSION = "revamp-029-08"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -52,6 +52,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "app.js",
         "auth.js",
         "form-state.js",
+        "invite.js",
         "log.js",
         "map.js",
         "navigation.js",
@@ -280,6 +281,7 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     assert 'That signup code is not valid.' in auth
     assert 'Check your connection and try again.' in auth
     assert 'input:not(:disabled)' in auth
+    assert 'querySelectorAll("[data-auth-close]")' in auth
     assert 'scrollIntoView({ block: "center", behavior: "smooth" })' in auth
     assert 'storage.setItem(ACCESS_TOKEN_KEY, token)' in auth
     assert 'storage.removeItem(ACCESS_TOKEN_KEY)' in auth
@@ -300,6 +302,7 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     for class_name in (
         "auth-view",
         "auth-mobile-header",
+        "auth-desktop-header",
         "auth-panel",
         "auth-form",
         "auth-field__input",
@@ -312,6 +315,57 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     assert 'body.auth-view-open' in css
     assert 'scroll-padding-block: 88px 42dvh' in css
     assert 'scroll-margin-block: 88px 44dvh' in css
+
+
+def test_invite_preview_auth_resume_and_acceptance_contracts_are_present():
+    javascript_root = REVAMP_ROOT / "js"
+    api = (javascript_root / "api.js").read_text(encoding="utf-8")
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    invite = (javascript_root / "invite.js").read_text(encoding="utf-8")
+    library = (javascript_root / "run-library.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    assert '`/api/invites/${encodeURIComponent(code)}`' in api
+    assert '`/api/invites/${encodeURIComponent(code)}/accept`' in api
+    assert 'cache: "no-store"' in api
+    assert 'getAll("invite")' in invite
+    assert 'values.length !== 1' in invite
+    assert 'PENDING_INVITE_KEY' in invite
+    assert 'PENDING_INVITE_INTENT_KEY' in invite
+    assert 'validInvitePreview' in invite
+    assert 'validAcceptedRun' in invite
+    assert 'validateOwnerInviteResponse' in invite
+    assert 'reconcileAcceptedMembership' in invite
+    assert 'token !== auth.getAccessToken()' in invite
+    assert 'context !== getSnapshot()?.contextGeneration' in invite
+    assert 'storage.getItem(PENDING_INVITE_INTENT_KEY) === code' in invite
+    assert 'url.searchParams.delete("invite")' in invite
+    assert 'innerHTML' not in invite
+    assert 'preview.is_public' not in invite
+    assert 'preview.member_count' not in invite
+    assert 'preview.owner' not in invite
+
+    assert 'createInviteController' in app
+    assert 'inviteController.cancelAuthContinuation()' in app
+    assert 'inviteController.hasInviteRoute()' in app
+    assert 'location.hash === "#invite"' in app
+    assert 'navigation.selectDestination("run", { notify: false })' in app
+    assert 'buildInviteShareUrl(invite.data, run.id)' in library
+    assert '[401, 403, 404].includes(invite.status)' in library
+    assert 'navigator.clipboard.writeText(url)' in library
+    assert 'navigator.share' in library
+
+    for class_name in (
+        "invite-content",
+        "invite-ticket",
+        "invite-ticket__mark",
+        "invite-actions",
+        "invite-status",
+        "invite-notice",
+        "manage-invite",
+        "manage-invite__url",
+    ):
+        assert f".{class_name}" in css
 
 
 def test_map_and_drink_detail_contracts_are_present():

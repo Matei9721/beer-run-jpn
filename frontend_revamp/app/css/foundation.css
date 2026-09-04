@@ -233,6 +233,31 @@ a { color: inherit; }
 .ticket-surface { position: relative; overflow: hidden; padding: var(--space-6); border: 1px solid var(--color-border-strong); border-radius: var(--radius-surface); background: var(--color-surface-raised); box-shadow: var(--shadow-raised); clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
 .ticket-surface::after { content: ""; position: absolute; inset: var(--space-3); pointer-events: none; border: 1px dashed var(--color-border-strong); border-radius: 7px; opacity: 0.65; }
 .ticket-surface > * { position: relative; z-index: 1; }
+
+/* Invite preview and acceptance */
+.invite-content { width: min(100%, 680px); min-width: 0; display: grid; gap: var(--space-6); margin-inline: auto; }
+.invite-heading { margin-bottom: 0; }
+.invite-ticket { min-height: 340px; display: grid; place-items: center; align-content: center; gap: var(--space-3); padding: var(--space-10); background: var(--color-ticket); color: var(--color-ticket-text); text-align: center; }
+.invite-ticket::after { border-color: var(--color-ticket-muted); opacity: 0.42; }
+.invite-ticket__mark { width: 72px; height: 72px; display: grid; place-items: center; margin-bottom: var(--space-2); border: 1px solid color-mix(in srgb, var(--color-ticket-text) 38%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--color-ticket-text) 7%, transparent); color: var(--color-accent); }
+.invite-ticket__mark .icon { width: 34px; height: 34px; }
+.invite-ticket .eyebrow { margin: 0; color: var(--color-accent); }
+.invite-ticket__run { max-width: 16ch; margin: 0; font-family: var(--font-display); font-size: var(--text-3xl); line-height: var(--leading-3xl); overflow-wrap: anywhere; }
+.invite-ticket__copy { max-width: 44ch; margin: 0; color: var(--color-ticket-muted); }
+.invite-ticket__state { width: min(100%, 440px); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); padding-top: var(--space-4); border-top: 1px dashed color-mix(in srgb, var(--color-ticket-text) 38%, transparent); }
+.invite-ticket .status-tag { border-color: color-mix(in srgb, var(--color-ticket-text) 38%, transparent); background: color-mix(in srgb, var(--color-ticket-text) 8%, transparent); color: var(--color-ticket-text); }
+.invite-signed-in { color: var(--color-ticket-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.invite-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.invite-actions:has(> :only-child) { grid-template-columns: 1fr; }
+.invite-actions .button { width: 100%; }
+.invite-not-now { justify-self: center; color: var(--color-text-muted); }
+.invite-status { min-height: var(--leading-sm); margin: calc(var(--space-3) * -1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); text-align: center; }
+.invite-status.is-error { color: var(--color-danger); font-weight: 700; }
+.invite-dismiss { justify-self: center; }
+.invite-notice { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
+.invite-notice h2, .invite-notice p { margin: 0; }
+.invite-notice p { color: var(--color-text-muted); }
+.icon--beer { --icon-url: url("/revamp-assets/assets/icons/beer-stein.svg?v=revamp-022-15"); }
 .eyebrow { margin: 0 0 var(--space-2); color: var(--color-action); font-size: var(--text-xs); font-weight: 700; line-height: var(--leading-xs); letter-spacing: 0.08em; text-transform: uppercase; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: var(--space-3); font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); overflow-wrap: anywhere; }
@@ -349,6 +374,7 @@ h2 { margin-bottom: 0; font-size: var(--text-xl); line-height: var(--leading-xl)
 .app-shell.is-auth-view .main-content { width: 100%; max-width: none; height: 100dvh; margin: 0; padding: 0; overflow: auto; scroll-padding-block: 88px 42dvh; }
 .auth-view { min-height: 100dvh; display: flex; flex-direction: column; background: var(--color-canvas); }
 .auth-mobile-header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); background: var(--color-canvas); }
+.auth-desktop-header { display: none; }
 .auth-brand { min-width: 0; display: inline-flex; align-items: center; gap: var(--space-2); }
 .auth-brand--desktop { display: none; }
 .auth-close { color: var(--color-text-muted); }
@@ -471,6 +497,12 @@ h2 { margin-bottom: 0; font-size: var(--text-xl); line-height: var(--leading-xl)
 .manage-member__copy small { color: var(--color-text-muted); }
 .manage-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .manage-tools .manage-form__status { grid-column: 1 / -1; }
+.manage-invite { min-width: 0; display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
+.manage-invite__heading { display: grid; gap: var(--space-1); }
+.manage-invite__heading h2, .manage-invite__heading p { margin: 0; }
+.manage-invite__heading p { color: var(--color-text-muted); }
+.manage-invite__link { min-width: 0; display: grid; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px dashed var(--color-border-strong); }
+.manage-invite__url { width: 100%; min-width: 0; min-height: 48px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-canvas); color: var(--color-text); font-size: var(--text-sm); }
 .manage-form--rename[hidden] { display: none; }
 .manage-danger { border-color: var(--color-danger); background: var(--color-danger-surface); }
 .manage-danger .eyebrow { color: var(--color-danger); }
@@ -683,6 +715,7 @@ h2 { margin-bottom: 0; font-size: var(--text-xl); line-height: var(--leading-xl)
   .run-library-current { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: var(--space-6); }
   .run-library-current__actions { min-width: 224px; padding: 0 0 0 var(--space-5); border-top: 0; border-left: 1px dashed color-mix(in srgb, var(--color-ticket-text) 36%, transparent); }
   .auth-mobile-header { display: none; }
+  .auth-desktop-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
   .auth-view__stage { min-height: 100dvh; place-items: center; align-content: center; padding: var(--space-10); }
   .auth-panel { padding-block: var(--space-8); }
   .auth-brand--desktop { display: inline-flex; justify-self: start; }
@@ -759,6 +792,10 @@ h2 { margin-bottom: 0; font-size: var(--text-xl); line-height: var(--leading-xl)
   .run-library-current .status-tag { justify-self: start; }
   .run-library-current__primary-action { width: 100%; }
   .manage-form, .manage-section, .manage-danger { padding: var(--space-4); }
+  .invite-content { gap: var(--space-5); }
+  .invite-ticket { min-height: 300px; padding: var(--space-8) var(--space-5); }
+  .invite-ticket__run { font-size: var(--text-2xl); line-height: var(--leading-2xl); }
+  .invite-actions { grid-template-columns: 1fr; }
   .manage-choice-group { grid-template-columns: 1fr; }
   .manage-actions, .manage-tools { grid-template-columns: 1fr; }
   .manage-actions { display: grid; }

@@ -191,7 +191,11 @@ function renderView(mode) {
   mobileHeader.append(brand(), close);
   const stage = element("div", "auth-view__stage");
   const panel = element("div", "auth-panel");
-  panel.append(brand({ desktop: true }), heading(mode), mode === "signup" ? signupForm() : loginForm());
+  const desktopHeader = element("header", "auth-desktop-header");
+  const desktopClose = button("Close", "button button--quiet auth-close");
+  desktopClose.dataset.authClose = "";
+  desktopHeader.append(brand({ desktop: true }), desktopClose);
+  panel.append(desktopHeader, heading(mode), mode === "signup" ? signupForm() : loginForm());
   const alternate = element("div", "auth-alternate");
   alternate.append(element("span", "", mode === "signup" ? "Already have an account?" : "New here?"));
   const switcher = button(mode === "signup" ? "Log in instead" : "Create an account", "button button--quiet auth-alternate__action");
@@ -307,7 +311,9 @@ export function createAuthController({
     const form = view?.querySelector("[data-auth-form]");
     const submit = form?.querySelector("button[type='submit']");
     if (submit) submit.dataset.idleLabel = submit.textContent;
-    view?.querySelector("[data-auth-close]")?.addEventListener("click", () => close());
+    view?.querySelectorAll("[data-auth-close]").forEach((control) => {
+      control.addEventListener("click", () => close());
+    });
     view?.querySelector("[data-auth-mode-switch]")?.addEventListener("click", (event) => {
       const nextMode = event.currentTarget.dataset.authModeSwitch;
       history.pushState(null, "", `#${nextMode}`);

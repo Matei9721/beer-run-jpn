@@ -7,7 +7,7 @@ export function bindNavigation(root = document, { onNavigate = null } = {}) {
       candidate.removeAttribute("aria-current");
     });
   };
-  const selectDestination = (destination) => {
+  const selectDestination = (destination, { notify = true } = {}) => {
     if (!DESTINATIONS.has(destination)) return;
     root.querySelectorAll(".nav-item[data-destination]").forEach((candidate) => {
       const isCurrent = candidate.dataset.destination === destination;
@@ -15,7 +15,7 @@ export function bindNavigation(root = document, { onNavigate = null } = {}) {
       if (isCurrent) candidate.setAttribute("aria-current", "page");
       else candidate.removeAttribute("aria-current");
     });
-    if (typeof onNavigate === "function") onNavigate(destination);
+    if (notify && typeof onNavigate === "function") onNavigate(destination);
   };
   root.addEventListener("click", (event) => {
     const link = event.target.closest("[data-destination]");

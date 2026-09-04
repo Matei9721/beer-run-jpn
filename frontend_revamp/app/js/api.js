@@ -6,11 +6,12 @@ function abortedResult(error) {
   return error?.name === "AbortError" ? { ok: false, aborted: true } : null;
 }
 
-async function readJson(fetchImpl, path, { token = null, signal = null } = {}) {
+async function readJson(fetchImpl, path, { token = null, signal = null, cache = null } = {}) {
   try {
     const response = await fetchImpl(path, {
       headers: authHeaders(token),
       signal,
+      ...(cache ? { cache } : {}),
     });
     if (!response.ok) {
       return { ok: false, status: response.status, network: false };
@@ -134,6 +135,14 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
 
     createBeerRunInvite(beerRunId, token, signal = null) {
       return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/invites`, { method: "POST", token, signal });
+    },
+
+    previewInvite(code, signal = null) {
+      return readJson(fetchImpl, `/api/invites/${encodeURIComponent(code)}`, { signal, cache: "no-store" });
+    },
+
+    acceptInvite(code, token, signal = null) {
+      return writeJson(fetchImpl, `/api/invites/${encodeURIComponent(code)}/accept`, { method: "POST", token, signal });
     },
 
     leaveBeerRun(beerRunId, token, signal = null) {

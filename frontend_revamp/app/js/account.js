@@ -56,6 +56,7 @@ export function createAccountController({
   onDeleteAccount,
   onManageOwnedRun,
   onSessionRejected,
+  onOpenGuide,
 }) {
   let active = false;
   let summary = null;
@@ -158,6 +159,19 @@ export function createAccountController({
     return list;
   }
 
+  function guideSection() {
+    const section = element("section", "account-section account-guide");
+    const copy = element("div", "account-guide__copy");
+    copy.append(
+      element("h2", "", "Quick guide"),
+      element("p", "account-section__copy", "Revisit the three things that keep every BeerRun view in context."),
+    );
+    const open = action("Open quick guide", "button button--secondary");
+    open.dataset.accountOpenGuide = "";
+    section.append(copy, open);
+    return section;
+  }
+
   function dangerSection() {
     const section = element("section", "account-danger");
     section.setAttribute("aria-labelledby", "account-delete-heading");
@@ -214,7 +228,7 @@ export function createAccountController({
     const content = element("div", "account-content");
     content.dataset.accountView = "";
     content.setAttribute("aria-labelledby", "account-heading");
-    content.append(pageHeading(), summarySection(identity), appearanceSection());
+    content.append(pageHeading(), summarySection(identity), appearanceSection(), guideSection());
     const feedback = element("p", `account-feedback${error ? " is-error" : ""}`, error || notice);
     feedback.dataset.accountFeedback = "";
     feedback.setAttribute("role", error ? "alert" : "status");
@@ -232,6 +246,7 @@ export function createAccountController({
       });
     });
     root.querySelector("[data-account-retry]")?.addEventListener("click", () => void loadSummary());
+    root.querySelector("[data-account-open-guide]")?.addEventListener("click", () => onOpenGuide?.());
     root.querySelector("[data-account-delete]")?.addEventListener("click", (event) => void reviewDeletion(event.currentTarget));
     root.querySelectorAll("[data-account-manage-run]").forEach((button) => {
       button.addEventListener("click", async () => {

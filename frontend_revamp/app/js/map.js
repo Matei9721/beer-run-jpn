@@ -360,8 +360,32 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const bounds = markerGroup.getBounds?.();
     if (bounds?.isValid()) map.fitBounds(bounds.pad(0.16), { maxZoom: 15, animate: false });
   }
+
+  function renderLoading() {
+    const main = root.querySelector("main");
+    document.body.classList.add("map-view");
+    main.classList.add("main-content--map");
+    main.replaceChildren();
+    const content = el("div", "map-content map-content--loading");
+    const heading = el("header", "page-heading");
+    heading.append(el("p", "eyebrow", "Explore the route"), el("h1", "", "Drink map"), el("p", "page-heading__copy", "Loading mapped pours for the selected run."));
+    const toolbar = el("div", "map-toolbar map-toolbar--skeleton home-skeleton");
+    toolbar.setAttribute("aria-hidden", "true");
+    toolbar.append(el("span", "skeleton-block"), el("span", "skeleton-block"));
+    const workspace = el("section", "map-workspace map-workspace--loading home-skeleton");
+    workspace.setAttribute("aria-label", "Loading drink map");
+    workspace.append(el("span", "map-skeleton-route"), el("span", "map-skeleton-pin map-skeleton-pin--one"), el("span", "map-skeleton-pin map-skeleton-pin--two"));
+    content.append(heading, toolbar, workspace);
+    main.append(content);
+  }
+
   function render() {
     if (!active) return;
+    if (!getSnapshot().data) {
+      destroyMap();
+      renderLoading();
+      return;
+    }
     const snapshot = data();
     const runId = snapshot.run?.id ?? null;
     if (renderedRunId !== null && Number(runId) !== Number(renderedRunId)) {
@@ -416,10 +440,36 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     canvas.dataset.mapCanvas = "";
     canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Interactive map of logged drinks");
-    workspace.append(canvas);
+    if (mapped.length) {
+      workspace.append(canvas);
+    } else {
+      workspace.classList.add("map-workspace--empty");
+      const empty = el("section", "state-surface map-empty");
+      const mark = el("span", "state-surface__mark", "0");
+      mark.setAttribute("aria-hidden", "true");
+      const title = selectedUsername ? `No pins for ${selectedUsername}` : "No mapped drinks yet";
+      const copy = selectedUsername
+        ? "This runner has no drinks with a saved location in the current view."
+        : unmapped.length
+          ? "The logged pours without a location are still available below."
+          : "Capture a location when logging the first pour for this map.";
+      empty.append(mark, el("strong", "", title), el("p", "", copy));
+      if (selectedUsername) {
+        const showEveryone = el("button", "button button--secondary", "Show every runner");
+        showEveryone.type = "button";
+        showEveryone.addEventListener("click", () => { selectedUsername = ""; render(); });
+        empty.append(showEveryone);
+      } else if (snapshot.identity && ["owner", "member"].includes(snapshot.run?.current_user_role)) {
+        const log = el("a", "button button--primary", "Log a drink");
+        log.href = "#log";
+        log.dataset.destination = "log";
+        empty.append(log);
+      }
+      workspace.append(empty);
+    }
     content.append(heading, toolbar, status, workspace);
     if (unmapped.length) {
-      const fallback = el("details", `map-unmapped${mapped.length ? "" : " map-unmapped--only"}`);
+      const fallback = el("details", `map-unmapped${mapped.length ? "" : " map-unmapped--inline"}`);
       fallback.open = mapped.length === 0;
       fallback.append(el("summary", "", `${unmapped.length} ${unmapped.length === 1 ? "drink" : "drinks"} without a map pin`), el("p", "", "These entries have missing or invalid coordinates, but their details are still available."));
       const list = el("ul");
@@ -435,8 +485,10 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
       workspace.append(fallback);
     }
     main.append(content);
-    initializeMap(mapped);
-    if (mapped.length) fitPins();
+    if (mapped.length) {
+      initializeMap(mapped);
+      fitPins();
+    }
     const storedId = Number(sessionStorage.getItem(SELECTED_ENTRY_KEY));
     const requested = filtered.find((entry) => Number(entry.id) === Number(selectedEntryId || storedId));
     if (requested) focusEntry(requested);

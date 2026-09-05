@@ -1,17 +1,18 @@
-import { createAccountController } from "./account.js?v=revamp-047-10";
-import { createApiClient } from "./api.js?v=revamp-047-10";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-047-10";
-import { createFormState } from "./form-state.js?v=revamp-047-10";
-import { createInviteController } from "./invite.js?v=revamp-047-10";
-import { createMapController } from "./map.js?v=revamp-047-10";
-import { createLogController } from "./log.js?v=revamp-047-10";
-import { bindNavigation } from "./navigation.js?v=revamp-047-10";
-import { createRunHomeController } from "./run-home.js?v=revamp-047-10";
-import { createRunLibraryController } from "./run-library.js?v=revamp-047-10";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-047-10";
-import { createStandingsController } from "./standings.js?v=revamp-047-10";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-047-10";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-047-10";
+import { createAccountController } from "./account.js?v=revamp-056-11";
+import { createApiClient } from "./api.js?v=revamp-056-11";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-056-11";
+import { createFormState } from "./form-state.js?v=revamp-056-11";
+import { createInviteController } from "./invite.js?v=revamp-056-11";
+import { createMapController } from "./map.js?v=revamp-056-11";
+import { createLogController } from "./log.js?v=revamp-056-11";
+import { bindNavigation } from "./navigation.js?v=revamp-056-11";
+import { createRunHomeController } from "./run-home.js?v=revamp-056-11";
+import { createRunLibraryController } from "./run-library.js?v=revamp-056-11";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-056-11";
+import { createStandingsController } from "./standings.js?v=revamp-056-11";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-056-11";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-056-11";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-056-11";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -22,6 +23,13 @@ const services = Object.freeze({
 
 const theme = createThemeController();
 bindThemeControls(theme, document.querySelector("[data-theme-controls]"));
+const onboarding = createOnboardingController({
+  onComplete: ({ destination }) => {
+    history.pushState(null, "", `#${destination}`);
+    navigation.selectDestination(destination);
+    document.querySelector("main")?.focus({ preventScroll: true });
+  },
+});
 const runHome = createRunHomeController({
   api: services.api,
   auth: services.auth,
@@ -293,6 +301,7 @@ accountController = createAccountController({
       message: "Your session is no longer valid. Log in again to open your account.",
     });
   },
+  onOpenGuide: () => onboarding.show({ force: true }),
 });
 document.addEventListener("beer-run:session-rejected", () => {
   services.auth.removeAccessToken();
@@ -330,6 +339,10 @@ document.addEventListener("click", (event) => {
 bindPreviewFeedback(document, { onRefresh: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
+bindSystemStateControls(document, { onRetry: () => (
+  runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
+) });
+document.addEventListener("beer-run:open-run-library", () => showLibrary());
 const restoreDestination = () => {
   if (location.hash === "#login" || location.hash === "#signup") {
     authController.show(location.hash.slice(1), {
@@ -395,4 +408,9 @@ void (async () => {
     return;
   }
   restoreDestination();
+  onboarding.consider({
+    blocked: authController.isActive()
+      || inviteController.isActive()
+      || Boolean(document.querySelector("dialog[open]")),
+  });
 })();

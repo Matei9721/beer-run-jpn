@@ -137,19 +137,24 @@ function createRunIdentity(run, identity, leaderboard, entries) {
   return section;
 }
 
-function createEmptyState(title, copy, actionLabel = "") {
-  const wrapper = element("div", "home-empty");
+function createEmptyState(title, copy, actionLabel = "", destination = "") {
+  const wrapper = element("div", "home-empty state-surface");
+  const mark = element("span", "state-surface__mark", "0");
+  mark.setAttribute("aria-hidden", "true");
+  wrapper.append(mark);
   wrapper.append(element("strong", "", title), element("p", "", copy));
   if (actionLabel) {
     const action = element("a", "button button--secondary", actionLabel);
-    action.href = "#you";
-    action.dataset.destination = "you";
+    action.href = `#${destination}`;
+    if (["run", "standings", "log", "map", "you"].includes(destination)) {
+      action.dataset.destination = destination;
+    }
     wrapper.append(action);
   }
   return wrapper;
 }
 
-function createStandings(leaderboard, entries, now) {
+function createStandings(leaderboard, entries, now, { canLog = false } = {}) {
   const section = element("section", "home-section standings-card");
   const heading = element("div", "home-section__header");
   const headingCopy = element("div", "home-section__heading-copy");
@@ -165,7 +170,12 @@ function createStandings(leaderboard, entries, now) {
   section.append(heading);
 
   if (!leaderboard.length) {
-    section.append(createEmptyState("No standings yet", "The first logged drink will start the table."));
+    section.append(createEmptyState(
+      "No standings yet",
+      "The first logged drink will start the table.",
+      canLog ? "Log a drink" : "View your account",
+      canLog ? "log" : "you",
+    ));
     return section;
   }
 
@@ -238,7 +248,7 @@ function createActivityRow(entry, now) {
   return item;
 }
 
-function createRecentPours(entries, now) {
+function createRecentPours(entries, now, { canLog = false } = {}) {
   const section = element("section", "home-section recent-card");
   section.id = "recent-pours";
   const heading = element("div", "home-section__header");
@@ -246,7 +256,12 @@ function createRecentPours(entries, now) {
   section.append(heading);
 
   if (!entries.length) {
-    section.append(createEmptyState("No recent pours", "Be the first person to log a drink for this run.", "Go to You"));
+    section.append(createEmptyState(
+      "No recent pours",
+      "Be the first person to log a drink for this run.",
+      canLog ? "Log a drink" : "View your account",
+      canLog ? "log" : "you",
+    ));
     return section;
   }
 
@@ -257,9 +272,14 @@ function createRecentPours(entries, now) {
 }
 
 function createErrorNotice(message) {
-  const notice = element("div", "home-error");
+  const notice = element("div", "home-error recoverable-state");
   notice.setAttribute("role", "alert");
-  notice.append(element("strong", "Refresh could not complete"), element("p", "", message));
+  const copy = element("span", "recoverable-state__copy");
+  copy.append(element("strong", "", message.includes("Connection") ? "Connection paused" : "Refresh could not complete"), element("p", "", message));
+  const retry = element("button", "button button--secondary", "Retry");
+  retry.type = "button";
+  retry.dataset.systemRetry = "";
+  notice.append(copy, retry);
   return notice;
 }
 
@@ -290,12 +310,25 @@ export function renderRunHomeLoading(root) {
   const identity = element("section", "ticket-surface home-skeleton home-skeleton--identity");
   identity.append(element("span", "skeleton-line skeleton-line--eyebrow"), element("span", "skeleton-line skeleton-line--heading"), element("span", "skeleton-line skeleton-line--copy"));
   const list = element("section", "home-section standings-card home-skeleton");
+  list.setAttribute("aria-label", "Loading current standings");
   list.append(element("span", "skeleton-line skeleton-line--heading"), element("span", "skeleton-row"), element("span", "skeleton-row"), element("span", "skeleton-row"));
-  target.append(identity, list);
+  const recent = element("section", "home-section recent-card home-skeleton");
+  recent.setAttribute("aria-label", "Loading recent pours");
+  recent.append(element("span", "skeleton-line skeleton-line--heading"));
+  for (let index = 0; index < 3; index += 1) {
+    const row = element("span", "skeleton-activity-row");
+    row.append(element("span", "skeleton-avatar"), element("span", "skeleton-line skeleton-line--wide"));
+    recent.append(row);
+  }
+  target.append(identity, list, recent);
   renderShellState(root, "loading");
 }
 
-export function renderRunHomeUnavailable(root, { title = "No run available", message = "Refresh to look for a public run again." } = {}) {
+export function renderRunHomeUnavailable(root, {
+  title = "No run available",
+  message = "Refresh to look for a public run again.",
+  retry = false,
+} = {}) {
   updateRunSwitcher(root, null);
   const target = homeRoot(root);
   if (!target) return;
@@ -303,7 +336,20 @@ export function renderRunHomeUnavailable(root, { title = "No run available", mes
   surface.setAttribute("aria-labelledby", "run-home-unavailable-heading");
   const heading = element("h1", "", title);
   heading.id = "run-home-unavailable-heading";
-  surface.append(element("p", "eyebrow", "Run unavailable"), heading, element("p", "", message));
+  surface.append(element("p", "eyebrow", retry ? "Connection paused" : "Run unavailable"), heading, element("p", "", message));
+  const actions = element("div", "state-actions");
+  if (retry) {
+    const retryButton = element("button", "button button--primary", "Retry");
+    retryButton.type = "button";
+    retryButton.dataset.systemRetry = "";
+    actions.append(retryButton);
+  } else {
+    const browse = element("button", "button button--primary", "Open run library");
+    browse.type = "button";
+    browse.addEventListener("click", () => root.dispatchEvent(new CustomEvent("beer-run:open-run-library")));
+    actions.append(browse);
+  }
+  surface.append(actions);
   target.replaceChildren(surface);
   renderShellState(root, "unavailable");
 }
@@ -316,7 +362,11 @@ export function renderRunHomeError(root, { run, identity, message }) {
   surface.setAttribute("aria-labelledby", "run-home-error-heading");
   const heading = element("h1", "", run?.name || "Run data unavailable");
   heading.id = "run-home-error-heading";
-  surface.append(element("p", "eyebrow", "Could not sync"), heading, element("p", "", message));
+  surface.append(element("p", "eyebrow", message.includes("Connection") ? "Connection paused" : "Could not sync"), heading, element("p", "", message));
+  const retry = element("button", "button button--primary", "Retry");
+  retry.type = "button";
+  retry.dataset.systemRetry = "";
+  surface.append(retry);
   target.replaceChildren(surface);
   renderShellState(root, "error");
 }
@@ -326,8 +376,20 @@ export function renderRunHome(root, { run, identity = null, leaderboard = [], en
   if (!target || !run) return;
   updateRunSwitcher(root, run, identity);
   target.replaceChildren();
+  const canLog = Boolean(identity && ["owner", "member"].includes(run.current_user_role));
   const dashboard = element("div", "home-dashboard");
-  dashboard.append(createStandings(leaderboard, entries, now), createRecentPours(entries, now));
+  if (!leaderboard.length && !entries.length) {
+    dashboard.append(createEmptyState(
+      "No drinks yet",
+      canLog
+        ? "Be the first person to log one for this run."
+        : "This run has no recorded pours yet. Sign in with a member account to add one.",
+      canLog ? "Log a drink" : "View your account",
+      canLog ? "log" : "you",
+    ));
+  } else {
+    dashboard.append(createStandings(leaderboard, entries, now, { canLog }), createRecentPours(entries, now, { canLog }));
+  }
   target.append(createRunIdentity(run, identity, leaderboard, entries), dashboard);
   if (errorMessage) target.insertBefore(createErrorNotice(errorMessage), target.firstChild);
   renderShellState(root, errorMessage ? "stale" : "ready");

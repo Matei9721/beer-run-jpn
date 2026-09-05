@@ -85,21 +85,38 @@ function standingsRow(runner, index, entries, onOpen, metric, leader) {
   return button;
 }
 
-export function renderStandings(root, snapshot, { metric = "alcohol", pending = false, onMetricChange, onOpenPlayer }) {
+export function renderStandings(root, snapshot, {
+  metric = "alcohol",
+  pending = false,
+  errorMessage = "",
+  onMetricChange,
+  onRetryMetric,
+  onOpenPlayer,
+}) {
   const target = root.querySelector("[data-run-home]");
   if (!target) return;
   target.replaceChildren(heading("Current run", "Standings", ""));
   if (!snapshot?.data) {
+    const score = el("section", "standings-score-skeleton home-skeleton");
+    score.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < 4; index += 1) score.append(el("span", "skeleton-block"));
     const loading = el("section", "competition-list home-skeleton");
     loading.setAttribute("aria-label", "Loading standings");
     for (let index = 0; index < 4; index += 1) loading.append(el("span", "skeleton-row standings-skeleton-row"));
-    target.append(loading);
+    target.append(score, loading);
     return;
   }
   const { leaderboard = [], entries = [] } = snapshot.data;
   if (!leaderboard.length) {
-    const empty = el("section", "home-empty competition-empty");
-    empty.append(el("strong", "", "No standings yet"), el("p", "", "The first logged drink will start this run's table."));
+    const empty = el("section", "home-empty state-surface competition-empty");
+    const mark = el("span", "state-surface__mark", "0");
+    mark.setAttribute("aria-hidden", "true");
+    empty.append(mark, el("strong", "", "No drinks yet"), el("p", "", "The first logged drink will start this run’s standings."));
+    const canLog = Boolean(snapshot.currentUser && ["owner", "member"].includes(snapshot.currentRun?.current_user_role));
+    const action = el("a", "button button--primary", canLog ? "Log a drink" : "View your account");
+    action.href = canLog ? "#log" : "#you";
+    action.dataset.destination = canLog ? "log" : "you";
+    empty.append(action);
     target.append(empty);
     return;
   }
@@ -118,6 +135,17 @@ export function renderStandings(root, snapshot, { metric = "alcohol", pending = 
     choices.append(choice);
   });
   toolbar.append(toolbarCopy, choices);
+  if (errorMessage) {
+    const notice = el("div", "recoverable-state");
+    notice.setAttribute("role", "alert");
+    const copy = el("span", "recoverable-state__copy");
+    copy.append(el("strong", "", "Ranking update paused"), el("p", "", errorMessage));
+    const retry = el("button", "button button--secondary", "Retry ranking");
+    retry.type = "button";
+    retry.addEventListener("click", onRetryMetric);
+    notice.append(copy, retry);
+    target.append(notice);
+  }
   const legend = el("div", "standings-legend");
   legend.append(el("span", "", `Ranked by ${metric === "volume" ? "volume" : "pure alcohol"}`), el("span", "", "Volume / alcohol"));
   const list = el("ol", "competition-list competition-list--full");
@@ -237,6 +265,7 @@ export function createStandingsController({ root = document, api, auth, getSnaps
   let selectedEntry = null;
   let metric = "alcohol";
   let metricLeaderboard = null;
+  let metricError = null;
   let metricRequest = 0;
   const standingsSnapshot = () => {
     const snapshot = getSnapshot();
@@ -246,20 +275,30 @@ export function createStandingsController({ root = document, api, auth, getSnaps
   const paintStandings = (pending = false) => renderStandings(root, standingsSnapshot(), {
     metric,
     pending,
+    errorMessage: metricError?.message || "",
     onOpenPlayer: showPlayer,
     onMetricChange: changeMetric,
+    onRetryMetric: () => changeMetric(metricError?.metric),
   });
   const changeMetric = async (nextMetric) => {
-    if (nextMetric === metric) return;
+    if (!nextMetric || nextMetric === metric) return;
     const snapshot = getSnapshot();
     if (!snapshot.currentRun) return;
     const request = ++metricRequest;
+    metricError = null;
     paintStandings(true);
     const result = await api.fetchLeaderboard(snapshot.currentRun.id, auth.getAccessToken(), null, nextMetric);
     if (request !== metricRequest || !active || selectedPlayer) return;
     if (result.ok) {
       metric = nextMetric;
       metricLeaderboard = Array.isArray(result.data) ? result.data : [];
+    } else {
+      metricError = {
+        metric: nextMetric,
+        message: result.network
+          ? "You appear to be offline. The current ranking remains available."
+          : "The current ranking remains available. Try this view again.",
+      };
     }
     paintStandings(false);
   };
@@ -310,6 +349,7 @@ export function createStandingsController({ root = document, api, auth, getSnaps
       selectedPlayer = null;
       selectedEntry = null;
       metricLeaderboard = null;
+      metricError = null;
       metricRequest += 1;
       sessionStorage.removeItem("beerRun.revamp.selectedEntry");
     },

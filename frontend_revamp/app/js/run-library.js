@@ -1,6 +1,7 @@
 import { updateRunSwitcher } from "./ui.js?v=revamp-025-12";
 import { buildInviteShareUrl } from "./invite.js?v=revamp-029-08";
 import { showConfirmation } from "./confirmation.js?v=revamp-047-10";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=revamp-056-11";
 
 const SEARCH_MIN_LENGTH = 2;
 const QUICK_SWITCHER_LIMIT = 6;
@@ -84,9 +85,13 @@ function emptyState(title, copy, actionLabel = "", actionName = "libraryCreate")
 }
 
 function inlineError(message) {
-  const notice = element("div", "run-library-error");
+  const notice = element("div", "run-library-error recoverable-state");
   notice.setAttribute("role", "alert");
-  notice.append(element("strong", "", "Could not load this section"), element("p", "", message));
+  const copy = element("span", "recoverable-state__copy");
+  copy.append(element("strong", "", message.includes("Connection") ? "Connection paused" : "Could not load this section"), element("p", "", message));
+  const retry = action("Retry", "button button--secondary");
+  retry.dataset.systemRetry = "";
+  notice.append(copy, retry);
   return notice;
 }
 
@@ -442,8 +447,11 @@ export function createRunLibraryController({
     );
     const list = element("section", "run-library-section run-library-skeleton");
     list.append(element("span", "skeleton-line skeleton-line--heading"));
-    list.append(element("span", "skeleton-row"), element("span", "skeleton-row"));
-    content.append(current, list);
+    list.append(element("span", "skeleton-row standings-skeleton-row"), element("span", "skeleton-row standings-skeleton-row"));
+    const search = element("section", "run-library-discovery run-library-skeleton");
+    search.setAttribute("aria-hidden", "true");
+    search.append(element("span", "skeleton-line skeleton-line--heading"), element("span", "skeleton-block"), element("span", "skeleton-line skeleton-line--wide"));
+    content.append(current, list, search);
     target.replaceChildren(content);
   }
 
@@ -505,9 +513,8 @@ export function createRunLibraryController({
     }
     section.append(heading);
 
-    if (loadError) {
-      section.append(inlineError(loadError));
-    } else if (!identity) {
+    if (loadError) section.append(inlineError(loadError));
+    if (!identity) {
       section.append(emptyState(
         "Log in to see My runs",
         "Public runs remain available below while you are logged out.",
@@ -517,13 +524,15 @@ export function createRunLibraryController({
     } else {
       const otherRuns = memberships.filter((run) => !sameId(run.id, currentRun?.id));
       if (!otherRuns.length) {
-        section.append(emptyState(
-          memberships.length ? "No other runs yet" : "You have not joined a run yet",
-          memberships.length
-            ? "The run above is your only membership."
-            : "Create a run here, or find a public crew below.",
-          "Create run",
-        ));
+        if (!loadError) {
+          section.append(emptyState(
+            memberships.length ? "No other runs yet" : "You have not joined a run yet",
+            memberships.length
+              ? "The run above is your only membership."
+              : "Create a run here, or find a public crew below.",
+            "Create run",
+          ));
+        }
       } else {
         const list = element("div", "run-library-list");
         otherRuns.forEach((run) => list.append(runRow(run, { currentRunId: currentRun?.id })));
@@ -626,13 +635,19 @@ export function createRunLibraryController({
     loadController = new AbortController();
     const signal = loadController.signal;
     const token = auth.getAccessToken();
+    const previousMemberships = memberships;
     renderLoading();
 
     let nextIdentity = null;
+    let loadError = "";
     if (token) {
       const identityResult = await api.fetchCurrentUser(token, signal);
       if (request !== loadGeneration || identityResult.aborted) return;
       if (identityResult.ok) nextIdentity = identityResult.data;
+      else if (identityResult.network) {
+        nextIdentity = getSnapshot().currentUser;
+        loadError = "Connection unavailable. Your current run and known memberships remain available.";
+      }
     }
 
     const snapshotIdentity = getSnapshot().currentUser;
@@ -644,17 +659,24 @@ export function createRunLibraryController({
     }
 
     identity = nextIdentity;
-    memberships = [];
-    let loadError = "";
-    if (identity) {
+    memberships = loadError ? previousMemberships : [];
+    if (identity && !loadError) {
       const result = await api.fetchMyBeerRuns(token, signal);
       if (request !== loadGeneration || result.aborted) return;
       if (result.ok && Array.isArray(result.data)) memberships = result.data;
-      else loadError = result.network
-        ? "Connection unavailable. Your current run remains selected."
-        : "Your memberships could not be loaded. Refresh and try again.";
+      else {
+        memberships = previousMemberships;
+        loadError = result.network
+          ? "Connection unavailable. Your current run and known memberships remain available."
+          : "Your memberships could not be refreshed. The last available list remains below.";
+      }
     }
     loadController = null;
+    if (loadError.includes("Connection")) {
+      setSystemNotice(root, { message: loadError });
+    } else if (!loadError) {
+      clearSystemNotice(root);
+    }
     renderLibrary({ loadError });
   }
 
@@ -690,8 +712,17 @@ export function createRunLibraryController({
       status.textContent = result.network
         ? "Public search is offline. Try again when the connection returns."
         : "Public search could not be completed. Try again.";
+      const state = emptyState(
+        result.network ? "Search is offline" : "Search paused",
+        "Your selected run and current view have not changed.",
+      );
+      const retry = action("Retry search", "button button--secondary");
+      retry.addEventListener("click", () => void search(query));
+      state.append(retry);
+      results.append(state);
       return;
     }
+    clearSystemNotice(root);
 
     const runs = Array.isArray(result.data) ? result.data.filter((run) => run.is_public) : [];
     if (!runs.length) {

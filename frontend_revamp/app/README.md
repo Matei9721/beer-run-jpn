@@ -16,6 +16,7 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 - `js/run-home.js`: run resolution, scoped refresh generations, and home state orchestration.
 - `js/run-library.js`: desktop popover/mobile sheet switching, full-library discovery, and focused create/manage flows.
 - `js/standings.js`: full standings and run-scoped participant history surfaces.
+- `js/system-states.js`: presentation-only onboarding, connection notices, and shared retry controls.
 - `js/ui.js`: rendering and status feedback.
 - `js/navigation.js`: shared destination state.
 - `js/map.js`: Leaflet markers, runner filtering, selected-entry state, and contextual drink detail.
@@ -26,7 +27,7 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 
 ## Asset cache busting
 
-Task 10 entry assets, application module imports, and shared confirmation imports use `revamp-047-10`. Nested imports that did not change retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+Task 11 entry assets and application module imports use `revamp-056-11`. Nested imports that did not change retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-047-10"
+ASSET_VERSION = "revamp-056-11"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -62,6 +62,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "run-selection.js",
         "run-home.js",
         "standings.js",
+        "system-states.js",
         "theme.js",
         "ui.js",
     }

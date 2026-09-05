@@ -19,10 +19,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
-    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-047-10">
+    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-056-11">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/revamp-assets/js/app.js?v=revamp-047-10"></script>
+    <script type="module" src="/revamp-assets/js/app.js?v=revamp-056-11"></script>
   </head>
   <body>
     <div class="app-shell" data-revamp-preview>
@@ -36,6 +36,15 @@
           <span class="icon icon--caret-down" aria-hidden="true"></span>
         </button>
       </header>
+
+      <aside class="system-banner" data-system-banner data-system-kind="offline" aria-live="polite" hidden>
+        <span class="system-banner__mark" aria-hidden="true"></span>
+        <span class="system-banner__copy">
+          <strong data-system-banner-title>Connection paused</strong>
+          <span data-system-banner-copy>Showing the latest available data.</span>
+        </span>
+        <button class="button button--secondary system-banner__retry" type="button" data-system-retry>Retry</button>
+      </aside>
 
       <div class="shell-body">
         <aside class="desktop-sidebar" aria-label="Desktop application navigation">

@@ -4,6 +4,7 @@ import {
   removeSelectedRunId,
   saveSelectedRunId,
 } from "./run-selection.js?v=revamp-025-12";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=revamp-056-11";
 import {
   renderRunHome,
   renderRunHomeError,
@@ -12,7 +13,7 @@ import {
   setRefreshPending,
   setSyncStatus,
   updateRunSwitcher,
-} from "./ui.js?v=revamp-025-12";
+} from "./ui.js?v=revamp-056-11";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);
@@ -173,13 +174,19 @@ export function createRunHomeController({ api, auth, selection, root = document,
     }
 
     if (!results.every((result) => result.ok)) {
-      const message = results.find((result) => !result.ok)?.network
+      const failedResult = results.find((result) => !result.ok);
+      const message = failedResult?.network
         ? "Connection unavailable. Showing the latest available data."
         : "The latest run update could not be loaded. Showing the last saved view.";
       if (lastData) {
         renderRunHome(root, { ...lastData, errorMessage: message, now: now() });
+        setSystemNotice(root, {
+          kind: failedResult?.network ? "offline" : "error",
+          title: failedResult?.network ? "Connection paused" : "Refresh incomplete",
+          message,
+        });
       } else {
-        renderRunHomeError(root, { run, identity: currentUser, message: failureMessage(results.find((result) => !result.ok)) });
+        renderRunHomeError(root, { run, identity: currentUser, message: failureMessage(failedResult) });
       }
       setSyncStatus(root, message);
       return { ok: false, retained: Boolean(lastData) };
@@ -195,6 +202,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     };
     renderRunHome(root, { ...lastData, now: now() });
     notify();
+    clearSystemNotice(root);
     setSyncStatus(root, "Synced just now");
     return { ok: true, data: lastData };
   }
@@ -222,6 +230,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
         message: resolved.reason === "network"
           ? "BeerRun could not reach the run service. Use Refresh to try again."
           : "The public BeerRunJPN run is not available right now.",
+        retry: resolved.reason === "network",
       });
       setRefreshPending(root, false);
       setSyncStatus(root, resolved.reason === "network" ? "Connection unavailable" : "No run available");

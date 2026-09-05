@@ -4,9 +4,11 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 
 ## Boundaries
 
-- `index.html`: semantic shell and preview-only representative content.
+- `index.html`: semantic landing page and application shell.
 - `css/foundation.css`: approved semantic tokens, components, motion, and responsive shell.
+- `css/landing.css`: compact four-section landing layout, responsive photo-map composition, page-level theme lock, and device-aware motion.
 - `js/app.js`: orchestration only.
+- `js/landing.js`: landing visibility, non-interactive OpenStreetMap backdrop, reveal motion, and responsive motion profile.
 - `js/api.js`: authenticated and public API request boundary for revamp controllers.
 - `js/account.js`: account summary, sign-out, appearance preference, ownership blockers, and account deletion.
 - `js/auth.js`: token lifecycle plus focused login/signup rendering and validation.
@@ -24,11 +26,11 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 - `js/log.js`: authenticated create/edit form, GPS and photo state, stale-save protection, and success receipt.
 - `js/form-state.js`: form interaction state.
 - `js/theme.js`: frontend-only System, Light, and Dark resolution.
-- `assets/`: locally vendored font/icon files and their license notices.
+- `assets/`: locally vendored font/icon files and license notices.
 
 ## Asset cache busting
 
-The current UI-cleanup entry assets and application module imports use `revamp-072-12`. Nested imports that did not change retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+The current landing entry assets and application module imports use `revamp-087-contained-map-canvas`. Nested imports that do not change can retain earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 
@@ -39,3 +41,5 @@ When Task 14 promotes revamp files to production paths, copy this convention int
 - House, Trophy, Plus, MapTrifold, User, CaretDown, ArrowClockwise, and BeerStein regular SVGs: Phosphor Icons core, MIT License.
 
 The corresponding notices are in `assets/licenses/`. Fonts and icons are local. The map retains the app's existing Leaflet 1.9.4 and Leaflet.markercluster 1.4.1 CDN dependencies, while all revamp application modules remain isolated under `/revamp-assets/`.
+
+The landing page uses three user-authorized BeerRun photographs from `/static/uploads/` without modifying or cropping the source files.

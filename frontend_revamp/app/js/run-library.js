@@ -816,7 +816,7 @@ export function createRunLibraryController({
       event.preventDefault();
       const name = form.elements.name.value.trim();
       if (!/^[A-Za-z0-9 _-]{3,64}$/.test(name)) {
-        setFormStatus(form, "Use 3–64 letters, numbers, spaces, underscores, or hyphens.", { error: true });
+        setFormStatus(form, "Use 3-64 letters, numbers, spaces, underscores, or hyphens.", { error: true });
         form.elements.name.focus();
         return;
       }

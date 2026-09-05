@@ -1,19 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-072-12";
-import { createApiClient } from "./api.js?v=revamp-072-12";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-072-12";
-import { createFormState } from "./form-state.js?v=revamp-072-12";
-import { createInviteController } from "./invite.js?v=revamp-072-12";
-import { createLegalController } from "./legal.js?v=revamp-072-12";
-import { createMapController } from "./map.js?v=revamp-072-12";
-import { createLogController } from "./log.js?v=revamp-072-12";
-import { bindNavigation } from "./navigation.js?v=revamp-072-12";
-import { createRunHomeController } from "./run-home.js?v=revamp-072-12";
-import { createRunLibraryController } from "./run-library.js?v=revamp-072-12";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-072-12";
-import { createStandingsController } from "./standings.js?v=revamp-072-12";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-072-12";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-072-12";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-072-12";
+import { createAccountController } from "./account.js?v=revamp-087-contained-map-canvas";
+import { createApiClient } from "./api.js?v=revamp-087-contained-map-canvas";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-087-contained-map-canvas";
+import { createFormState } from "./form-state.js?v=revamp-087-contained-map-canvas";
+import { createInviteController } from "./invite.js?v=revamp-087-contained-map-canvas";
+import { createLandingController } from "./landing.js?v=revamp-087-contained-map-canvas";
+import { createLegalController } from "./legal.js?v=revamp-087-contained-map-canvas";
+import { createMapController } from "./map.js?v=revamp-087-contained-map-canvas";
+import { createLogController } from "./log.js?v=revamp-087-contained-map-canvas";
+import { bindNavigation } from "./navigation.js?v=revamp-087-contained-map-canvas";
+import { createRunHomeController } from "./run-home.js?v=revamp-087-contained-map-canvas";
+import { createRunLibraryController } from "./run-library.js?v=revamp-087-contained-map-canvas";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-087-contained-map-canvas";
+import { createStandingsController } from "./standings.js?v=revamp-087-contained-map-canvas";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-087-contained-map-canvas";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-087-contained-map-canvas";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-087-contained-map-canvas";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
@@ -26,6 +27,7 @@ const services = Object.freeze({
 
 const theme = createThemeController();
 bindThemeControls(theme, document.querySelector("[data-theme-controls]"));
+const landing = createLandingController({ root: document });
 const onboarding = createOnboardingController({
   onComplete: ({ destination }) => {
     history.pushState(null, "", `#${destination}`);
@@ -57,6 +59,7 @@ const ensureContentSurface = () => {
   return surface;
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
+  landing.hide();
   legalController?.hide();
   if (authController?.isActive()) authController.close({ notify: false });
   if (inviteController?.isActive()) inviteController.dismiss({ notify: false });
@@ -342,8 +345,11 @@ document.addEventListener("click", (event) => {
   if (legalLink) {
     const documentName = legalLink.dataset.legalDocument || legalLink.getAttribute("href").slice(1);
     const fromLegalView = legalController.isActive();
-    const returnTo = fromLegalView ? legalController.getReturnTo() : location.hash || "#run";
+    const returnTo = fromLegalView
+      ? legalController.getReturnTo()
+      : landing.isActive() ? "#landing" : location.hash || "#run";
     event.preventDefault();
+    landing.hide();
     if (authController?.isActive()) authController.close({ notify: false });
     if (!fromLegalView) history.pushState(null, "", `#${documentName}`);
     else history.pushState(null, "", `#${documentName}`);
@@ -367,13 +373,45 @@ bindPreviewFeedback(document, { onRefresh: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
 window.setInterval(() => {
-  void runHome.refresh();
+  if (!landing.isActive()) void runHome.refresh();
 }, AUTO_REFRESH_INTERVAL_MS);
 bindSystemStateControls(document, { onRetry: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
 document.addEventListener("beer-run:open-run-library", () => showLibrary());
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-landing-route]");
+  if (!trigger) return;
+  const destination = trigger.dataset.landingRoute;
+  if (!["login", "signup", "run", "runs"].includes(destination)) return;
+  event.preventDefault();
+  landing.hide();
+  if (destination === "login" || destination === "signup") {
+    history.pushState(null, "", `#${destination}`);
+    authController.show(destination, { returnTo: "#run" });
+    return;
+  }
+  if (destination === "runs") {
+    showLibrary("library");
+    return;
+  }
+  history.pushState(null, "", "#run");
+  navigation.selectDestination("run");
+});
 const restoreDestination = () => {
+  if (!location.hash || location.hash === "#landing") {
+    legalController.hide();
+    if (authController.isActive()) authController.close({ notify: false });
+    inviteController.hide();
+    runLibrary.hide();
+    logController.hide();
+    standings.hide();
+    mapController.hide();
+    navigation.clearDestination();
+    landing.show();
+    return;
+  }
+  landing.hide();
   if (location.hash === "#terms" || location.hash === "#privacy") {
     if (authController.isActive()) authController.close({ notify: false });
     runLibrary.hide();
@@ -437,7 +475,7 @@ void (async () => {
   }
   const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash)
     ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
-    : location.hash || "#run";
+    : location.hash || "#landing";
   const session = await authController.validateStoredSession();
   await runHome.initialize();
   if (session.status === "stale") {
@@ -450,7 +488,8 @@ void (async () => {
   }
   restoreDestination();
   onboarding.consider({
-    blocked: authController.isActive()
+    blocked: landing.isActive()
+      || authController.isActive()
       || inviteController.isActive()
       || legalController.isActive()
       || Boolean(document.querySelector("dialog[open]")),

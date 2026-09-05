@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-072-12"
+ASSET_VERSION = "revamp-087-contained-map-canvas"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -23,11 +23,14 @@ def test_revamp_preview_is_distinct_from_production_root(client):
 
 def test_revamp_assets_use_an_isolated_namespace(client):
     stylesheet = client.get(f"/revamp-assets/css/foundation.css?v={ASSET_VERSION}")
+    landing_stylesheet = client.get(f"/revamp-assets/css/landing.css?v={ASSET_VERSION}")
     module = client.get(f"/revamp-assets/js/app.js?v={ASSET_VERSION}")
     missing = client.get("/revamp-assets/css/does-not-exist.css")
 
     assert stylesheet.status_code == 200
     assert stylesheet.headers["content-type"].startswith("text/css")
+    assert landing_stylesheet.status_code == 200
+    assert landing_stylesheet.headers["content-type"].startswith("text/css")
     assert module.status_code == 200
     assert "javascript" in module.headers["content-type"]
     assert missing.status_code == 404
@@ -35,10 +38,11 @@ def test_revamp_assets_use_an_isolated_namespace(client):
 
 def test_preview_references_only_versioned_revamp_entry_assets(client):
     html = client.get("/revamp-preview").text
-    asset_urls = re.findall(r'(?:href|src)="(/[^"]+)"', html)
+    asset_urls = re.findall(r'(?:href|src)="(/revamp-assets/(?:css|js)/[^"]+)"', html)
 
     assert asset_urls == [
         f"/revamp-assets/css/foundation.css?v={ASSET_VERSION}",
+        f"/revamp-assets/css/landing.css?v={ASSET_VERSION}",
         f"/revamp-assets/js/app.js?v={ASSET_VERSION}",
     ]
     assert "/static/css/" not in html
@@ -55,6 +59,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "confirmation.js",
         "form-state.js",
         "invite.js",
+        "landing.js",
         "legal.js",
         "log.js",
         "map.js",
@@ -74,6 +79,69 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
     assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js"}
     assert {version for _, version in imports} == {ASSET_VERSION}
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
+
+
+def test_landing_page_routes_into_existing_revamp_flows():
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "landing.css").read_text(encoding="utf-8")
+    landing = (REVAMP_ROOT / "js" / "landing.js").read_text(encoding="utf-8")
+    app = (REVAMP_ROOT / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert 'data-landing-page' in html
+    assert html.count('class="landing-section') == 4
+    landing_markup = html.split('data-landing-page', 1)[1].split('data-revamp-preview', 1)[0]
+    assert 'role="main"' in landing_markup
+    assert '<main' not in landing_markup
+    assert html.count('data-landing-route="login"') == 1
+    assert html.count('data-landing-route="signup"') == 1
+    assert html.count('data-landing-route="runs"') == 1
+    assert f'/revamp-assets/assets/images/landing-map-abstract.png?v={ASSET_VERSION}' in html
+    assert all(f'/static/uploads/{name}' in html for name in (
+        "1774617027.jpg",
+        "1775032905.jpg",
+        "1775376734.jpg",
+    ))
+    assert 'Open any logged drink on the map and see every friend\'s pin.' in html
+    assert html.count('View public runs') == 1
+    assert 'https://github.com/Matei9721/beer-run-jpn' in html
+    assert 'page.dataset.motionProfile = desktopMotion.matches ? "desktop" : "touch"' in landing
+    assert '@media (max-width: 767px)' in css
+    mobile_css = css.split('@media (max-width: 767px)', 1)[1]
+    assert '.landing-photo-map' in mobile_css
+    assert 'height: clamp(300px, 78vw, 340px);' in mobile_css
+    assert 'overflow-x: auto' not in mobile_css
+    assert '-webkit-mask-image: radial-gradient' in css
+    assert 'filter: blur(1.5px)' in css
+    assert '.landing-photo-map::after' in css
+    assert 'background: linear-gradient(to bottom, transparent, var(--landing-canvas) 92%);' in css
+    assert '--landing-photo-bleed' not in css
+    assert 'width: calc(100% + var(--landing-photo-bleed) + 76px);' not in css
+    assert 'margin-left: -76px;' not in css
+    assert 'height: 108%;' in css
+    assert 'height: 110%;' in mobile_css
+    assert '--photo-rotation: -4.5deg;' in css
+    photo_card_css = css.split('.landing-photo-rail figure {', 1)[1].split('}', 1)[0]
+    assert 'box-shadow: none;' in photo_card_css
+    assert 'left: 40%;' in css
+    assert 'right: 19%;' not in css
+    hover_css = css.split('.landing-page.is-ready .landing-photo-rail figure:hover {', 1)[1].split('}', 1)[0]
+    assert 'box-shadow' not in hover_css
+    assert '.landing-photo-rail figure::before' not in css
+    assert '.landing-page.is-ready .landing-photo-rail figure' in css
+    assert 'translate: 0 32px;' in css
+    assert '@media (min-width: 768px) and (hover: hover) and (pointer: fine)' in css
+    assert 'class="landing-map-signal"' not in html
+    assert '@keyframes landingMapDrift' not in css
+    assert '@keyframes landingPhotoBreathe' not in css
+    assert '@keyframes landingPhotoFloat' not in css
+    assert '@keyframes landingSignalPulse' not in css
+    assert '@media (prefers-reduced-motion: reduce)' in css
+    assert 'IntersectionObserver' in landing
+    assert 'data-landing-map' not in html
+    assert 'tile.openstreetmap.org' not in landing
+    assert 'window.addEventListener("scroll"' not in landing
+    assert 'landing.isActive()' in app
+    assert 'location.hash || "#landing"' in app
 
 
 def test_foundation_encodes_theme_motion_and_responsive_contracts():

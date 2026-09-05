@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#F3F1E8">
-    <title>BeerRun · Route Stamp preview</title>
+    <title>BeerRun | Track the trip together</title>
     <script>
       (() => {
         const key = "beer_run_revamp_theme_preference";
@@ -19,13 +19,101 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
-    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-072-12">
+    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-087-contained-map-canvas">
+    <link rel="stylesheet" href="/revamp-assets/css/landing.css?v=revamp-087-contained-map-canvas">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/revamp-assets/js/app.js?v=revamp-072-12"></script>
+    <script type="module" src="/revamp-assets/js/app.js?v=revamp-087-contained-map-canvas"></script>
   </head>
   <body>
-    <div class="app-shell" data-revamp-preview>
+    <div class="landing-page" data-landing-page data-motion-profile="touch">
+      <header class="landing-nav">
+        <div class="landing-nav__inner">
+          <a class="landing-wordmark" href="#top" data-landing-scroll="top" aria-label="BeerRun landing page">
+            <span class="landing-wordmark__name" aria-hidden="true"><span>Beer</span><span>Run</span></span>
+          </a>
+          <nav class="landing-nav__links" aria-label="Landing page">
+            <a class="landing-nav__link" href="#what-it-does" data-landing-scroll="what-it-does">How it works</a>
+          </nav>
+          <div class="landing-nav__actions">
+            <a class="landing-nav__link" href="#login" data-landing-route="login" aria-label="Log in to BeerRun">Log in</a>
+          </div>
+        </div>
+      </header>
+
+      <div role="main">
+        <section class="landing-section landing-hero" id="top" aria-labelledby="landing-hero-title">
+          <div class="landing-frame landing-hero__grid">
+            <div class="landing-hero__copy">
+              <p class="landing-kicker">Made for group trips</p>
+              <h1 id="landing-hero-title"><span>Track the drinks.</span><span>Remember the trip.</span></h1>
+              <p class="landing-hero__subtext">A free tracker for responsible adults travelling together, with photos, maps, and a friendly group leaderboard.</p>
+              <div class="landing-actions">
+                <a class="landing-button landing-button--primary" href="#runs" data-landing-route="runs">View public runs</a>
+                <a class="landing-button landing-button--secondary" href="#signup" data-landing-route="signup">Create account</a>
+              </div>
+            </div>
+            <div class="landing-photo-map" aria-label="Illustrative map showing how drink photos stay connected to places">
+              <img class="landing-photo-map__canvas" src="/revamp-assets/assets/images/landing-map-abstract.png?v=revamp-087-contained-map-canvas" alt="" width="1693" height="929">
+              <div class="landing-photo-rail" aria-label="Real drinks logged with BeerRun">
+                <figure><img src="/static/uploads/1774617027.jpg" alt="A tall drink photographed at a bar" width="810" height="1080" fetchpriority="high"></figure>
+                <figure><img src="/static/uploads/1775032905.jpg" alt="A canned sour drink photographed during a trip" width="813" height="1080"></figure>
+                <figure><img src="/static/uploads/1775376734.jpg" alt="A cold drink photographed at a restaurant" width="813" height="1080"></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section landing-features" id="what-it-does" aria-labelledby="features-title">
+          <div class="landing-frame">
+            <h2 class="landing-heading" id="features-title" data-landing-reveal>What BeerRun tracks.</h2>
+            <div class="landing-feature-grid" data-landing-reveal>
+              <div><strong>Drinks + photos</strong><span>Save what you had and what it looked like.</span></div>
+              <div><strong>Map</strong><span>Open any logged drink on the map and see every friend's pin.</span></div>
+              <div><strong>Leaderboard</strong><span>Compare the group by alcohol or total volume.</span></div>
+              <div><strong>Public or private</strong><span>You choose who can follow each run.</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section landing-workflow" aria-labelledby="workflow-title">
+          <div class="landing-frame landing-workflow__layout">
+            <h2 class="landing-heading" id="workflow-title" data-landing-reveal>One run. One group.</h2>
+            <ol data-landing-reveal>
+              <li><span>1</span><strong>Create a run</strong></li>
+              <li><span>2</span><strong>Invite your friends</strong></li>
+              <li><span>3</span><strong>Log drinks as you go</strong></li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="landing-section landing-open-source" aria-labelledby="source-title">
+          <div class="landing-frame landing-open-source__layout" data-landing-reveal>
+            <div>
+              <p class="landing-kicker">No subscription</p>
+              <h2 class="landing-heading" id="source-title">Free to use. Yours to host.</h2>
+            </div>
+            <div class="landing-open-source__copy">
+              <p>BeerRun is available on GitHub. Use the hosted app or run it on your own server.</p>
+              <a class="landing-button landing-button--secondary" href="https://github.com/Matei9721/beer-run-jpn" target="_blank" rel="noreferrer">View on GitHub</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <footer class="landing-footer">
+        <div class="landing-frame landing-footer__inner">
+          <div class="landing-footer__copy"><strong>BeerRun</strong><span>For adults of legal drinking age. Please drink responsibly.</span></div>
+          <div class="landing-footer__links">
+            <a class="landing-text-link" href="/terms" data-legal-document="terms">Terms</a>
+            <a class="landing-text-link" href="/privacy" data-legal-document="privacy">Privacy</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <div class="app-shell" data-revamp-preview hidden>
       <header class="app-header">
         <a class="product-identity" href="#run" data-destination="run" aria-label="BeerRun run home">
           <span class="product-mark" aria-hidden="true">B</span>

@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-087-contained-map-canvas";
-import { createApiClient } from "./api.js?v=revamp-087-contained-map-canvas";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-087-contained-map-canvas";
-import { createFormState } from "./form-state.js?v=revamp-087-contained-map-canvas";
-import { createInviteController } from "./invite.js?v=revamp-087-contained-map-canvas";
-import { createLandingController } from "./landing.js?v=revamp-087-contained-map-canvas";
-import { createLegalController } from "./legal.js?v=revamp-087-contained-map-canvas";
-import { createMapController } from "./map.js?v=revamp-087-contained-map-canvas";
-import { createLogController } from "./log.js?v=revamp-087-contained-map-canvas";
-import { bindNavigation } from "./navigation.js?v=revamp-087-contained-map-canvas";
-import { createRunHomeController } from "./run-home.js?v=revamp-087-contained-map-canvas";
-import { createRunLibraryController } from "./run-library.js?v=revamp-087-contained-map-canvas";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-087-contained-map-canvas";
-import { createStandingsController } from "./standings.js?v=revamp-087-contained-map-canvas";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-087-contained-map-canvas";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-087-contained-map-canvas";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-087-contained-map-canvas";
+import { createAccountController } from "./account.js?v=revamp-091-clean-photo-collage";
+import { createApiClient } from "./api.js?v=revamp-091-clean-photo-collage";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-091-clean-photo-collage";
+import { createFormState } from "./form-state.js?v=revamp-091-clean-photo-collage";
+import { createInviteController } from "./invite.js?v=revamp-091-clean-photo-collage";
+import { createLandingController } from "./landing.js?v=revamp-091-clean-photo-collage";
+import { createLegalController } from "./legal.js?v=revamp-091-clean-photo-collage";
+import { createMapController } from "./map.js?v=revamp-091-clean-photo-collage";
+import { createLogController } from "./log.js?v=revamp-091-clean-photo-collage";
+import { bindNavigation } from "./navigation.js?v=revamp-091-clean-photo-collage";
+import { createRunHomeController } from "./run-home.js?v=revamp-091-clean-photo-collage";
+import { createRunLibraryController } from "./run-library.js?v=revamp-091-clean-photo-collage";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-091-clean-photo-collage";
+import { createStandingsController } from "./standings.js?v=revamp-091-clean-photo-collage";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-091-clean-photo-collage";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-091-clean-photo-collage";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-091-clean-photo-collage";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 

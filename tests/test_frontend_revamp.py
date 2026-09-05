@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-087-contained-map-canvas"
+ASSET_VERSION = "revamp-091-clean-photo-collage"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -110,15 +110,21 @@ def test_landing_page_routes_into_existing_revamp_flows():
     assert '.landing-photo-map' in mobile_css
     assert 'height: clamp(300px, 78vw, 340px);' in mobile_css
     assert 'overflow-x: auto' not in mobile_css
-    assert '-webkit-mask-image: radial-gradient' in css
+    assert '-webkit-mask-image: linear-gradient' in css
     assert 'filter: blur(1.5px)' in css
-    assert '.landing-photo-map::after' in css
-    assert 'background: linear-gradient(to bottom, transparent, var(--landing-canvas) 92%);' in css
+    assert 'inset: 0;' in css
+    assert 'width: 100%;' in css
+    assert 'height: 100%;' in css
+    assert 'object-fit: cover;' in css
+    assert '-webkit-mask-composite: source-in;' in css
+    assert 'mask-composite: intersect;' in css
+    assert '.landing-photo-map::after' not in css
     assert '--landing-photo-bleed' not in css
     assert 'width: calc(100% + var(--landing-photo-bleed) + 76px);' not in css
     assert 'margin-left: -76px;' not in css
-    assert 'height: 108%;' in css
-    assert 'height: 110%;' in mobile_css
+    assert 'height: 108%;' not in css
+    assert 'height: 110%;' not in mobile_css
+    assert 'transparent 36%' in mobile_css
     assert '--photo-rotation: -4.5deg;' in css
     photo_card_css = css.split('.landing-photo-rail figure {', 1)[1].split('}', 1)[0]
     assert 'box-shadow: none;' in photo_card_css

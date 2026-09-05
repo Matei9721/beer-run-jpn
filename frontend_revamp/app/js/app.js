@@ -1,18 +1,19 @@
-import { createAccountController } from "./account.js?v=revamp-056-11";
-import { createApiClient } from "./api.js?v=revamp-056-11";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-056-11";
-import { createFormState } from "./form-state.js?v=revamp-056-11";
-import { createInviteController } from "./invite.js?v=revamp-056-11";
-import { createMapController } from "./map.js?v=revamp-056-11";
-import { createLogController } from "./log.js?v=revamp-056-11";
-import { bindNavigation } from "./navigation.js?v=revamp-056-11";
-import { createRunHomeController } from "./run-home.js?v=revamp-056-11";
-import { createRunLibraryController } from "./run-library.js?v=revamp-056-11";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-056-11";
-import { createStandingsController } from "./standings.js?v=revamp-056-11";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-056-11";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-056-11";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-056-11";
+import { createAccountController } from "./account.js?v=revamp-061-12";
+import { createApiClient } from "./api.js?v=revamp-061-12";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-061-12";
+import { createFormState } from "./form-state.js?v=revamp-061-12";
+import { createInviteController } from "./invite.js?v=revamp-061-12";
+import { createLegalController } from "./legal.js?v=revamp-061-12";
+import { createMapController } from "./map.js?v=revamp-061-12";
+import { createLogController } from "./log.js?v=revamp-061-12";
+import { bindNavigation } from "./navigation.js?v=revamp-061-12";
+import { createRunHomeController } from "./run-home.js?v=revamp-061-12";
+import { createRunLibraryController } from "./run-library.js?v=revamp-061-12";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-061-12";
+import { createStandingsController } from "./standings.js?v=revamp-061-12";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-061-12";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-061-12";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-061-12";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -43,6 +44,7 @@ let runLibrary;
 let authController;
 let inviteController;
 let accountController;
+let legalController;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -53,6 +55,7 @@ const ensureContentSurface = () => {
   return surface;
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
+  legalController?.hide();
   if (authController?.isActive()) authController.close({ notify: false });
   if (inviteController?.isActive()) inviteController.dismiss({ notify: false });
   if (destination !== "you") accountController?.hide();
@@ -91,6 +94,7 @@ const navigation = bindNavigation(document, { onNavigate: (destination) => {
     if (destination === "run") runHome.showHome();
   }
 } });
+legalController = createLegalController({ root: document });
 standings = createStandingsController({
   root: document,
   api: services.api,
@@ -332,6 +336,27 @@ runHome.subscribe((snapshot) => {
   mapController.refresh();
 });
 document.addEventListener("click", (event) => {
+  const legalLink = event.target.closest("[data-legal-document], a[href='/terms'], a[href='/privacy']");
+  if (legalLink) {
+    const documentName = legalLink.dataset.legalDocument || legalLink.getAttribute("href").slice(1);
+    const fromLegalView = legalController.isActive();
+    const returnTo = fromLegalView ? legalController.getReturnTo() : location.hash || "#run";
+    event.preventDefault();
+    if (authController?.isActive()) authController.close({ notify: false });
+    if (!fromLegalView) history.pushState(null, "", `#${documentName}`);
+    else history.pushState(null, "", `#${documentName}`);
+    legalController.show(documentName, { returnTo });
+    return;
+  }
+  const legalBack = event.target.closest("[data-legal-back]");
+  if (legalBack) {
+    event.preventDefault();
+    const destination = legalController.getReturnTo();
+    history.pushState(null, "", destination);
+    legalController.hide();
+    restoreDestination();
+    return;
+  }
   const entryLink = event.target.closest("[data-entry-id][data-destination='map']");
   if (!entryLink) return;
   mapController.show(entryLink.dataset.entryId);
@@ -344,6 +369,17 @@ bindSystemStateControls(document, { onRetry: () => (
 ) });
 document.addEventListener("beer-run:open-run-library", () => showLibrary());
 const restoreDestination = () => {
+  if (location.hash === "#terms" || location.hash === "#privacy") {
+    if (authController.isActive()) authController.close({ notify: false });
+    runLibrary.hide();
+    logController.hide();
+    standings.hide();
+    mapController.hide();
+    navigation.clearDestination();
+    void legalController.show(location.hash.slice(1));
+    return;
+  }
+  legalController.hide();
   if (location.hash === "#login" || location.hash === "#signup") {
     authController.show(location.hash.slice(1), {
       returnTo: inviteController.hasInviteRoute() ? "#invite" : "#run",
@@ -411,6 +447,7 @@ void (async () => {
   onboarding.consider({
     blocked: authController.isActive()
       || inviteController.isActive()
+      || legalController.isActive()
       || Boolean(document.querySelector("dialog[open]")),
   });
 })();

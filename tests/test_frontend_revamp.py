@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-056-11"
+ASSET_VERSION = "revamp-061-12"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -55,6 +55,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
         "confirmation.js",
         "form-state.js",
         "invite.js",
+        "legal.js",
         "log.js",
         "map.js",
         "navigation.js",
@@ -407,6 +408,30 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     assert 'body.auth-view-open' in css
     assert 'scroll-padding-block: 88px 42dvh' in css
     assert 'scroll-margin-block: 88px 44dvh' in css
+
+
+def test_legal_views_reuse_authoritative_documents_and_keep_signup_versioning():
+    javascript_root = REVAMP_ROOT / "js"
+    legal = (javascript_root / "legal.js").read_text(encoding="utf-8")
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    auth = (javascript_root / "auth.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    assert 'terms: { url: "/terms", label: "Terms" }' in legal
+    assert 'privacy: { url: "/privacy", label: "Privacy" }' in legal
+    assert 'source.querySelector(".legal-document")' in legal
+    assert 'aria-label", "Legal documents"' in legal
+    assert 'aria-label", "On this page"' in legal
+    assert 'dataset.legalDocument = name' in legal
+    assert 'role", "alert"' in legal
+    assert '"#terms" || location.hash === "#privacy"' in app
+    assert 'terms_version: legalMetadata.terms_version' in auth
+    assert 'terms_agreed: true' in auth
+    assert '.legal-view__tab[aria-current="page"]' in css
+    assert '.legal-sections__link' in css
+    assert '@media (max-width: 560px)' in css
+    assert '.legal-copy table, .legal-copy tbody, .legal-copy tr, .legal-copy td { display: block; }' in css
+    assert 'min-width: 42rem' not in css
 
 
 def test_invite_preview_auth_resume_and_acceptance_contracts_are_present():

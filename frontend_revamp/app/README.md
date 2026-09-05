@@ -12,6 +12,7 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 - `js/auth.js`: token lifecycle plus focused login/signup rendering and validation.
 - `js/confirmation.js`: shared accessible destructive confirmation lifecycle.
 - `js/invite.js`: public invite preview, auth resumption, idempotent acceptance, and joined-run selection.
+- `js/legal.js`: in-app legal routing, source-document loading, and accessible section navigation.
 - `js/run-selection.js`: selected-run interaction state.
 - `js/run-home.js`: run resolution, scoped refresh generations, and home state orchestration.
 - `js/run-library.js`: desktop popover/mobile sheet switching, full-library discovery, and focused create/manage flows.
@@ -27,7 +28,7 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 
 ## Asset cache busting
 
-Task 11 entry assets and application module imports use `revamp-056-11`. Nested imports that did not change retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+Task 12 entry assets and application module imports use `revamp-061-12`. Nested imports that did not change retain their earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 

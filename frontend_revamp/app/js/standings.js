@@ -22,30 +22,6 @@ function heading(eyebrow, title, copy) {
   return header;
 }
 
-function loggedAt(entry) {
-  if (!entry) return "No pours yet";
-  const date = new Date(entry.timestamp);
-  if (Number.isNaN(date.getTime())) return "Time unavailable";
-  const zone = entry.timezone_code || entry.timezone || "Timezone not recorded";
-  return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })} ${zone}`;
-}
-
-function scoreStrip(leaderboard, entries) {
-  const strip = el("dl", "run-score-strip");
-  const totals = [
-    [String(entries.length), "pours"],
-    [liters(leaderboard.reduce((sum, runner) => sum + (Number(runner.total_liters) || 0), 0)), "total volume"],
-    [alcohol(leaderboard.reduce((sum, runner) => sum + (Number(runner.total_alcohol) || 0), 0)), "pure alcohol"],
-    [loggedAt(entries[0]), "latest log"],
-  ];
-  totals.forEach(([value, label]) => {
-    const item = el("div", "run-score-strip__item");
-    item.append(el("dt", "", label), el("dd", "", value));
-    strip.append(item);
-  });
-  return strip;
-}
-
 function avatar(username) {
   return el("span", "runner-mark", String(username || "?").trim().slice(0, 1) || "?");
 }
@@ -76,11 +52,20 @@ function standingsRow(runner, index, entries, onOpen, metric, leader) {
   const gapLabel = index === 0
     ? "Leading"
     : `${metric === "volume" ? fixed(gap) + " L" : fixed(gap, 3) + " alc. L"} behind`;
+  if (index === 0) copy.append(el("span", "competition-kicker", "Front runner"));
   copy.append(el("strong", "", username), el("small", "", `${playerEntries(entries, username).length} drinks · ${gapLabel}`));
   identity.append(avatar(username), copy);
   const totals = el("span", "competition-figures");
-  totals.append(el("strong", "", liters(runner.total_liters)), el("small", "", alcohol(runner.total_alcohol)));
-  button.append(el("span", "competition-rank", String(index + 1)), identity, totals, el("span", "competition-open", "Open"));
+  const primaryTotal = metric === "volume" ? liters(runner.total_liters) : alcohol(runner.total_alcohol);
+  const secondaryTotal = metric === "volume" ? alcohol(runner.total_alcohol) : liters(runner.total_liters);
+  totals.append(el("strong", "", primaryTotal), el("small", "", secondaryTotal));
+  const progress = leaderValue > 0 && currentValue > 0
+    ? Math.max(4, Math.min(100, (currentValue / leaderValue) * 100))
+    : 0;
+  button.style.setProperty("--standing-progress", `${progress}%`);
+  const open = el("span", "competition-open", "›");
+  open.setAttribute("aria-hidden", "true");
+  button.append(el("span", "competition-rank", String(index + 1).padStart(2, "0")), identity, totals, open);
   button.addEventListener("click", () => onOpen(username));
   return button;
 }
@@ -89,24 +74,29 @@ export function renderStandings(root, snapshot, {
   metric = "alcohol",
   pending = false,
   errorMessage = "",
+  rankingOnly = false,
   onMetricChange,
   onRetryMetric,
   onOpenPlayer,
 }) {
   const target = root.querySelector("[data-run-home]");
   if (!target) return;
-  target.replaceChildren(heading("Current run", "Standings", ""));
+  const leaderboard = Array.isArray(snapshot?.data?.leaderboard) ? snapshot.data.leaderboard : [];
+  const existingRanking = target.querySelector(".standings-ranking");
+  const updateRankingOnly = Boolean(rankingOnly && existingRanking && leaderboard.length);
+  if (!updateRankingOnly) {
+    const pageHeading = heading("Leaderboard", "Standings", "");
+    pageHeading.classList.add("standings-heading");
+    target.replaceChildren(pageHeading);
+  }
   if (!snapshot?.data) {
-    const score = el("section", "standings-score-skeleton home-skeleton");
-    score.setAttribute("aria-hidden", "true");
-    for (let index = 0; index < 4; index += 1) score.append(el("span", "skeleton-block"));
     const loading = el("section", "competition-list home-skeleton");
     loading.setAttribute("aria-label", "Loading standings");
     for (let index = 0; index < 4; index += 1) loading.append(el("span", "skeleton-row standings-skeleton-row"));
-    target.append(score, loading);
+    target.append(loading);
     return;
   }
-  const { leaderboard = [], entries = [] } = snapshot.data;
+  const { entries = [] } = snapshot.data;
   if (!leaderboard.length) {
     const empty = el("section", "home-empty state-surface competition-empty");
     const mark = el("span", "state-surface__mark", "0");
@@ -120,9 +110,8 @@ export function renderStandings(root, snapshot, {
     target.append(empty);
     return;
   }
-  target.append(scoreStrip(leaderboard, entries));
   const toolbar = el("div", "standings-toolbar");
-  const toolbarCopy = el("strong", "", "Rank by");
+  const toolbarCopy = el("strong", "standings-toolbar__label", "Sort");
   const choices = el("div", "standings-toggle");
   choices.setAttribute("role", "group");
   choices.setAttribute("aria-label", "Rank standings by");
@@ -135,6 +124,8 @@ export function renderStandings(root, snapshot, {
     choices.append(choice);
   });
   toolbar.append(toolbarCopy, choices);
+  const ranking = el("div", "standings-ranking");
+  ranking.append(toolbar);
   if (errorMessage) {
     const notice = el("div", "recoverable-state");
     notice.setAttribute("role", "alert");
@@ -144,11 +135,10 @@ export function renderStandings(root, snapshot, {
     retry.type = "button";
     retry.addEventListener("click", onRetryMetric);
     notice.append(copy, retry);
-    target.append(notice);
+    ranking.append(notice);
   }
-  const legend = el("div", "standings-legend");
-  legend.append(el("span", "", `Ranked by ${metric === "volume" ? "volume" : "pure alcohol"}`), el("span", "", "Volume / alcohol"));
   const list = el("ol", "competition-list competition-list--full");
+  list.setAttribute("aria-label", `Leaderboard ranked by ${metric === "volume" ? "volume" : "pure alcohol"}`);
   leaderboard.forEach((runner, index) => {
     const classes = ["competition-item"];
     if (index === 0) classes.push("competition-item--leader");
@@ -157,7 +147,9 @@ export function renderStandings(root, snapshot, {
     item.append(standingsRow(runner, index, entries, onOpenPlayer, metric, leaderboard[0]));
     list.append(item);
   });
-  target.append(toolbar, legend, list);
+  ranking.append(list);
+  if (updateRankingOnly) existingRanking.replaceWith(ranking);
+  else target.append(ranking);
 }
 
 function metric(value, label) {
@@ -206,7 +198,7 @@ export function renderPlayer(root, snapshot, username, { onBack, onOpenEntry }) 
   target.append(heading("Player history", username, ""));
   const summary = el("section", "runner-summary");
   const top = el("div", "runner-summary__top");
-  top.append(avatar(username), el("strong", "", `Rank ${index + 1}`), el("span", "status-tag", `${entriesForPlayer.length} pours`));
+  top.append(avatar(username), el("strong", "", `Rank ${index + 1}`));
   const metrics = el("dl", "runner-summary__metrics");
   metrics.append(metric(liters(runner.total_liters), "volume"), metric(alcohol(runner.total_alcohol), "pure alcohol"), metric(String(entriesForPlayer.length), "drinks"));
   summary.append(top, metrics);
@@ -272,21 +264,29 @@ export function createStandingsController({ root = document, api, auth, getSnaps
     if (!metricLeaderboard || !snapshot.data) return snapshot;
     return { ...snapshot, data: { ...snapshot.data, leaderboard: metricLeaderboard } };
   };
-  const paintStandings = (pending = false) => renderStandings(root, standingsSnapshot(), {
+  const paintStandings = (pending = false, { rankingOnly = false } = {}) => renderStandings(root, standingsSnapshot(), {
     metric,
     pending,
     errorMessage: metricError?.message || "",
+    rankingOnly,
     onOpenPlayer: showPlayer,
     onMetricChange: changeMetric,
-    onRetryMetric: () => changeMetric(metricError?.metric),
+    onRetryMetric: () => changeMetric(metricError?.metric, { force: true }),
   });
-  const changeMetric = async (nextMetric) => {
-    if (!nextMetric || nextMetric === metric) return;
+  const setMetricPending = (pending) => {
+    const toggle = root.querySelector("[data-run-home] .standings-toggle");
+    toggle?.setAttribute("aria-busy", String(pending));
+    toggle?.querySelectorAll(".standings-toggle__button").forEach((button) => {
+      button.disabled = pending;
+    });
+  };
+  const changeMetric = async (nextMetric, { force = false } = {}) => {
+    if (!nextMetric || (!force && nextMetric === metric)) return;
     const snapshot = getSnapshot();
     if (!snapshot.currentRun) return;
     const request = ++metricRequest;
     metricError = null;
-    paintStandings(true);
+    setMetricPending(true);
     const result = await api.fetchLeaderboard(snapshot.currentRun.id, auth.getAccessToken(), null, nextMetric);
     if (request !== metricRequest || !active || selectedPlayer) return;
     if (result.ok) {
@@ -300,7 +300,7 @@ export function createStandingsController({ root = document, api, auth, getSnaps
           : "The current ranking remains available. Try this view again.",
       };
     }
-    paintStandings(false);
+    paintStandings(false, { rankingOnly: true });
   };
   const showStandings = () => {
     active = true;
@@ -353,6 +353,19 @@ export function createStandingsController({ root = document, api, auth, getSnaps
       metricRequest += 1;
       sessionStorage.removeItem("beerRun.revamp.selectedEntry");
     },
-    refresh() { if (active) selectedPlayer ? paintPlayer() : paintStandings(); },
+    refresh() {
+      if (!active) return;
+      if (selectedPlayer) {
+        paintPlayer();
+        return;
+      }
+      if (metric === "alcohol") {
+        metricLeaderboard = null;
+        metricError = null;
+        paintStandings(false, { rankingOnly: true });
+        return;
+      }
+      void changeMetric(metric, { force: true });
+    },
   };
 }

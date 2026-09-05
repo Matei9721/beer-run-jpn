@@ -74,7 +74,7 @@ export function createAccountController({
     heading.append(
       element("p", "eyebrow", "Your account"),
       element("h1", "", "Account and data"),
-      element("p", "page-heading__copy", "Everyday account actions stay separate from permanent deletion."),
+      element("p", "page-heading__copy", "Review your activity, choose a theme, or sign out."),
     );
     heading.querySelector("h1").id = "account-heading";
     return heading;
@@ -119,15 +119,15 @@ export function createAccountController({
     const section = element("section", "account-section account-appearance");
     const fieldset = element("fieldset", "account-appearance__fieldset");
     const legend = element("legend", "", "Appearance");
-    const help = element("p", "account-section__copy", "Choose a theme for this browser. System follows your device setting.");
+    const help = element("p", "account-section__copy", "Choose how BeerRun looks on this device.");
     help.id = "account-appearance-help";
     fieldset.setAttribute("aria-describedby", help.id);
     fieldset.append(legend, help);
     const options = element("div", "account-theme-options");
     [
-      ["system", "System", "Use device setting"],
-      ["light", "Light", "Always light"],
-      ["dark", "Dark", "Always dark"],
+      ["system", "System", "Match your device"],
+      ["light", "Light", "Keep light mode on"],
+      ["dark", "Dark", "Keep dark mode on"],
     ].forEach(([value, label, description]) => {
       const choice = element("label", "account-theme-choice");
       const radio = element("input");
@@ -164,7 +164,7 @@ export function createAccountController({
     const copy = element("div", "account-guide__copy");
     copy.append(
       element("h2", "", "Quick guide"),
-      element("p", "account-section__copy", "Revisit the three things that keep every BeerRun view in context."),
+      element("p", "account-section__copy", "See how to log drinks, check the standings, and find each stop on the map."),
     );
     const open = action("Open quick guide", "button button--secondary");
     open.dataset.accountOpenGuide = "";
@@ -180,14 +180,14 @@ export function createAccountController({
     section.append(heading);
 
     if (loading) {
-      section.append(element("p", "account-section__copy", "Checking what belongs to this account before deletion is available."));
+      section.append(element("p", "account-section__copy", "Checking whether this account can be deleted..."));
       const review = action("Loading account summary...", "button button--danger");
       review.disabled = true;
       section.append(review);
       return section;
     }
     if (error || !summary) {
-      section.append(element("p", "account-section__copy", "BeerRun must load a fresh data summary before account deletion can begin."));
+      section.append(element("p", "account-section__copy", "We couldn't load the details needed to delete this account."));
       const retry = action("Retry account summary", "button button--secondary");
       retry.dataset.accountRetry = "";
       section.append(retry);
@@ -196,10 +196,11 @@ export function createAccountController({
 
     const ownedRuns = runList(summary);
     if (ownedRuns.length) {
+      const ownedRunReference = ownedRuns.length === 1 ? "it" : "them";
       section.append(element(
         "p",
         "account-section__copy",
-        `You own ${plural(ownedRuns.length, "run")}. Delete each owned run before deleting your account. Ownership transfer is not available in this build.`,
+        `You own ${plural(ownedRuns.length, "run")}. Delete ${ownedRunReference} before deleting your account. Run ownership can't be transferred yet.`,
       ));
       section.append(blockerList(ownedRuns));
       return section;
@@ -210,7 +211,7 @@ export function createAccountController({
     section.append(element(
       "p",
       "account-section__copy",
-      `Deleting your profile removes ${plural(memberships, "membership")}, accepted Terms records, ${plural(entries, "entry", "entries")}, and photos uploaded for your entries. Other users and their data stay intact.`,
+      `Deleting your account permanently removes ${plural(memberships, "membership")}, your accepted Terms records, ${plural(entries, "entry", "entries")}, and any photos attached to your entries. It won't affect anyone else's data.`,
     ));
     const review = action("Review account deletion", "button button--danger");
     review.dataset.accountDelete = "";

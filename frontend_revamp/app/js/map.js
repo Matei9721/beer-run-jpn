@@ -368,7 +368,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     main.replaceChildren();
     const content = el("div", "map-content map-content--loading");
     const heading = el("header", "page-heading");
-    heading.append(el("p", "eyebrow", "Explore the route"), el("h1", "", "Drink map"), el("p", "page-heading__copy", "Loading mapped pours for the selected run."));
+    heading.append(el("p", "eyebrow", "Explore the route"), el("h1", "", "Drink map"));
     const toolbar = el("div", "map-toolbar map-toolbar--skeleton home-skeleton");
     toolbar.setAttribute("aria-hidden", "true");
     toolbar.append(el("span", "skeleton-block"), el("span", "skeleton-block"));
@@ -400,7 +400,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     main.replaceChildren();
     const content = el("div", "map-content");
     const heading = el("header", "page-heading");
-    heading.append(el("p", "eyebrow", "Explore the route"), el("h1", "", "Drink map"), el("p", "page-heading__copy", "Filter by runner and open a drink without leaving the map."));
+    heading.append(el("p", "eyebrow", "Explore the route"), el("h1", "", "Drink map"));
     const entries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
     const runners = [...new Set(entries.map((entry) => entry.username).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     const filtered = selectedUsername ? entries.filter((entry) => entry.username === selectedUsername) : entries;

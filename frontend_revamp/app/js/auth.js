@@ -42,17 +42,15 @@ function field({ id, name, label, type = "text", autocomplete, help = "" }) {
 
 function heading(mode) {
   const header = element("header", "auth-heading");
-  header.append(
-    element("p", "eyebrow", mode === "signup" ? "Join the run" : "Welcome back"),
-    element("h1", "", mode === "signup" ? "Create your account" : "Log in to BeerRun"),
-    element(
-      "p",
-      "auth-heading__copy",
-      mode === "signup"
-        ? "Age acknowledgement and the private signup code stay explicit."
-        : "Continue logging drinks and switch between your runs.",
-    ),
-  );
+  if (mode === "signup") {
+    header.append(
+      element("p", "eyebrow", "Join the run"),
+      element("h1", "", "Create your account"),
+      element("p", "auth-heading__copy", "Age acknowledgement and the private signup code stay explicit."),
+    );
+  } else {
+    header.append(element("h1", "", "Log in to BeerRun"));
+  }
   header.querySelector("h1").id = "auth-view-title";
   return header;
 }
@@ -299,7 +297,7 @@ export function createAuthController({
     if (terms) terms.href = legalMetadata.terms_url;
     if (privacy) privacy.href = legalMetadata.privacy_url;
     if (checkbox) checkbox.disabled = false;
-    if (status) status.textContent = "Current legal terms loaded.";
+    if (status) status.textContent = "";
   }
 
   function focusFirst() {

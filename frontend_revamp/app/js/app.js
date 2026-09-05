@@ -1,19 +1,21 @@
-import { createAccountController } from "./account.js?v=revamp-061-12";
-import { createApiClient } from "./api.js?v=revamp-061-12";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-061-12";
-import { createFormState } from "./form-state.js?v=revamp-061-12";
-import { createInviteController } from "./invite.js?v=revamp-061-12";
-import { createLegalController } from "./legal.js?v=revamp-061-12";
-import { createMapController } from "./map.js?v=revamp-061-12";
-import { createLogController } from "./log.js?v=revamp-061-12";
-import { bindNavigation } from "./navigation.js?v=revamp-061-12";
-import { createRunHomeController } from "./run-home.js?v=revamp-061-12";
-import { createRunLibraryController } from "./run-library.js?v=revamp-061-12";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-061-12";
-import { createStandingsController } from "./standings.js?v=revamp-061-12";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-061-12";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-061-12";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-061-12";
+import { createAccountController } from "./account.js?v=revamp-072-12";
+import { createApiClient } from "./api.js?v=revamp-072-12";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-072-12";
+import { createFormState } from "./form-state.js?v=revamp-072-12";
+import { createInviteController } from "./invite.js?v=revamp-072-12";
+import { createLegalController } from "./legal.js?v=revamp-072-12";
+import { createMapController } from "./map.js?v=revamp-072-12";
+import { createLogController } from "./log.js?v=revamp-072-12";
+import { bindNavigation } from "./navigation.js?v=revamp-072-12";
+import { createRunHomeController } from "./run-home.js?v=revamp-072-12";
+import { createRunLibraryController } from "./run-library.js?v=revamp-072-12";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-072-12";
+import { createStandingsController } from "./standings.js?v=revamp-072-12";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-072-12";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-072-12";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-072-12";
+
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -364,6 +366,9 @@ document.addEventListener("click", (event) => {
 bindPreviewFeedback(document, { onRefresh: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
+window.setInterval(() => {
+  void runHome.refresh();
+}, AUTO_REFRESH_INTERVAL_MS);
 bindSystemStateControls(document, { onRetry: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });

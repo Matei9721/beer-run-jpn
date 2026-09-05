@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-061-12"
+ASSET_VERSION = "revamp-072-12"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -159,6 +159,98 @@ def test_run_home_has_responsive_content_and_feedback_contracts():
     assert "prefers-reduced-motion: reduce" in css
 
 
+def test_annotated_ui_cleanup_removes_redundancy_and_keeps_alignment_rules():
+    javascript_root = REVAMP_ROOT / "js"
+    ui = (javascript_root / "ui.js").read_text(encoding="utf-8")
+    standings = (javascript_root / "standings.js").read_text(encoding="utf-8")
+    auth = (javascript_root / "auth.js").read_text(encoding="utf-8")
+    map_module = (javascript_root / "map.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    for copy in (
+        "Sign in to add a pour.",
+        "Ranked by pure alcohol",
+        "Continue logging drinks and switch between your runs.",
+        "Welcome back",
+        "Current legal terms loaded.",
+        "Filter by runner and open a drink without leaving the map.",
+    ):
+        assert copy not in "\n".join((ui, standings, auth, map_module))
+
+    assert 'top.append(avatar(username), el("strong", "", `Rank ${index + 1}`));' in standings
+    assert "Ranked by ${" not in standings
+    assert "standings-legend" not in standings
+    assert 'const ranking = el("div", "standings-ranking");' in standings
+    assert "scoreStrip" not in standings
+    assert "run-score-strip" not in css
+    assert 'const pageHeading = heading("Leaderboard", "Standings", "");' in standings
+    assert ".page-heading.standings-heading" in css
+    assert ".standings-ranking { display: grid; gap: var(--space-3); }" in css
+    assert ".standings-toolbar { min-height: 40px; display: flex; align-items: center; justify-content: flex-end;" in css
+    assert "padding: var(--space-4); border: 1px solid var(--color-border);" not in css.split(".standings-toolbar {", maxsplit=1)[1].split("}", maxsplit=1)[0]
+    assert 'const toolbarCopy = el("strong", "standings-toolbar__label", "Sort");' in standings
+    assert ".standings-toggle__button.is-selected { background: transparent;" in css
+    assert "--standing-progress" in standings
+    assert ".competition-list--full .competition-row::after" in css
+    assert 'String(index + 1).padStart(2, "0")' in standings
+    assert 'metric === "volume" ? liters(runner.total_liters) : alcohol(runner.total_alcohol)' in standings
+    assert ".home-view-only" not in css
+    assert ".auth-field { min-width: 0; display: grid; align-content: start;" in css
+    assert ".auth-legal__status:empty { display: none; }" in css
+    narrow_mobile_rules = css.split("@media (max-width: 420px)", maxsplit=1)[1].split("@media", maxsplit=1)[0]
+    assert ".home-identity__wrapped { grid-template-columns: 1fr; align-content: center;" in narrow_mobile_rules
+    assert ".wrapped-pulltab { width: 100%; }" in narrow_mobile_rules
+
+
+def test_sync_controls_keep_timestamped_manual_and_automatic_refresh():
+    javascript_root = REVAMP_ROOT / "js"
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    home = (javascript_root / "run-home.js").read_text(encoding="utf-8")
+    standings = (javascript_root / "standings.js").read_text(encoding="utf-8")
+    ui = (javascript_root / "ui.js").read_text(encoding="utf-8")
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    assert "const AUTO_REFRESH_INTERVAL_MS = 30_000;" in app
+    assert "window.setInterval" in app
+    assert "void runHome.refresh();" in app
+    assert "function sameSnapshotData(left, right)" in home
+    assert "const dataChanged = !sameSnapshotData(lastData, nextData);" in home
+    assert "const presentationChanged = dataChanged || retainedRefreshError;" in home
+    assert "if (presentationChanged) renderRunHome" in home
+    assert "if (presentationChanged) notify();" in home
+    assert "changed: dataChanged" in home
+    assert "setMetricPending(true);" in standings
+    assert "paintStandings(true);" not in standings
+    assert "existingRanking.replaceWith(ranking);" in standings
+    assert "paintStandings(false, { rankingOnly: true });" in standings
+    assert 'changeMetric(metric, { force: true })' in standings
+    assert 'value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })' in home
+    assert "`Synced ${formatSyncTime(refreshedAt)}`" in home
+    assert 'controls.classList.toggle("is-syncing", pending);' in ui
+    assert html.count('class="sync-dot"') == 1
+    assert "Refresh data</span>" not in html
+    assert html.count('title="Refresh data"><span class="icon icon--refresh"') == 1
+    assert "mobile-sync" not in html
+    assert ".sync-controls {" in css
+    assert ".desktop-sidebar__footer { position: fixed;" in css
+    desktop_footer_rule = re.search(r"\.desktop-sidebar__footer \{([^}]+)\}", css)
+    assert desktop_footer_rule is not None
+    assert "left: var(--space-4);" in desktop_footer_rule.group(1)
+    assert "width: 160px;" in desktop_footer_rule.group(1)
+    assert "padding: 0;" in desktop_footer_rule.group(1)
+    assert "transform: none;" in desktop_footer_rule.group(1)
+    assert "left: calc(192px + (100vw - 192px) / 2)" not in css
+    assert ".refresh-button--icon { width: 44px; justify-content: center; padding: 0; border-radius: 50%; }" in css
+    assert ".desktop-sidebar__footer .refresh-button { min-height: 44px; }" in css
+    assert "@keyframes refresh-hover-spin { to { transform: rotate(360deg); } }" in css
+    assert ".sync-controls .refresh-button:not(.is-loading):hover .icon { animation: refresh-hover-spin 420ms" in css
+    assert ".sync-controls .refresh-button:active:not(:disabled)" in css
+    assert "rotate(120deg) scale(0.88)" not in css
+    assert ".refresh-button.is-loading .icon { animation: refresh-spin 900ms linear infinite; }" in css
+    assert "75px - 68px - env(safe-area-inset-bottom)" in css
+
+
 def test_run_library_and_quick_switcher_contracts_are_present():
     javascript_root = REVAMP_ROOT / "js"
     api = (javascript_root / "api.js").read_text(encoding="utf-8")
@@ -270,12 +362,12 @@ def test_account_and_shared_destructive_confirmation_contracts_are_present():
     assert '/entries/${encodeURIComponent(entryId)}`' in api
 
     assert 'name = "account-theme"' in account
-    assert '["system", "System", "Use device setting"]' in account
+    assert '["system", "System", "Match your device"]' in account
     assert 'theme.setPreference(event.target.value)' in account
     assert 'ACCOUNT_CONFIRMATION = "DELETE MY ACCOUNT"' in account
     assert 'autocomplete: "current-password"' in confirmation
     assert 'result?.status === 409' in account
-    assert 'Ownership transfer is not available in this build.' in account
+    assert "Run ownership can't be transferred yet." in account
     assert 'Other users\' accounts, entries, photos, and runs will not be deleted.' in account
     assert 'plural(entries, "entry", "entries")' in account
     assert 'recovery is pending' in account

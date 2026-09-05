@@ -13,10 +13,15 @@ import {
   setRefreshPending,
   setSyncStatus,
   updateRunSwitcher,
-} from "./ui.js?v=revamp-056-11";
+} from "./ui.js?v=revamp-070-12";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);
+}
+
+function sameSnapshotData(left, right) {
+  if (!left || !right) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function firstFallbackRun(runs) {
@@ -28,6 +33,10 @@ function failureMessage(result) {
   return "This run could not be loaded. Refresh to try again.";
 }
 
+function formatSyncTime(value) {
+  return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export function createRunHomeController({ api, auth, selection, root = document, storage = localStorage, now = () => new Date() }) {
   let currentUser = null;
   let currentRun = null;
@@ -36,6 +45,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
   let refreshGeneration = 0;
   let refreshController = null;
   let resolutionController = null;
+  let retainedRefreshError = false;
   const listeners = new Set();
 
   function ensureHomeTarget() {
@@ -120,6 +130,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     contextGeneration += 1;
     currentRun = null;
     lastData = null;
+    retainedRefreshError = false;
     selection.clear();
     notify();
     renderRunHomeUnavailable(root, {
@@ -138,6 +149,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     currentUser = null;
     currentRun = null;
     lastData = null;
+    retainedRefreshError = false;
     selection.clear();
     notify();
     const result = await initialize();
@@ -180,6 +192,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
         : "The latest run update could not be loaded. Showing the last saved view.";
       if (lastData) {
         renderRunHome(root, { ...lastData, errorMessage: message, now: now() });
+        retainedRefreshError = true;
         setSystemNotice(root, {
           kind: failedResult?.network ? "offline" : "error",
           title: failedResult?.network ? "Connection paused" : "Refresh incomplete",
@@ -192,19 +205,24 @@ export function createRunHomeController({ api, auth, selection, root = document,
       return { ok: false, retained: Boolean(lastData) };
     }
 
-    currentRun = runResult.data;
-    selection.selectRun(currentRun);
-    lastData = {
-      run: currentRun,
+    const nextData = {
+      run: runResult.data,
       identity: currentUser,
       leaderboard: Array.isArray(leaderboardResult.data) ? leaderboardResult.data : [],
       entries: Array.isArray(entriesResult.data) ? entriesResult.data : [],
     };
-    renderRunHome(root, { ...lastData, now: now() });
-    notify();
+    const dataChanged = !sameSnapshotData(lastData, nextData);
+    currentRun = nextData.run;
+    selection.selectRun(currentRun);
+    lastData = nextData;
+    const refreshedAt = now();
+    const presentationChanged = dataChanged || retainedRefreshError;
+    if (presentationChanged) renderRunHome(root, { ...lastData, now: refreshedAt });
+    retainedRefreshError = false;
+    if (presentationChanged) notify();
     clearSystemNotice(root);
-    setSyncStatus(root, "Synced just now");
-    return { ok: true, data: lastData };
+    setSyncStatus(root, `Synced ${formatSyncTime(refreshedAt)}`);
+    return { ok: true, data: lastData, changed: dataChanged };
   }
 
   async function initialize() {
@@ -213,6 +231,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     currentUser = null;
     currentRun = null;
     lastData = null;
+    retainedRefreshError = false;
     selection.clear();
     notify();
     renderRunHomeLoading(root);
@@ -259,6 +278,7 @@ export function createRunHomeController({ api, auth, selection, root = document,
     contextGeneration += 1;
     currentRun = run;
     lastData = null;
+    retainedRefreshError = false;
     selection.selectRun(run);
     if (persist && currentUser) saveSelectedRunId(currentUser.id, run.id, storage);
     notify();

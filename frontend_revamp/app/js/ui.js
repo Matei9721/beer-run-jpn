@@ -116,9 +116,6 @@ function createRunIdentity(run, identity, leaderboard, entries) {
   });
   main.append(metrics);
 
-  if (!identity) {
-    main.append(element("p", "home-view-only", "Sign in to add a pour."));
-  }
   section.append(main);
 
   if (run.has_wrapped) {
@@ -295,6 +292,9 @@ export function setSyncStatus(root, message) {
 }
 
 export function setRefreshPending(root, pending) {
+  root.querySelectorAll(".sync-controls").forEach((controls) => {
+    controls.classList.toggle("is-syncing", pending);
+  });
   root.querySelectorAll("[data-refresh]").forEach((button) => {
     button.disabled = pending;
     button.setAttribute("aria-busy", String(pending));
@@ -396,15 +396,13 @@ export function renderRunHome(root, { run, identity = null, leaderboard = [], en
 }
 
 export function bindPreviewFeedback(root = document, { onRefresh = null } = {}) {
-  const statusRegions = [...root.querySelectorAll("[data-sync-status]")];
-  const announce = (message) => statusRegions.forEach((region) => { region.textContent = message; });
   root.querySelectorAll("[data-refresh]").forEach((button) => {
     button.addEventListener("click", () => {
       if (typeof onRefresh === "function") {
         void onRefresh();
         return;
       }
-      announce("Preview shell checked just now");
+      setSyncStatus(root, "Preview shell checked");
     });
   });
 }

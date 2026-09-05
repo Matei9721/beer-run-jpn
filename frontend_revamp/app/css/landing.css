@@ -60,57 +60,6 @@ body.landing-view {
   gap: 18px;
 }
 
-.landing-wordmark {
-  position: relative;
-  min-width: 126px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 12px 7px;
-  text-decoration: none;
-}
-
-.landing-wordmark::before,
-.landing-wordmark::after {
-  content: "";
-  position: absolute;
-  width: 22px;
-  height: 13px;
-  pointer-events: none;
-}
-
-.landing-wordmark::before {
-  top: 3px;
-  left: 0;
-  border-top: 2px solid var(--landing-accent);
-  border-left: 2px solid var(--landing-accent);
-}
-
-.landing-wordmark::after {
-  right: 0;
-  bottom: 3px;
-  border-right: 2px solid var(--landing-accent);
-  border-bottom: 2px solid var(--landing-accent);
-}
-
-.landing-wordmark__name {
-  display: inline-flex;
-  align-items: baseline;
-  font-family: var(--font-display);
-  font-size: 1.82rem;
-  font-weight: 700;
-  letter-spacing: -0.045em;
-  line-height: 0.86;
-}
-
-.landing-wordmark__name span:last-child {
-  position: relative;
-  top: -1px;
-  margin-left: 1px;
-  color: var(--landing-accent);
-}
-
 .landing-nav__links,
 .landing-nav__actions,
 .landing-actions {

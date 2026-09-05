@@ -58,6 +58,20 @@ export function createLandingController({ root = document } = {}) {
     disconnectObserver();
   };
 
+  const setAuthenticated = (authenticated) => {
+    if (!page) return;
+    page.dataset.sessionState = authenticated ? "authenticated" : "anonymous";
+    const login = page.querySelector("[data-landing-session-action='login']");
+    if (login) {
+      login.textContent = authenticated ? "Open BeerRun" : "Log in";
+      login.href = authenticated ? "#run" : "#login";
+      login.dataset.landingRoute = authenticated ? "run" : "login";
+      login.setAttribute("aria-label", authenticated ? "Open BeerRun" : "Log in to BeerRun");
+    }
+    const signup = page.querySelector("[data-landing-session-action='signup']");
+    if (signup) signup.hidden = authenticated;
+  };
+
   page?.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-landing-scroll]");
     if (!trigger) return;
@@ -72,6 +86,7 @@ export function createLandingController({ root = document } = {}) {
   return {
     hide,
     show,
+    setAuthenticated,
     isActive: () => Boolean(page && !page.hidden),
   };
 }

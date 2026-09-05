@@ -30,7 +30,7 @@ This directory is the isolated Route Stamp implementation. FastAPI serves the do
 
 ## Asset cache busting
 
-The current landing entry assets and application module imports use `revamp-091-clean-photo-collage`. Nested imports that do not change can retain earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
+The current landing entry assets and application module imports use `revamp-092-connected-pages`. Nested imports that do not change can retain earlier versions. When any deployed revamp dependency changes, increment its relevant version everywhere it is referenced before release.
 
 When Task 14 promotes revamp files to production paths, copy this convention into every affected production template and direct module import. Rollback before Task 14 is the removal of the `/revamp-preview` route, `/revamp-assets` mount, and this application directory; the existing `/` and `/static` paths remain untouched.
 

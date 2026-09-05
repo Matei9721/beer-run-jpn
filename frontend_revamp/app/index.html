@@ -19,31 +19,31 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
-    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-091-clean-photo-collage">
-    <link rel="stylesheet" href="/revamp-assets/css/landing.css?v=revamp-091-clean-photo-collage">
+    <link rel="stylesheet" href="/revamp-assets/css/foundation.css?v=revamp-092-connected-pages">
+    <link rel="stylesheet" href="/revamp-assets/css/landing.css?v=revamp-092-connected-pages">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/revamp-assets/js/app.js?v=revamp-091-clean-photo-collage"></script>
+    <script type="module" src="/revamp-assets/js/app.js?v=revamp-092-connected-pages"></script>
   </head>
   <body>
     <div class="landing-page" data-landing-page data-motion-profile="touch">
       <header class="landing-nav">
         <div class="landing-nav__inner">
-          <a class="landing-wordmark" href="#top" data-landing-scroll="top" aria-label="BeerRun landing page">
-            <span class="landing-wordmark__name" aria-hidden="true"><span>Beer</span><span>Run</span></span>
+          <a class="brand-wordmark landing-wordmark" href="#top" data-landing-scroll="top" aria-label="BeerRun landing page">
+            <span class="brand-wordmark__name" aria-hidden="true"><span>Beer</span><span>Run</span></span>
           </a>
           <nav class="landing-nav__links" aria-label="Landing page">
             <a class="landing-nav__link" href="#what-it-does" data-landing-scroll="what-it-does">How it works</a>
           </nav>
           <div class="landing-nav__actions">
-            <a class="landing-nav__link" href="#login" data-landing-route="login" aria-label="Log in to BeerRun">Log in</a>
+            <a class="landing-nav__link" href="#login" data-landing-route="login" data-landing-session-action="login" aria-label="Log in to BeerRun">Log in</a>
           </div>
         </div>
       </header>
 
       <div role="main">
         <section class="landing-section landing-hero" id="top" aria-labelledby="landing-hero-title">
-          <img class="landing-photo-map__canvas" src="/revamp-assets/assets/images/landing-map-abstract.png?v=revamp-091-clean-photo-collage" alt="" width="1693" height="929">
+          <img class="landing-photo-map__canvas" src="/revamp-assets/assets/images/landing-map-abstract.png?v=revamp-092-connected-pages" alt="" width="1693" height="929">
           <div class="landing-frame landing-hero__grid">
             <div class="landing-hero__copy">
               <p class="landing-kicker">Made for group trips</p>
@@ -51,7 +51,7 @@
               <p class="landing-hero__subtext">A free tracker for responsible adults travelling together, with photos, maps, and a friendly group leaderboard.</p>
               <div class="landing-actions">
                 <a class="landing-button landing-button--primary" href="#runs" data-landing-route="runs">View public runs</a>
-                <a class="landing-button landing-button--secondary" href="#signup" data-landing-route="signup">Create account</a>
+                <a class="landing-button landing-button--secondary" href="#signup" data-landing-route="signup" data-landing-session-action="signup">Create account</a>
               </div>
             </div>
             <div class="landing-photo-map" aria-label="Illustrative map showing how drink photos stay connected to places">
@@ -115,9 +115,8 @@
 
     <div class="app-shell" data-revamp-preview hidden>
       <header class="app-header">
-        <a class="product-identity" href="#run" data-destination="run" aria-label="BeerRun run home">
-          <span class="product-mark" aria-hidden="true">B</span>
-          <span class="product-wordmark">BeerRun</span>
+        <a class="product-identity brand-wordmark" href="#landing" data-show-landing aria-label="BeerRun landing page">
+          <span class="brand-wordmark__name" aria-hidden="true"><span>Beer</span><span>Run</span></span>
         </a>
         <button class="run-switcher" type="button" data-run-switcher aria-label="Selected run. Open run switcher" aria-expanded="false" aria-controls="run-switcher-dialog">
           <span class="run-switcher__copy"><strong data-run-name>Loading run...</strong><span data-run-meta>Loading current run</span></span>

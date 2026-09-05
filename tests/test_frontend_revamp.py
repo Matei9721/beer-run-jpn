@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-091-clean-photo-collage"
+ASSET_VERSION = "revamp-092-connected-pages"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -148,6 +148,31 @@ def test_landing_page_routes_into_existing_revamp_flows():
     assert 'window.addEventListener("scroll"' not in landing
     assert 'landing.isActive()' in app
     assert 'location.hash || "#landing"' in app
+    assert 'data-landing-session-action="login"' in html
+    assert 'data-landing-session-action="signup"' in html
+    assert 'setAuthenticated' in landing
+    assert 'services.auth.getAccessToken()) destination = "run"' in app
+    assert 'closeTo: "#landing"' in app
+
+
+def test_revamp_pages_share_the_landing_wordmark_and_link_back_to_it():
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+    auth = (REVAMP_ROOT / "js" / "auth.js").read_text(encoding="utf-8")
+    legal = (REVAMP_ROOT / "js" / "legal.js").read_text(encoding="utf-8")
+    onboarding = (REVAMP_ROOT / "js" / "system-states.js").read_text(encoding="utf-8")
+
+    assert html.count('class="brand-wordmark landing-wordmark"') == 1
+    assert 'product-identity brand-wordmark' in html
+    assert 'data-show-landing' in html
+    assert '.brand-wordmark::before' in css
+    assert '.brand-wordmark::after' in css
+    assert '.brand-wordmark__name span:last-child' in css
+    assert 'auth-brand brand-wordmark' in auth
+    assert 'product-identity brand-wordmark legal-view__brand' in legal
+    assert 'onboarding-brand brand-wordmark' in onboarding
+    assert 'identity.dataset.showLanding = ""' in auth
+    assert 'identity.dataset.showLanding = ""' in legal
 
 
 def test_foundation_encodes_theme_motion_and_responsive_contracts():
@@ -551,8 +576,10 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     assert 'destination.startsWith("#invite")' in app
     assert 'ensureContentSurface();' in app
     assert 'restoreAuthDestination(returnTo)' in app
-    assert 'returnTo === "#you" && !runHome.getSnapshot().currentUser' in app
+    assert 'requestedDestination === "#you" && !runHome.getSnapshot().currentUser' in app
     assert 'closeDestination' in app
+    assert 'let closeTo = "#run"' in auth
+    assert 'onClose?.({ returnTo, closeTo })' in auth
     assert 'beer-run:open-auth' in log
     assert 'returnTo: "#log"' in log
     assert 'beer-run:open-auth' in library

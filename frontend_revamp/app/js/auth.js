@@ -56,10 +56,14 @@ function heading(mode) {
 }
 
 function brand({ desktop = false } = {}) {
-  const identity = element("span", `auth-brand${desktop ? " auth-brand--desktop" : ""}`);
-  const mark = element("span", "product-mark", "B");
-  mark.setAttribute("aria-hidden", "true");
-  identity.append(mark, element("span", "product-wordmark", "BeerRun"));
+  const identity = element("a", `auth-brand brand-wordmark${desktop ? " auth-brand--desktop" : ""}`);
+  identity.href = "#landing";
+  identity.dataset.showLanding = "";
+  identity.setAttribute("aria-label", "BeerRun landing page");
+  const name = element("span", "brand-wordmark__name");
+  name.setAttribute("aria-hidden", "true");
+  name.append(element("span", "", "Beer"), element("span", "", "Run"));
+  identity.append(name);
   return identity;
 }
 
@@ -267,6 +271,7 @@ export function createAuthController({
 }) {
   let mode = "login";
   let returnTo = "#run";
+  let closeTo = "#run";
   let legalMetadata = null;
   let legalGeneration = 0;
   let requestController = null;
@@ -315,7 +320,7 @@ export function createAuthController({
     view?.querySelector("[data-auth-mode-switch]")?.addEventListener("click", (event) => {
       const nextMode = event.currentTarget.dataset.authModeSwitch;
       history.pushState(null, "", `#${nextMode}`);
-      show(nextMode, { returnTo });
+      show(nextMode, { returnTo, closeTo });
     });
     form?.addEventListener("input", (event) => {
       event.target.removeAttribute("aria-invalid");
@@ -416,6 +421,8 @@ export function createAuthController({
     mode = nextMode === "signup" ? "signup" : "login";
     if (options.returnTo && !["#login", "#signup"].includes(options.returnTo)) returnTo = options.returnTo;
     else if (!active) returnTo = "#run";
+    if (options.closeTo && !["#login", "#signup"].includes(options.closeTo)) closeTo = options.closeTo;
+    else if (!active) closeTo = returnTo;
     active = true;
     requestController?.abort();
     requestController = null;
@@ -438,7 +445,7 @@ export function createAuthController({
     requestController = null;
     root.querySelector("[data-revamp-preview]")?.classList.remove("is-auth-view");
     document.body.classList.remove("auth-view-open");
-    if (notify) onClose?.({ returnTo });
+    if (notify) onClose?.({ returnTo, closeTo });
   }
 
   async function validateStoredSession() {

@@ -49,10 +49,11 @@ export function createOnboardingController({ root = document, storage = localSto
 
     const surface = element("section", "onboarding-surface");
     const top = element("header", "onboarding-topbar");
-    const brand = element("span", "onboarding-brand");
-    const mark = element("span", "product-mark", "B");
-    mark.setAttribute("aria-hidden", "true");
-    brand.append(mark, element("span", "product-wordmark", "BeerRun"));
+    const brand = element("span", "onboarding-brand brand-wordmark");
+    const name = element("span", "brand-wordmark__name");
+    name.setAttribute("aria-hidden", "true");
+    name.append(element("span", "", "Beer"), element("span", "", "Run"));
+    brand.append(name);
     const skip = element("button", "button button--quiet onboarding-skip", "Skip for now");
     skip.type = "button";
     skip.dataset.onboardingSkip = "";

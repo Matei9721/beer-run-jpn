@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-091-clean-photo-collage";
-import { createApiClient } from "./api.js?v=revamp-091-clean-photo-collage";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-091-clean-photo-collage";
-import { createFormState } from "./form-state.js?v=revamp-091-clean-photo-collage";
-import { createInviteController } from "./invite.js?v=revamp-091-clean-photo-collage";
-import { createLandingController } from "./landing.js?v=revamp-091-clean-photo-collage";
-import { createLegalController } from "./legal.js?v=revamp-091-clean-photo-collage";
-import { createMapController } from "./map.js?v=revamp-091-clean-photo-collage";
-import { createLogController } from "./log.js?v=revamp-091-clean-photo-collage";
-import { bindNavigation } from "./navigation.js?v=revamp-091-clean-photo-collage";
-import { createRunHomeController } from "./run-home.js?v=revamp-091-clean-photo-collage";
-import { createRunLibraryController } from "./run-library.js?v=revamp-091-clean-photo-collage";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-091-clean-photo-collage";
-import { createStandingsController } from "./standings.js?v=revamp-091-clean-photo-collage";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-091-clean-photo-collage";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-091-clean-photo-collage";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-091-clean-photo-collage";
+import { createAccountController } from "./account.js?v=revamp-092-connected-pages";
+import { createApiClient } from "./api.js?v=revamp-092-connected-pages";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-092-connected-pages";
+import { createFormState } from "./form-state.js?v=revamp-092-connected-pages";
+import { createInviteController } from "./invite.js?v=revamp-092-connected-pages";
+import { createLandingController } from "./landing.js?v=revamp-092-connected-pages";
+import { createLegalController } from "./legal.js?v=revamp-092-connected-pages";
+import { createMapController } from "./map.js?v=revamp-092-connected-pages";
+import { createLogController } from "./log.js?v=revamp-092-connected-pages";
+import { bindNavigation } from "./navigation.js?v=revamp-092-connected-pages";
+import { createRunHomeController } from "./run-home.js?v=revamp-092-connected-pages";
+import { createRunLibraryController } from "./run-library.js?v=revamp-092-connected-pages";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-092-connected-pages";
+import { createStandingsController } from "./standings.js?v=revamp-092-connected-pages";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-092-connected-pages";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-092-connected-pages";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-092-connected-pages";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
@@ -28,6 +28,8 @@ const services = Object.freeze({
 const theme = createThemeController();
 bindThemeControls(theme, document.querySelector("[data-theme-controls]"));
 const landing = createLandingController({ root: document });
+const syncLandingSession = () => landing.setAuthenticated(Boolean(services.auth.getAccessToken()));
+syncLandingSession();
 const onboarding = createOnboardingController({
   onComplete: ({ destination }) => {
     history.pushState(null, "", `#${destination}`);
@@ -198,12 +200,13 @@ inviteController = createInviteController({
   },
 });
 const restoreAuthDestination = (destination = "#run") => {
-  const safeDestination = ["#run", "#standings", "#log", "#map", "#runs", "#create", "#manage", "#you"].includes(destination)
+  const safeDestination = ["#landing", "#run", "#standings", "#log", "#map", "#runs", "#create", "#manage", "#you"].includes(destination)
     ? destination
     : destination.startsWith("#invite") ? destination : "#run";
   const isInviteDestination = safeDestination.startsWith("#invite");
   history.replaceState(null, "", safeDestination);
-  if (safeDestination === "#invite") {
+  if (safeDestination === "#landing") showLandingView();
+  else if (safeDestination === "#invite") {
     navigation.selectDestination("run", { notify: false });
     void inviteController.show();
   }
@@ -220,14 +223,16 @@ authController = createAuthController({
   onAuthenticated: async ({ returnTo }) => {
     ensureContentSurface();
     const result = await reconcileSelectionIdentity();
+    syncLandingSession();
     restoreAuthDestination(returnTo);
     return result?.data?.identity || runHome.getSnapshot().currentUser;
   },
-  onClose: ({ returnTo }) => {
+  onClose: ({ returnTo, closeTo }) => {
     if (returnTo.startsWith("#invite")) inviteController.cancelAuthContinuation();
-    const closeDestination = returnTo === "#you" && !runHome.getSnapshot().currentUser
+    const requestedDestination = closeTo || returnTo;
+    const closeDestination = requestedDestination === "#you" && !runHome.getSnapshot().currentUser
       ? "#run"
-      : returnTo;
+      : requestedDestination;
     restoreAuthDestination(closeDestination);
   },
 });
@@ -255,6 +260,7 @@ accountController = createAccountController({
   getSnapshot: runHome.getSnapshot,
   onSignOut: async () => {
     services.auth.removeAccessToken();
+    syncLandingSession();
     await showPublicFallback("Signed out. Showing the public run.");
   },
   onDeleteAccount: async ({ userId, token, password, confirmation }) => {
@@ -275,6 +281,7 @@ accountController = createAccountController({
     url.searchParams.delete("run");
     history.replaceState(null, "", `${url.pathname}${url.search}#run`);
     services.auth.removeAccessToken();
+    syncLandingSession();
     void showPublicFallback("Your account and personal data were deleted.").catch(() => {
       ensureContentSurface();
       history.replaceState(null, "", `${location.pathname}#run`);
@@ -301,6 +308,7 @@ accountController = createAccountController({
   },
   onSessionRejected: () => {
     services.auth.removeAccessToken();
+    syncLandingSession();
     accountController?.hide();
     ensureContentSurface();
     void runHome.initialize();
@@ -314,6 +322,7 @@ accountController = createAccountController({
 });
 document.addEventListener("beer-run:session-rejected", () => {
   services.auth.removeAccessToken();
+  syncLandingSession();
   accountController?.hide();
   resetPrivateSurfaces();
   ensureContentSurface();
@@ -325,12 +334,26 @@ document.addEventListener("beer-run:session-rejected", () => {
     message: "Your session is no longer valid. Log in again to continue.",
   });
 });
+const showLandingView = ({ push = false } = {}) => {
+  if (push) history.pushState(null, "", "#landing");
+  legalController.hide();
+  if (authController.isActive()) authController.close({ notify: false });
+  inviteController.hide();
+  runLibrary.hide();
+  logController.hide();
+  standings.hide();
+  mapController.hide();
+  navigation.clearDestination();
+  syncLandingSession();
+  landing.show();
+};
 document.querySelector("[data-run-switcher]")?.addEventListener("click", () => runLibrary.openSwitcher());
 document.addEventListener("beer-run:open-player", (event) => {
   navigation.selectDestination("standings");
   standings.showPlayer(event.detail.username);
 });
 runHome.subscribe((snapshot) => {
+  syncLandingSession();
   if (!snapshot.data) {
     standings.reset();
     mapController.reset();
@@ -380,15 +403,23 @@ bindSystemStateControls(document, { onRetry: () => (
 ) });
 document.addEventListener("beer-run:open-run-library", () => showLibrary());
 document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-show-landing]");
+  if (!trigger) return;
+  event.preventDefault();
+  onboarding.hide?.();
+  showLandingView({ push: location.hash !== "#landing" });
+});
+document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-landing-route]");
   if (!trigger) return;
-  const destination = trigger.dataset.landingRoute;
+  let destination = trigger.dataset.landingRoute;
   if (!["login", "signup", "run", "runs"].includes(destination)) return;
   event.preventDefault();
+  if (["login", "signup"].includes(destination) && services.auth.getAccessToken()) destination = "run";
   landing.hide();
   if (destination === "login" || destination === "signup") {
     history.pushState(null, "", `#${destination}`);
-    authController.show(destination, { returnTo: "#run" });
+    authController.show(destination, { returnTo: "#run", closeTo: "#landing" });
     return;
   }
   if (destination === "runs") {
@@ -400,15 +431,7 @@ document.addEventListener("click", (event) => {
 });
 const restoreDestination = () => {
   if (!location.hash || location.hash === "#landing") {
-    legalController.hide();
-    if (authController.isActive()) authController.close({ notify: false });
-    inviteController.hide();
-    runLibrary.hide();
-    logController.hide();
-    standings.hide();
-    mapController.hide();
-    navigation.clearDestination();
-    landing.show();
+    showLandingView();
     return;
   }
   landing.hide();
@@ -424,8 +447,13 @@ const restoreDestination = () => {
   }
   legalController.hide();
   if (location.hash === "#login" || location.hash === "#signup") {
+    if (services.auth.getAccessToken()) {
+      restoreAuthDestination(inviteController.hasInviteRoute() ? "#invite" : "#run");
+      return;
+    }
     authController.show(location.hash.slice(1), {
       returnTo: inviteController.hasInviteRoute() ? "#invite" : "#run",
+      closeTo: inviteController.hasInviteRoute() ? "#invite" : "#landing",
     });
     return;
   }
@@ -466,9 +494,15 @@ const reconcileIdentity = async () => {
   if (location.hash === "#you") navigation.selectDestination("you");
 };
 window.addEventListener("storage", (event) => {
-  if (event.key === "access_token") void reconcileIdentity();
+  if (event.key === "access_token") {
+    syncLandingSession();
+    void reconcileIdentity();
+  }
 });
-document.addEventListener("beer-run:auth-changed", () => void reconcileIdentity());
+document.addEventListener("beer-run:auth-changed", () => {
+  syncLandingSession();
+  void reconcileIdentity();
+});
 void (async () => {
   if (inviteController.hasInviteRoute() && !["#login", "#signup"].includes(location.hash)) {
     history.replaceState(null, "", `${location.pathname}${location.search}#invite`);
@@ -477,9 +511,11 @@ void (async () => {
     ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
     : location.hash || "#landing";
   const session = await authController.validateStoredSession();
+  syncLandingSession();
   await runHome.initialize();
   if (session.status === "stale") {
     history.replaceState(null, "", "#login");
+    landing.hide();
     authController.show("login", {
       returnTo: destinationBeforeValidation,
       message: "Your session is no longer valid. Log in again to continue.",

@@ -11,12 +11,14 @@ function element(tag, className = "", text = "") {
 }
 
 function brand() {
-  const identity = element("span", "product-identity legal-view__brand");
-  identity.append(
-    element("span", "product-mark", "B"),
-    element("span", "product-wordmark", "BeerRun"),
-  );
-  identity.firstElementChild.setAttribute("aria-hidden", "true");
+  const identity = element("a", "product-identity brand-wordmark legal-view__brand");
+  identity.href = "#landing";
+  identity.dataset.showLanding = "";
+  identity.setAttribute("aria-label", "BeerRun landing page");
+  const name = element("span", "brand-wordmark__name");
+  name.setAttribute("aria-hidden", "true");
+  name.append(element("span", "", "Beer"), element("span", "", "Run"));
+  identity.append(name);
   return identity;
 }
 

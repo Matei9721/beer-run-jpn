@@ -1,16 +1,17 @@
-import { createApiClient } from "./api.js?v=revamp-029-08";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-029-08";
-import { createFormState } from "./form-state.js?v=revamp-029-08";
-import { createInviteController } from "./invite.js?v=revamp-029-08";
-import { createMapController } from "./map.js?v=revamp-029-08";
-import { createLogController } from "./log.js?v=revamp-029-08";
-import { bindNavigation } from "./navigation.js?v=revamp-029-08";
-import { createRunHomeController } from "./run-home.js?v=revamp-029-08";
-import { createRunLibraryController } from "./run-library.js?v=revamp-029-08";
-import { createRunSelectionState } from "./run-selection.js?v=revamp-029-08";
-import { createStandingsController } from "./standings.js?v=revamp-029-08";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-029-08";
-import { bindPreviewFeedback } from "./ui.js?v=revamp-029-08";
+import { createAccountController } from "./account.js?v=revamp-047-10";
+import { createApiClient } from "./api.js?v=revamp-047-10";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-047-10";
+import { createFormState } from "./form-state.js?v=revamp-047-10";
+import { createInviteController } from "./invite.js?v=revamp-047-10";
+import { createMapController } from "./map.js?v=revamp-047-10";
+import { createLogController } from "./log.js?v=revamp-047-10";
+import { bindNavigation } from "./navigation.js?v=revamp-047-10";
+import { createRunHomeController } from "./run-home.js?v=revamp-047-10";
+import { createRunLibraryController } from "./run-library.js?v=revamp-047-10";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-047-10";
+import { createStandingsController } from "./standings.js?v=revamp-047-10";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-047-10";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-047-10";
 
 const services = Object.freeze({
   api: createApiClient(),
@@ -33,6 +34,7 @@ let logController;
 let runLibrary;
 let authController;
 let inviteController;
+let accountController;
 const ensureContentSurface = () => {
   let surface = document.querySelector("[data-run-home]");
   if (surface) return surface;
@@ -45,6 +47,7 @@ const ensureContentSurface = () => {
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
   if (authController?.isActive()) authController.close({ notify: false });
   if (inviteController?.isActive()) inviteController.dismiss({ notify: false });
+  if (destination !== "you") accountController?.hide();
   runLibrary?.hide();
   if (destination === "standings") {
     logController.hide();
@@ -66,7 +69,12 @@ const navigation = bindNavigation(document, { onNavigate: (destination) => {
     standings.hide();
     mapController.hide();
     history.replaceState(null, "", "#login");
-    authController.show("login", { returnTo: "#run" });
+    authController.show("login", { returnTo: "#you" });
+  } else if (destination === "you") {
+    logController.hide();
+    standings.hide();
+    mapController.hide();
+    accountController.show();
   } else {
     logController.hide();
     standings.hide();
@@ -87,7 +95,10 @@ standings = createStandingsController({
 });
 mapController = createMapController({
   root: document,
+  api: services.api,
+  auth: services.auth,
   getSnapshot: runHome.getSnapshot,
+  refresh: runHome.refresh,
   navigate: (destination) => {
     history.pushState(null, "", `#${destination}`);
     navigation.selectDestination(destination);
@@ -197,10 +208,98 @@ authController = createAuthController({
   },
   onClose: ({ returnTo }) => {
     if (returnTo.startsWith("#invite")) inviteController.cancelAuthContinuation();
-    restoreAuthDestination(returnTo);
+    const closeDestination = returnTo === "#you" && !runHome.getSnapshot().currentUser
+      ? "#run"
+      : returnTo;
+    restoreAuthDestination(closeDestination);
+  },
+});
+const resetPrivateSurfaces = () => {
+  runLibrary.hide();
+  logController.reset();
+  standings.reset();
+  mapController.reset();
+};
+const showPublicFallback = async (message) => {
+  accountController?.completeSuccess();
+  resetPrivateSurfaces();
+  ensureContentSurface();
+  history.replaceState(null, "", `${location.pathname}#run`);
+  const result = await runHome.initialize();
+  navigation.selectDestination("run");
+  setSyncStatus(document, message);
+  return result;
+};
+accountController = createAccountController({
+  root: document,
+  api: services.api,
+  auth: services.auth,
+  theme,
+  getSnapshot: runHome.getSnapshot,
+  onSignOut: async () => {
+    services.auth.removeAccessToken();
+    await showPublicFallback("Signed out. Showing the public run.");
+  },
+  onDeleteAccount: async ({ userId, token, password, confirmation }) => {
+    const user = runHome.getSnapshot().currentUser;
+    if (!user || user.id !== userId || services.auth.getAccessToken() !== token) {
+      return { ok: false, reason: "identity-changed" };
+    }
+    const result = await services.api.deleteAccount(password, confirmation, token);
+    if (!result.ok || result.data?.deleted !== true) return result;
+    if (runHome.getSnapshot().currentUser?.id !== userId || services.auth.getAccessToken() !== token) {
+      setSyncStatus(document, "The account you confirmed was deleted. Your current browser session was kept.");
+      return { ...result, ok: true, committed: true, currentSessionKept: true };
+    }
+    removeSelectedRunId(user.id);
+    inviteController.reset();
+    const url = new URL(location.href);
+    url.searchParams.delete("invite");
+    url.searchParams.delete("run");
+    history.replaceState(null, "", `${url.pathname}${url.search}#run`);
+    services.auth.removeAccessToken();
+    void showPublicFallback("Your account and personal data were deleted.").catch(() => {
+      ensureContentSurface();
+      history.replaceState(null, "", `${location.pathname}#run`);
+      navigation.selectDestination("run");
+      setSyncStatus(document, "Your account was deleted. Refresh to reload the public run.");
+    });
+    return { ...result, committed: true };
+  },
+  onManageOwnedRun: async (ownedRun) => {
+    const result = await services.api.fetchBeerRun(ownedRun.id, services.auth.getAccessToken());
+    if (result.status === 401) return { ok: false, sessionRejected: true };
+    if (!result.ok || result.data?.current_user_role !== "owner") {
+      return {
+        ok: false,
+        message: [401, 403, 404].includes(result.status)
+          ? "That run is no longer owned by this account. Retry the account summary."
+          : "That run could not be opened. Try again.",
+      };
+    }
+    await runHome.selectRun(result.data, { persist: true });
+    accountController.hide();
+    showLibrary("manage");
+    return { ok: true };
+  },
+  onSessionRejected: () => {
+    services.auth.removeAccessToken();
+    accountController?.hide();
+    ensureContentSurface();
+    void runHome.initialize();
+    history.replaceState(null, "", "#login");
+    authController.show("login", {
+      returnTo: "#you",
+      message: "Your session is no longer valid. Log in again to open your account.",
+    });
   },
 });
 document.addEventListener("beer-run:session-rejected", () => {
+  services.auth.removeAccessToken();
+  accountController?.hide();
+  resetPrivateSurfaces();
+  ensureContentSurface();
+  void runHome.initialize();
   const destination = ["#login", "#signup"].includes(location.hash) ? "#run" : location.hash || "#run";
   history.replaceState(null, "", "#login");
   authController.show("login", {
@@ -259,6 +358,7 @@ const restoreDestination = () => {
   } else if (location.hash === "#standings") navigation.selectDestination("standings");
   else if (location.hash === "#map") navigation.selectDestination("map");
   else if (location.hash === "#log") navigation.selectDestination("log");
+  else if (location.hash === "#you") navigation.selectDestination("you");
   else navigation.selectDestination("run");
 };
 window.addEventListener("popstate", restoreDestination);
@@ -271,6 +371,7 @@ const reconcileIdentity = async () => {
   }
   if (runLibrary.isActive()) await runLibrary.refresh();
   if (runLibrary.isSwitcherOpen()) await runLibrary.refreshSwitcher();
+  if (location.hash === "#you") navigation.selectDestination("you");
 };
 window.addEventListener("storage", (event) => {
   if (event.key === "access_token") void reconcileIdentity();

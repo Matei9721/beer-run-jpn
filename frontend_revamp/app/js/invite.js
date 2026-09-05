@@ -443,12 +443,18 @@ export function createInviteController({
     storage.removeItem(PENDING_INVITE_INTENT_KEY);
   }
 
+  function reset() {
+    clearPending();
+    hide();
+  }
+
   return {
     cancelAuthContinuation,
     dismiss,
     hasInviteRoute: routeHasInvite,
     hide,
     isActive: () => active,
+    reset,
     show: () => load(),
   };
 }

@@ -10,6 +10,19 @@ function resolveTheme(preference, mediaQuery) {
   return preference === "system" ? (mediaQuery.matches ? "dark" : "light") : preference;
 }
 
+function withoutColorTransitions(root, apply) {
+  const documentRoot = root.ownerDocument;
+  if (!documentRoot?.head) return apply();
+  const guard = documentRoot.createElement("style");
+  guard.dataset.themeTransitionGuard = "";
+  guard.textContent = "*,*::before,*::after{transition:none!important}";
+  documentRoot.head.append(guard);
+  root.getBoundingClientRect();
+  const result = apply();
+  requestAnimationFrame(() => guard.remove());
+  return result;
+}
+
 export function createThemeController({ root = document.documentElement, storage = localStorage } = {}) {
   const mediaQuery = matchMedia("(prefers-color-scheme: dark)");
   let preference = readPreference(storage);
@@ -18,7 +31,7 @@ export function createThemeController({ root = document.documentElement, storage
     return root.dataset.theme;
   };
   const handleSystemChange = () => {
-    if (preference === "system") apply();
+    if (preference === "system") withoutColorTransitions(root, apply);
   };
   mediaQuery.addEventListener("change", handleSystemChange);
   apply();
@@ -28,7 +41,7 @@ export function createThemeController({ root = document.documentElement, storage
     setPreference(nextPreference) {
       preference = THEME_PREFERENCES.has(nextPreference) ? nextPreference : "system";
       storage.setItem(THEME_STORAGE_KEY, preference);
-      return apply();
+      return withoutColorTransitions(root, apply);
     },
     destroy() { mediaQuery.removeEventListener("change", handleSystemChange); },
   };

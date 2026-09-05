@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-029-08"
+ASSET_VERSION = "revamp-047-10"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -48,9 +48,11 @@ def test_preview_references_only_versioned_revamp_entry_assets(client):
 def test_revamp_module_boundaries_exist_and_imports_resolve():
     javascript_root = REVAMP_ROOT / "js"
     expected_modules = {
+        "account.js",
         "api.js",
         "app.js",
         "auth.js",
+        "confirmation.js",
         "form-state.js",
         "invite.js",
         "log.js",
@@ -67,7 +69,7 @@ def test_revamp_module_boundaries_exist_and_imports_resolve():
 
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
-    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js"}
+    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js"}
     assert {version for _, version in imports} == {ASSET_VERSION}
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
 
@@ -226,8 +228,7 @@ def test_create_and_manage_run_contracts_are_present():
     assert 'form.elements.visibility.value === "public"' in library
     assert '["owner", "member"].includes' in library
     assert 'exactText: run.name' in library
-    assert 'confirmationInput.value !== exactText' in library
-    assert 'confirm.disabled = true' in library
+    assert 'showConfirmation({' in library
     assert '"Keep this run"' in library
     assert 'members.length === 1 ? "person" : "people"' in library
     assert 'eyebrow: "Membership change"' in library
@@ -246,10 +247,98 @@ def test_create_and_manage_run_contracts_are_present():
         "manage-choice-group",
         "manage-members",
         "manage-danger",
-        "manage-confirmation",
     ):
         assert f".{class_name}" in css
-    assert '.manage-confirmation .button--danger:disabled' in css
+
+
+def test_account_and_shared_destructive_confirmation_contracts_are_present():
+    javascript_root = REVAMP_ROOT / "js"
+    account = (javascript_root / "account.js").read_text(encoding="utf-8")
+    api = (javascript_root / "api.js").read_text(encoding="utf-8")
+    app = (javascript_root / "app.js").read_text(encoding="utf-8")
+    confirmation = (javascript_root / "confirmation.js").read_text(encoding="utf-8")
+    library = (javascript_root / "run-library.js").read_text(encoding="utf-8")
+    map_source = (javascript_root / "map.js").read_text(encoding="utf-8")
+    theme = (javascript_root / "theme.js").read_text(encoding="utf-8")
+    css = (REVAMP_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
+
+    assert '"/api/me/deletion-summary"' in api
+    assert 'writeJson(fetchImpl, "/api/me"' in api
+    assert 'body: { password, confirmation }' in api
+    assert '/entries/${encodeURIComponent(entryId)}`' in api
+
+    assert 'name = "account-theme"' in account
+    assert '["system", "System", "Use device setting"]' in account
+    assert 'theme.setPreference(event.target.value)' in account
+    assert 'ACCOUNT_CONFIRMATION = "DELETE MY ACCOUNT"' in account
+    assert 'autocomplete: "current-password"' in confirmation
+    assert 'result?.status === 409' in account
+    assert 'Ownership transfer is not available in this build.' in account
+    assert 'Other users\' accounts, entries, photos, and runs will not be deleted.' in account
+    assert 'plural(entries, "entry", "entries")' in account
+    assert 'recovery is pending' in account
+
+    assert 'let activeDialog = null' in confirmation
+    assert 'if (activeDialog)' in confirmation
+    assert 'dialog.setAttribute("aria-modal", "true")' in confirmation
+    assert 'dialog.setAttribute("aria-labelledby"' in confirmation
+    assert 'dialog.setAttribute("aria-describedby"' in confirmation
+    assert 'actions.append(cancel, confirm)' in confirmation
+    assert 'dialog.addEventListener("cancel"' in confirmation
+    assert 'event.target === dialog && !pending' in confirmation
+    assert 'panel.querySelectorAll("button, input")' in confirmation
+    assert 'requestAnimationFrame(restore)' in confirmation
+    assert 'dialog.showModal()' in confirmation
+    assert 'innerHTML' not in confirmation
+    assert 'window.confirm' not in confirmation
+    assert 'window.alert' not in confirmation
+
+    assert 'showConfirmation({' in map_source
+    assert 'safeLabel: "Keep drink"' in map_source
+    assert 'api.deleteEntry(' in map_source
+    assert 'if (root.querySelector("dialog[open]")) return;' in map_source
+    assert 'const SELECTED_ENTRY_ZOOM = 16;' in map_source
+    assert 'map.setView(marker.getLatLng(), Math.max(map.getZoom(), SELECTED_ENTRY_ZOOM)' in map_source
+    assert 'markerGroup.zoomToShowLayer(marker, revealMarker)' in map_source
+    assert 'markerGroup?.removeLayer?.(marker)' not in map_source
+    assert 'window.L.divIcon' not in map_source
+    assert 'marker.on("click", () => focusEntry(entry))' in map_source
+    assert 'maxZoom: 15, animate: false' in map_source
+    assert map_source.count('resizeMap();') >= 3
+    assert 'showConfirmation({' in library
+    assert 'safeLabel: "Stay in this run"' in library
+    assert 'exactText: run.name' in library
+
+    assert 'removeSelectedRunId(user.id)' in app
+    assert 'inviteController.reset()' in app
+    assert 'url.searchParams.delete("invite")' in app
+    assert 'url.searchParams.delete("run")' in app
+    assert 'services.auth.removeAccessToken()' in app
+    assert 'resetPrivateSurfaces()' in app
+    assert 'currentUser?.id !== userId' in app
+    assert 'reason: "identity-changed"' in account
+    assert 'reason: "session-rejected"' in account
+    assert 'result?.dismiss' in confirmation
+    assert 'committed: true' in app
+    assert 'committed: true' in map_source
+    assert 'reconcileRunMutation(outcome' in library
+
+    assert 'THEME_PREFERENCES = new Set(["system", "light", "dark"])' in theme
+    assert 'storage.setItem(THEME_STORAGE_KEY, preference)' in theme
+    assert 'guard.dataset.themeTransitionGuard' in theme
+
+    for class_name in (
+        "account-content",
+        "account-summary",
+        "account-stats",
+        "account-theme-options",
+        "account-danger",
+        "confirmation-dialog",
+        "confirmation-panel",
+        "confirmation-actions",
+    ):
+        assert f".{class_name}" in css
+    assert '.confirmation-dialog .button--danger:disabled' in css
 
 
 def test_login_and_signup_preserve_auth_and_resume_contracts():
@@ -294,6 +383,8 @@ def test_login_and_signup_preserve_auth_and_resume_contracts():
     assert 'destination.startsWith("#invite")' in app
     assert 'ensureContentSurface();' in app
     assert 'restoreAuthDestination(returnTo)' in app
+    assert 'returnTo === "#you" && !runHome.getSnapshot().currentUser' in app
+    assert 'closeDestination' in app
     assert 'beer-run:open-auth' in log
     assert 'returnTo: "#log"' in log
     assert 'beer-run:open-auth' in library

@@ -1,4 +1,7 @@
+import { showConfirmation } from "./confirmation.js?v=revamp-047-10";
+
 const SELECTED_ENTRY_KEY = "beerRun.revamp.selectedEntry";
+const SELECTED_ENTRY_ZOOM = 16;
 const el = (tag, className = "", text = "") => {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -81,14 +84,14 @@ function detailFor(entry, { canManage, onClose, onEdit, onDelete }) {
     edit.addEventListener("click", () => onEdit(entry));
     const remove = el("button", "button button--danger", "Delete drink");
     remove.type = "button";
-    remove.addEventListener("click", () => onDelete(entry));
+    remove.addEventListener("click", (event) => onDelete(entry, event.currentTarget));
     actions.append(edit, remove);
     detail.append(actions);
   }
   return detail;
 }
 
-export function createMapController({ root = document, getSnapshot, navigate }) {
+export function createMapController({ root = document, api, auth, getSnapshot, refresh, navigate }) {
   let active = false;
   let renderedRunId = null;
   let selectedUsername = "";
@@ -200,6 +203,7 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
     clearSelection();
     root.querySelector("[data-map-detail]")?.remove();
     root.querySelector("[data-map-workspace]")?.classList.remove("has-detail");
+    resizeMap();
     root.querySelector("[data-map-canvas]")?.focus({ preventScroll: true });
   }
   function showDetail(entry) {
@@ -216,9 +220,81 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
         document.dispatchEvent(new CustomEvent("beer-run:edit-entry", { detail: selected }));
         navigate("log");
       },
-      onDelete: (selected) => {
-        document.dispatchEvent(new CustomEvent("beer-run:delete-entry", { detail: selected }));
-        root.querySelector("[data-map-status]").textContent = "Delete confirmation will be added with drink editing.";
+      onDelete: (selected, trigger) => {
+        const opened = data();
+        const target = {
+          userId: opened.identity?.id,
+          token: auth.getAccessToken(),
+          runId: opened.run?.id,
+          entryId: selected.id,
+        };
+        const targetIsCurrent = () => {
+          const current = data();
+          return current.identity?.id === target.userId
+            && auth.getAccessToken() === target.token
+            && Number(current.run?.id) === Number(target.runId);
+        };
+        void (async () => {
+          const outcome = await showConfirmation({
+          root,
+          trigger,
+          focusFallback: () => root.querySelector("[data-map-canvas]"),
+          title: "Delete this drink?",
+          message: selected.image_path
+            ? "This action cannot be undone. The uploaded photo will also be deleted."
+            : "This action cannot be undone.",
+          subjectRows: [
+            ["Drink", titleFor(selected)],
+            ["Amount", quantityFor(selected.quantity)],
+            ["Run", data().run?.name],
+          ],
+          safeLabel: "Keep drink",
+          confirmLabel: "Delete permanently",
+          pendingLabel: "Deleting drink...",
+          onConfirm: async () => {
+            if (!targetIsCurrent()) return { ok: false, dismiss: true, reason: "identity-changed" };
+            const snapshot = data();
+            const current = snapshot.entries.find((entry) => Number(entry.id) === Number(selected.id));
+            if (!current || !canManage(current)) {
+              return { ok: false, dismiss: true, reason: "stale-target" };
+            }
+            const result = await api.deleteEntry(target.runId, target.entryId, target.token);
+            if (!result.ok) return {
+              ...result,
+              dismiss: [401, 403, 404].includes(result.status),
+              reason: result.status === 401 ? "session-rejected" : [403, 404].includes(result.status) ? "stale-target" : undefined,
+              message: [401, 403, 404].includes(result.status)
+                ? "This drink or your access changed before deletion completed. Refresh the run and review it again."
+                : result.network
+                  ? "Connection unavailable. Nothing was deleted. Check your connection and try again."
+                  : "This drink could not be deleted. Nothing was changed.",
+            };
+            return { ...result, ok: true, committed: true };
+          },
+          });
+          if (!targetIsCurrent()) return;
+          if (outcome?.result?.reason === "session-rejected") {
+            document.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
+            return;
+          }
+          if (outcome?.result?.reason === "stale-target") {
+            clearSelection();
+            await refresh?.();
+            return;
+          }
+          if (!outcome?.confirmed) return;
+          clearSelection();
+          let refreshed = null;
+          try {
+            refreshed = await refresh?.();
+          } catch {
+            // The deletion is already authoritative; manual refresh remains available.
+          }
+          const status = root.querySelector("[data-map-status]");
+          if (status) status.textContent = refreshed?.ok === false
+            ? `${titleFor(selected)} was deleted. Refresh to update the map.`
+            : `${titleFor(selected)} was deleted.`;
+        })();
       },
     }));
     markers.forEach((marker, id) => {
@@ -230,33 +306,33 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
       ? workspace.querySelector(".map-detail__back")
       : workspace.querySelector(".map-detail__close");
     focusTarget?.focus({ preventScroll: true });
+    resizeMap();
   }
   function focusEntry(entry) {
     const marker = markers.get(Number(entry.id));
-    if (marker && markerGroup?.zoomToShowLayer) {
-      markerGroup.zoomToShowLayer(marker, () => {
-        showDetail(entry);
-      });
-    } else {
-      if (marker) map?.setView(marker.getLatLng(), Math.max(map.getZoom(), 15));
+    if (!marker || !map) {
       showDetail(entry);
+      return;
     }
+    const requestedMap = map;
+    const revealMarker = () => {
+      if (map !== requestedMap || markers.get(Number(entry.id)) !== marker) return;
+      map.stop?.();
+      map.setView(marker.getLatLng(), Math.max(map.getZoom(), SELECTED_ENTRY_ZOOM), { animate: false });
+      showDetail(entry);
+    };
+    if (markerGroup?.zoomToShowLayer && markerGroup.hasLayer?.(marker)) {
+      markerGroup.zoomToShowLayer(marker, revealMarker);
+    } else revealMarker();
   }
   function markerFor(entry) {
-    const icon = window.L.divIcon({
-      className: "route-marker-shell",
-      html: '<span class="route-marker" aria-hidden="true"><span class="route-marker__beer"></span></span>',
-      iconSize: [38, 38],
-      iconAnchor: [19, 36],
-    });
     const accessibleTitle = `${titleFor(entry)} logged by ${entry.username || "a runner"}`;
     const marker = window.L.marker([Number(entry.latitude), Number(entry.longitude)], {
       alt: accessibleTitle,
-      icon,
       keyboard: true,
       title: accessibleTitle,
     });
-    marker.on("click", () => showDetail(entry));
+    marker.on("click", () => focusEntry(entry));
     markers.set(Number(entry.id), marker);
     return marker;
   }
@@ -282,7 +358,7 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
   function fitPins() {
     if (!map || !markerGroup || !markers.size) return;
     const bounds = markerGroup.getBounds?.();
-    if (bounds?.isValid()) map.fitBounds(bounds.pad(0.16), { maxZoom: 15 });
+    if (bounds?.isValid()) map.fitBounds(bounds.pad(0.16), { maxZoom: 15, animate: false });
   }
   function render() {
     if (!active) return;
@@ -367,6 +443,7 @@ export function createMapController({ root = document, getSnapshot, navigate }) 
     else if (selectedEntryId || storedId) clearSelection();
   }
   root.addEventListener("keydown", (event) => {
+    if (root.querySelector("dialog[open]")) return;
     if (active && event.key === "Escape" && isFallbackFullscreen()) {
       event.preventDefault();
       root.querySelector("[data-map-workspace]")?.classList.remove("is-fullscreen-fallback");

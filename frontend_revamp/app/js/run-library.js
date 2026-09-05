@@ -1,5 +1,6 @@
 import { updateRunSwitcher } from "./ui.js?v=revamp-025-12";
 import { buildInviteShareUrl } from "./invite.js?v=revamp-029-08";
+import { showConfirmation } from "./confirmation.js?v=revamp-047-10";
 
 const SEARCH_MIN_LENGTH = 2;
 const QUICK_SWITCHER_LIMIT = 6;
@@ -118,6 +119,45 @@ export function createRunLibraryController({
   let managementGeneration = 0;
 
   const main = () => root.querySelector("main");
+  const mutationTarget = (run) => ({
+    userId: getSnapshot().currentUser?.id,
+    token: auth.getAccessToken(),
+    runId: run.id,
+  });
+  const targetIsCurrent = (target) => (
+    getSnapshot().currentUser?.id === target.userId
+    && auth.getAccessToken() === target.token
+    && Number(getSnapshot().currentRun?.id) === Number(target.runId)
+  );
+  const identityIsCurrent = (target) => (
+    getSnapshot().currentUser?.id === target.userId
+    && auth.getAccessToken() === target.token
+  );
+
+  async function reconcileRunMutation(outcome, target, { successMessage, staleMessage }) {
+    if (!identityIsCurrent(target)) return;
+    if (outcome?.result?.reason === "session-rejected") {
+      document.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
+      return;
+    }
+    if (!outcome?.confirmed && outcome?.result?.reason !== "stale-target") return;
+    announcement = outcome.confirmed ? successMessage : staleMessage;
+    try {
+      await onIdentityChange?.();
+      if (!identityIsCurrent(target)) return;
+      view = "library";
+      history.replaceState(null, "", "#runs");
+      await load();
+    } catch {
+      view = "library";
+      history.replaceState(null, "", "#runs");
+      announcement = outcome.confirmed
+        ? `${successMessage} Refresh the run library to update this view.`
+        : staleMessage;
+      renderLibrary();
+    }
+    main()?.querySelector("#run-library-heading")?.focus?.({ preventScroll: true });
+  }
 
   function setTriggerState(isOpen) {
     const trigger = root.querySelector("[data-run-switcher]");
@@ -700,51 +740,6 @@ export function createRunLibraryController({
     status.classList.toggle("is-error", error);
   }
 
-  function confirmation({ eyebrow = "Permanent action", title, message, confirmLabel, danger = true, exactText = "" }) {
-    return new Promise((resolve) => {
-      const dialog = element("dialog", "manage-confirmation");
-      const panel = element("div", "manage-confirmation__panel");
-      panel.append(element("p", "eyebrow", eyebrow), element("h2", "", title), element("p", "", message));
-      let confirmationInput = null;
-      if (exactText) {
-        const label = element("label", "manage-field manage-confirmation__field");
-        label.append(element("span", "manage-field__label", "Type the exact run name to confirm"));
-        confirmationInput = element("input", "manage-field__input");
-        confirmationInput.type = "text";
-        confirmationInput.autocomplete = "off";
-        confirmationInput.spellcheck = false;
-        confirmationInput.setAttribute("aria-describedby", "delete-run-confirmation-hint");
-        label.append(confirmationInput);
-        const hint = element("span", "manage-confirmation__hint", exactText);
-        hint.id = "delete-run-confirmation-hint";
-        label.append(hint);
-        panel.append(label);
-      }
-      const actions = element("div", "manage-actions");
-      const cancel = action(exactText ? "Keep this run" : "Cancel", "button button--secondary");
-      const confirm = action(confirmLabel, danger ? "button button--danger" : "button button--primary");
-      if (confirmationInput) confirm.disabled = true;
-      actions.append(cancel, confirm);
-      panel.append(actions);
-      dialog.append(panel);
-      const finish = (accepted) => {
-        if (dialog.open && typeof dialog.close === "function") dialog.close();
-        dialog.remove();
-        resolve(accepted);
-      };
-      cancel.addEventListener("click", () => finish(false));
-      confirm.addEventListener("click", () => finish(true));
-      confirmationInput?.addEventListener("input", () => {
-        confirm.disabled = confirmationInput.value !== exactText;
-      });
-      dialog.addEventListener("cancel", (event) => { event.preventDefault(); finish(false); });
-      document.body.append(dialog);
-      if (typeof dialog.showModal === "function") dialog.showModal();
-      else dialog.setAttribute("open", "");
-      (confirmationInput || cancel).focus({ preventScroll: true });
-    });
-  }
-
   function renderCreate() {
     const target = prepareSurface();
     if (!target) return;
@@ -1026,35 +1021,72 @@ export function createRunLibraryController({
     back.addEventListener("click", () => openView("library"));
     content.querySelector("[data-manage-leave]")?.addEventListener("click", async (event) => {
       const trigger = event.currentTarget;
-      if (!await confirmation({
+      const target = mutationTarget(run);
+      const outcome = await showConfirmation({
+        root,
+        trigger,
+        focusFallback: () => root.querySelector("[data-manage-leave], #run-library-heading, main"),
         eyebrow: "Membership change",
         title: `Leave ${run.name}?`,
         message: run.is_public
           ? "You will leave this run, but you can still view it publicly. Your recorded pours will stay."
           : "You will lose access to this private run, but your recorded pours will stay.",
+        subjectRows: [["Run", run.name], ["History", "Your recorded pours stay"]],
+        safeLabel: "Stay in this run",
         confirmLabel: "Leave run",
-      })) return;
-      trigger.disabled = true;
-      const leave = await api.leaveBeerRun(run.id, auth.getAccessToken());
-      if (!leave.ok) { trigger.disabled = false; danger.append(inlineError(apiMessage(leave, "You could not leave this run."))); return; }
-      await onIdentityChange?.();
-      history.replaceState(null, "", "#runs");
-      openView("library", { push: false });
+        pendingLabel: "Leaving run...",
+        onConfirm: async () => {
+          if (!targetIsCurrent(target)) return { ok: false, dismiss: true, reason: "identity-changed" };
+          const leave = await api.leaveBeerRun(target.runId, target.token);
+          if (!leave.ok) return {
+            ...leave,
+            dismiss: [401, 403, 404].includes(leave.status),
+            reason: leave.status === 401 ? "session-rejected" : [403, 404].includes(leave.status) ? "stale-target" : undefined,
+            message: [401, 403, 404].includes(leave.status)
+              ? "Your membership changed before this action completed. Refresh and review the run again."
+              : apiMessage(leave, "You could not leave this run. Nothing was changed."),
+          };
+          return { ...leave, ok: true, committed: true };
+        },
+      });
+      await reconcileRunMutation(outcome, target, {
+        successMessage: `You left ${run.name}.`,
+        staleMessage: "Your membership changed. The run library has been refreshed.",
+      });
     });
     content.querySelector("[data-manage-delete]")?.addEventListener("click", async (event) => {
       const trigger = event.currentTarget;
-      if (!await confirmation({
+      const target = mutationTarget(run);
+      const outcome = await showConfirmation({
+        root,
+        trigger,
+        focusFallback: () => root.querySelector("[data-manage-delete], #run-library-heading, main"),
         title: "Delete this run?",
         message: `Deleting “${run.name}” permanently removes its entries, uploaded photos, memberships, invite link, and history. This cannot be undone.`,
+        subjectRows: [["Run", run.name], ["Scope", "Everyone in this run"]],
+        safeLabel: "Keep this run",
         confirmLabel: "Delete permanently",
+        pendingLabel: "Deleting run...",
         exactText: run.name,
-      })) return;
-      trigger.disabled = true;
-      const removed = await api.deleteBeerRun(run.id, auth.getAccessToken());
-      if (!removed.ok) { trigger.disabled = false; danger.append(inlineError(apiMessage(removed, "This run could not be deleted."))); return; }
-      await onIdentityChange?.();
-      history.replaceState(null, "", "#runs");
-      openView("library", { push: false });
+        exactTextLabel: "Type the exact run name to confirm",
+        onConfirm: async () => {
+          if (!targetIsCurrent(target)) return { ok: false, dismiss: true, reason: "identity-changed" };
+          const removed = await api.deleteBeerRun(target.runId, target.token);
+          if (!removed.ok) return {
+            ...removed,
+            dismiss: [401, 403, 404].includes(removed.status),
+            reason: removed.status === 401 ? "session-rejected" : [403, 404].includes(removed.status) ? "stale-target" : undefined,
+            message: [401, 403, 404].includes(removed.status)
+              ? "This run or your owner access changed. Refresh before trying again."
+              : apiMessage(removed, "This run could not be deleted. Nothing was changed."),
+          };
+          return { ...removed, ok: true, committed: true };
+        },
+      });
+      await reconcileRunMutation(outcome, target, {
+        successMessage: `${run.name} was deleted.`,
+        staleMessage: "This run or your owner access changed. The run library has been refreshed.",
+      });
     });
   }
 

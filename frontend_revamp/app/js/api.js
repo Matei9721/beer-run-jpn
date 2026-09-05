@@ -77,6 +77,19 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
       return readJson(fetchImpl, "/api/me", { token, signal });
     },
 
+    fetchAccountDeletionSummary(token, signal = null) {
+      return readJson(fetchImpl, "/api/me/deletion-summary", { token, signal });
+    },
+
+    deleteAccount(password, confirmation, token, signal = null) {
+      return writeJson(fetchImpl, "/api/me", {
+        method: "DELETE",
+        token,
+        body: { password, confirmation },
+        signal,
+      });
+    },
+
     fetchLegalMetadata(signal = null) {
       return readJson(fetchImpl, "/api/legal/metadata", { signal });
     },
@@ -167,6 +180,14 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
         method: "PATCH",
         headers: authHeaders(token),
         body: formData,
+        signal,
+      });
+    },
+
+    deleteEntry(beerRunId, entryId, token, signal = null) {
+      return writeJson(fetchImpl, `/api/beer-runs/${encodeURIComponent(beerRunId)}/entries/${encodeURIComponent(entryId)}`, {
+        method: "DELETE",
+        token,
         signal,
       });
     },

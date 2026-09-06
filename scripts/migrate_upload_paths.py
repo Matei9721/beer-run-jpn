@@ -12,11 +12,11 @@ import sys
 import uuid
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-if str(BASE_DIR) not in sys.path:
-    sys.path.append(str(BASE_DIR))
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from migrations.runner import MigrationError, validate_database_ready
+from beer_run.migrations.runner import MigrationError, validate_database_ready
 
 
 STATIC_UPLOAD_PREFIX = "static/uploads"

@@ -18,9 +18,7 @@ from PIL import Image
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
-import auth
-import main
-import models
+from beer_run import auth, main, models
 
 
 EXPECTED_ENTRY_FIELDS = {

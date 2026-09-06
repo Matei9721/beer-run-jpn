@@ -13,7 +13,7 @@ the endpoint integration tests in ``test_beer_run_crud.py``.
 import pytest
 from fastapi import HTTPException
 
-import permissions
+from beer_run import permissions
 
 MISSING_RUN_ID = 99999
 

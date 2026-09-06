@@ -6,8 +6,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-import models
-from migrations.runner import apply_migrations
+from beer_run import models
+from beer_run.migrations.runner import apply_migrations
 
 
 def make_session(tmp_path):

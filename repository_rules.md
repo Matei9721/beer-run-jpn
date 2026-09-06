@@ -24,10 +24,10 @@ reset, commit, overwrite, or destructively migrate `boozerun.db`,
 `boozerun_backup.db`, `test.db`, `users.json`, `static/uploads/`, or local caches
 without direct user instruction.
 
-Schema and persisted-data changes must account for `models.py`, API
-serialization in `main.py`, and the migration path in `migrations/` plus
-`scripts/migrate_db.py`. Account for `scripts/setup_db.py` when user setup is
-affected.
+Schema and persisted-data changes must account for `src/beer_run/models.py`, API
+serialization in `src/beer_run/main.py`, and the migration path in
+`src/beer_run/migrations/` plus `scripts/migrate_db.py`. Account for
+`scripts/setup_db.py` when user setup is affected.
 
 ### III. Verification Is Required For Changed Behavior
 
@@ -68,15 +68,17 @@ explicitly requests otherwise.
 - Python 3.13+, FastAPI, SQLAlchemy 2.x, SQLite, Pydantic, Pillow, pytest, and `uv`
 - Vanilla HTML/CSS/ES modules with Leaflet CDN assets
 - Uvicorn for local serving and Caddy for local HTTPS
-- `main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
-- `auth_routes.py`: login, signup, current-user routes, and signup request error handling
-- `auth.py`: JWT creation/validation and password hashing
-- `database.py`: SQLite engine/session setup
-- `models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
-- `schemas.py`: API request and response models
-- `migrations/`: ordered SQLite migrations; use `scripts/migrate_db.py`
+- `src/beer_run/main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
+- `src/beer_run/auth_routes.py`: login, signup, current-user routes, and signup request error handling
+- `src/beer_run/auth.py`: JWT creation/validation and password hashing
+- `src/beer_run/database.py`: SQLite engine/session setup
+- `src/beer_run/models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
+- `src/beer_run/schemas.py`: API request and response models
+- `src/beer_run/migrations/`: ordered SQLite migrations; use `scripts/migrate_db.py`
 - `scripts/`: migration, user-management, setup, and generated-data utilities
-- `templates/` and `static/`: browser-facing UI; no bundler
+- `src/frontend/app/`: production Route Stamp UI and its local assets; no bundler
+- `src/frontend/pages/` and `src/frontend/static/`: direct legal and Wrapped surfaces
+- `static/uploads/`: runtime uploads retained at their stable public URL
 - `tests/`: pytest coverage using an isolated database
 - `specs/`: durable feature specifications and design history; keep these even
   when the workflow or tool that produced them is retired
@@ -106,9 +108,8 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
 
 ## Files And Runtime State
 
-- Treat `main.py`, `auth_routes.py`, `auth.py`, `database.py`, `models.py`, `schemas.py`,
-  `migrations/`, `scripts/`, `templates/`, `static/css`, `static/js`, tests,
-  specifications, and project metadata as source or durable project material.
+- Treat `src/beer_run/`, `src/frontend/`, `scripts/`, tests, specifications, and
+  project metadata as source or durable project material.
 - Treat `boozerun.db`, `boozerun_backup.db`, `test.db`, `users.json`,
   `static/uploads/`, `.venv/`, `.uv-cache/`, `.pytest_cache/`,
   `.playwright-cli/`, `.idea/`, and `__pycache__/` as runtime or local state.
@@ -143,27 +144,27 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
   read access only; writing still requires that user's current membership.
 - Keep public API response shapes stable unless frontend consumers and tests are
   updated in the same change.
-- Keep JWT/password/configuration primitives in `auth.py` and auth-facing HTTP
-  flows in `auth_routes.py`; the frontend stores the access token in
+- Keep JWT/password/configuration primitives in `src/beer_run/auth.py` and
+  auth-facing HTTP flows in `src/beer_run/auth_routes.py`; the frontend stores the access token in
   `localStorage` under `access_token`.
 - Uploaded images are normalized and stored under `static/uploads/`. Keep image
-  handling in `main.py` unless it grows enough to justify extraction.
+  handling in `src/beer_run/main.py` unless it grows enough to justify extraction.
 
 ## Frontend Rules
 
 Retain these browser module responsibilities:
 
-- `static/js/modules/api.js`: network calls
-- `static/js/modules/auth.js`: token and auth UI state
-- `static/js/modules/map.js`: Leaflet and marker behavior
-- `static/js/modules/ui.js`: rendering and UI helpers
-- `static/js/modules/beer-runs.js`: run-picker UI and selected-run storage key
-- `static/js/app.js`: application orchestration
-- `static/js/wrapped.js`: Wrapped reel behavior
+- `src/frontend/app/js/api.js`: network calls
+- `src/frontend/app/js/auth.js`: token and auth UI state
+- `src/frontend/app/js/map.js`: Leaflet and marker behavior
+- `src/frontend/app/js/ui.js`: rendering and UI helpers
+- `src/frontend/app/js/run-selection.js`, `run-home.js`, and `run-library.js`: run selection and management
+- `src/frontend/app/js/app.js`: application orchestration
+- `src/frontend/static/js/wrapped.js`: Wrapped reel behavior
 
 When changing deployed static JavaScript or CSS, update relevant cache-busting
-query strings in `templates/index.html`, `templates/wrapped.html`, and module
-imports in `static/js/app.js` as applicable.
+query strings in `src/frontend/app/index.html`, `src/frontend/pages/wrapped.html`,
+and production module imports as applicable.
 
 CDN-backed dependencies can make browser behavior network-dependent; pytest does
 not validate CDN loading. Inspect frontend changes in the running local app with
@@ -194,10 +195,10 @@ After changing Wrapped templates, CSS, JavaScript, or generated data, inspect
 uv sync
 
 # Run locally
-uv --cache-dir .uv-cache run uvicorn main:app --host 127.0.0.1 --port 8000
+uv --cache-dir .uv-cache run uvicorn beer_run.main:app --app-dir src --host 127.0.0.1 --port 8000
 
 # Run for LAN/mobile access
-uv --cache-dir .uv-cache run uvicorn main:app --host 0.0.0.0 --port 8000
+uv --cache-dir .uv-cache run uvicorn beer_run.main:app --app-dir src --host 0.0.0.0 --port 8000
 
 # Run tests
 uv --cache-dir .uv-cache run pytest

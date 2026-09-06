@@ -9,25 +9,27 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-TEST_DB_PATH = Path(tempfile.gettempdir()) / "beer-run-jpn-test.db"
+TEST_RUNTIME_ROOT = Path(tempfile.mkdtemp(prefix="beer-run-jpn-tests-"))
+TEST_DB_PATH = TEST_RUNTIME_ROOT / "beer-run-jpn-test.db"
 os.environ["BOOZERUN_DATABASE_PATH"] = str(TEST_DB_PATH)
 os.environ["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
+os.environ["BOOZERUN_UPLOAD_ROOT"] = str(TEST_RUNTIME_ROOT / "uploads")
+os.environ["BOOZERUN_QUARANTINE_ROOT"] = str(TEST_RUNTIME_ROOT / "quarantine")
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(32)
 TEST_SIGNUP_CODE = "test-only-private-signup-code"
 os.environ["SIGNUP_CODE"] = TEST_SIGNUP_CODE
 os.environ["LEGAL_CONTROLLER_NAME"] = "Test Controller"
 os.environ["LEGAL_CONTACT_EMAIL"] = "privacy@example.test"
 
-import auth
-import models
-from database import get_db
-from migrations.runner import apply_migrations
+from beer_run import auth, models
+from beer_run.database import get_db
+from beer_run.migrations.runner import apply_migrations
 
 if TEST_DB_PATH.exists():
     TEST_DB_PATH.unlink()
 apply_migrations(TEST_DB_PATH)
 
-from main import app
+from beer_run.main import app
 
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"

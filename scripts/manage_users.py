@@ -1,18 +1,19 @@
 import os
-import sys
 import argparse
+from pathlib import Path
+import sys
 from typing import Callable
 
-# Add the project root to sys.path so we can import local modules
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import SessionLocal
-import models
-from auth import get_password_hash
-from migrations.runner import validate_database_ready
+from beer_run import models
+from beer_run.auth import get_password_hash
+from beer_run.database import SessionLocal
+from beer_run.migrations.runner import validate_database_ready
 
 def _normalize_username(username: str) -> str:
     normalized = (username or "").strip()

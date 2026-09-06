@@ -14,9 +14,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import pytest
 from sqlalchemy.orm import Session
 
-import auth
-import invite_routes
-import models
+from beer_run import auth, invite_routes, models
 
 INVITE_CODE_RE = re.compile(r"[A-Za-z0-9_-]{43}\Z")
 MISSING_RUN_ID = 99999

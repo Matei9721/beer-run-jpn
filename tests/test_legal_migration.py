@@ -7,10 +7,12 @@ import sqlite3
 
 import pytest
 
-from migrations.runner import apply_migrations
+from beer_run.migrations.runner import apply_migrations
 
 
-migration = importlib.import_module("migrations.versions.008_add_terms_acceptances")
+migration = importlib.import_module(
+    "beer_run.migrations.versions.008_add_terms_acceptances"
+)
 
 
 def _columns(conn: sqlite3.Connection) -> set[str]:

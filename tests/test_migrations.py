@@ -5,8 +5,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from migrations import runner
-from migrations.runner import Migration, MigrationRequired, apply_migrations, validate_database_ready
+from beer_run.migrations import runner
+from beer_run.migrations.runner import (
+    Migration,
+    MigrationRequired,
+    apply_migrations,
+    validate_database_ready,
+)
 from scripts.migrate_db import main as migrate_main
 
 
@@ -590,7 +595,9 @@ def test_backfill_rerun_preserves_assignments_and_totals(tmp_path):
 def test_backfill_preserves_entries_assigned_to_other_runs(tmp_path, monkeypatch):
     db_path = tmp_path / "existing.db"
     create_current_schema_without_history(db_path)
-    beer_run_schema_module = importlib.import_module("migrations.versions.002_add_beer_run_schema")
+    beer_run_schema_module = importlib.import_module(
+        "beer_run.migrations.versions.002_add_beer_run_schema"
+    )
     monkeypatch.setattr(
         runner,
         "MIGRATIONS",
@@ -605,7 +612,20 @@ def test_backfill_preserves_entries_assigned_to_other_runs(tmp_path, monkeypatch
         other_run_id = conn.execute("SELECT id FROM beer_runs WHERE name = 'Other Run'").fetchone()[0]
         conn.execute("UPDATE entries SET beer_run_id = ? WHERE id = 1", (other_run_id,))
 
-    monkeypatch.setattr(runner, "MIGRATIONS", runner.MIGRATIONS + (Migration("003_backfill_existing_trip", "Backfill existing trip into BeerRunJPN", importlib.import_module("migrations.versions.003_backfill_existing_trip")),))
+    monkeypatch.setattr(
+        runner,
+        "MIGRATIONS",
+        runner.MIGRATIONS
+        + (
+            Migration(
+                "003_backfill_existing_trip",
+                "Backfill existing trip into BeerRunJPN",
+                importlib.import_module(
+                    "beer_run.migrations.versions.003_backfill_existing_trip"
+                ),
+            ),
+        ),
+    )
     apply_migrations(db_path)
 
     with sqlite3.connect(db_path) as conn:

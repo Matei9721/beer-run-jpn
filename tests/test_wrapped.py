@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 
-import main
+from beer_run import main
 from scripts.build_wrapped_data import build_wrapped_data
 
 
@@ -67,7 +67,7 @@ def test_legacy_artifact_is_available_only_to_canonical_run(client, tmp_path, mo
         encoding="utf-8",
     )
     monkeypatch.setattr(main, "WRAPPED_DATA_DIR", tmp_path / "missing")
-    monkeypatch.setattr(main, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(main, "DATA_ROOT", tmp_path / "data")
 
     response = client.get(f"/api/beer-runs/{canonical_id}/wrapped")
 

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 565 210" color="#132C25" role="img" aria-labelledby="beer-run-wordmark-title beer-run-wordmark-description">
+  <title id="beer-run-wordmark-title">BeerRun</title>
+  <desc id="beer-run-wordmark-description">The BeerRun name begins with a golden beer-filled capital B, with Run in coral.</desc>
+  <style>
+    @font-face {
+      font-family: "Barlow Condensed";
+      src: url("../../fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 700;
+    }
+  </style>
+  <defs>
+    <path id="beer-run-wordmark-vessel" fill-rule="evenodd" d="M38 66C38 52 49 41 64 40C69 22 87 14 103 23C115 8 139 11 148 29C162 27 176 37 180 52C190 60 195 73 195 88C195 108 186 123 169 133C189 141 201 159 201 181C201 217 172 237 126 237H38V66ZM81 76V119H111C130 119 141 111 141 97C141 83 130 76 111 76H81ZM81 153V201H118C139 201 151 192 151 177C151 162 139 153 118 153H81Z"/>
+    <clipPath id="beer-run-wordmark-clip">
+      <use href="#beer-run-wordmark-vessel"/>
+    </clipPath>
+  </defs>
+
+  <g id="beer-run-wordmark">
+    <g transform="translate(4 -2) scale(.82)">
+      <use href="#beer-run-wordmark-vessel" fill="#F4AA27"/>
+      <g clip-path="url(#beer-run-wordmark-clip)">
+        <path fill="#FFF0D2" d="M20 0H216V66C203 64 194 69 183 68C169 67 165 83 151 85C133 88 126 68 110 70C93 72 91 88 75 93C57 98 46 87 20 88V0Z"/>
+        <path d="M59 111V192" fill="none" stroke="#FFD66E" stroke-linecap="round" stroke-width="8" opacity=".78"/>
+      </g>
+      <use href="#beer-run-wordmark-vessel" fill="none" stroke="#132C25" stroke-linejoin="round" stroke-width="10"/>
+    </g>
+    <text x="174" y="163" fill="currentColor" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5">eer</text>
+    <text x="346" y="163" fill="#B33C2E" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5">Run</text>
+  </g>
+
+</svg>

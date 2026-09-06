@@ -1,3 +1,5 @@
+import { createBrandWordmark } from "./ui.js?v=revamp-094-brand-outline";
+
 const ONBOARDING_STORAGE_KEY = "beer_run_revamp_onboarding_complete";
 const ONBOARDING_VERSION = "route-stamp-v5";
 
@@ -50,10 +52,8 @@ export function createOnboardingController({ root = document, storage = localSto
     const surface = element("section", "onboarding-surface");
     const top = element("header", "onboarding-topbar");
     const brand = element("span", "onboarding-brand brand-wordmark");
-    const name = element("span", "brand-wordmark__name");
-    name.setAttribute("aria-hidden", "true");
-    name.append(element("span", "", "Beer"), element("span", "", "Run"));
-    brand.append(name);
+    brand.setAttribute("aria-label", "BeerRun");
+    brand.append(createBrandWordmark());
     const skip = element("button", "button button--quiet onboarding-skip", "Skip for now");
     skip.type = "button";
     skip.dataset.onboardingSkip = "";

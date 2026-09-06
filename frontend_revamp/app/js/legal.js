@@ -1,3 +1,5 @@
+import { createBrandWordmark } from "./ui.js?v=revamp-094-brand-outline";
+
 const DOCUMENTS = Object.freeze({
   terms: { url: "/terms", label: "Terms" },
   privacy: { url: "/privacy", label: "Privacy" },
@@ -15,10 +17,7 @@ function brand() {
   identity.href = "#landing";
   identity.dataset.showLanding = "";
   identity.setAttribute("aria-label", "BeerRun landing page");
-  const name = element("span", "brand-wordmark__name");
-  name.setAttribute("aria-hidden", "true");
-  name.append(element("span", "", "Beer"), element("span", "", "Run"));
-  identity.append(name);
+  identity.append(createBrandWordmark());
   return identity;
 }
 

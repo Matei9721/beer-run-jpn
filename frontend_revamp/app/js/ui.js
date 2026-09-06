@@ -5,6 +5,21 @@ const element = (tag, className = "", text = "") => {
   return node;
 };
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const BRAND_WORDMARK_URL = "/revamp-assets/assets/brand/final/beer-run-wordmark.svg?v=revamp-094-brand-outline#beer-run-wordmark";
+
+export function createBrandWordmark() {
+  const artwork = document.createElementNS(SVG_NAMESPACE, "svg");
+  artwork.setAttribute("class", "brand-wordmark__asset");
+  artwork.setAttribute("viewBox", "0 0 565 210");
+  artwork.setAttribute("aria-hidden", "true");
+  artwork.setAttribute("focusable", "false");
+  const use = document.createElementNS(SVG_NAMESPACE, "use");
+  use.setAttribute("href", BRAND_WORDMARK_URL);
+  artwork.append(use);
+  return artwork;
+}
+
 function homeRoot(root) {
   return root.querySelector("[data-run-home]");
 }

@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-092-connected-pages"
+ASSET_VERSION = "revamp-094-brand-outline"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -165,14 +165,33 @@ def test_revamp_pages_share_the_landing_wordmark_and_link_back_to_it():
     assert html.count('class="brand-wordmark landing-wordmark"') == 1
     assert 'product-identity brand-wordmark' in html
     assert 'data-show-landing' in html
-    assert '.brand-wordmark::before' in css
-    assert '.brand-wordmark::after' in css
-    assert '.brand-wordmark__name span:last-child' in css
+    assert '.brand-wordmark__asset' in css
+    assert html.count(f'beer-run-wordmark.svg?v={ASSET_VERSION}#beer-run-wordmark') == 2
+    assert 'createBrandWordmark' in auth
+    assert 'createBrandWordmark' in legal
+    assert 'createBrandWordmark' in onboarding
     assert 'auth-brand brand-wordmark' in auth
     assert 'product-identity brand-wordmark legal-view__brand' in legal
     assert 'onboarding-brand brand-wordmark' in onboarding
     assert 'identity.dataset.showLanding = ""' in auth
     assert 'identity.dataset.showLanding = ""' in legal
+
+
+def test_revamp_brand_assets_are_finalized_and_the_mark_is_the_favicon(client):
+    html = (REVAMP_ROOT / "index.html").read_text(encoding="utf-8")
+    final_brand_root = REVAMP_ROOT / "assets" / "brand" / "final"
+
+    assert 'rel="icon"' in html
+    assert f'/revamp-assets/assets/brand/final/beer-run-mark.svg?v={ASSET_VERSION}' in html
+    assert {path.name for path in final_brand_root.glob("*.svg")} == {
+        "beer-run-logo-loop.svg",
+        "beer-run-loading.svg",
+        "beer-run-mark.svg",
+        "beer-run-wordmark.svg",
+    }
+    assert client.get(f"/revamp-assets/assets/brand/final/beer-run-mark.svg?v={ASSET_VERSION}").status_code == 200
+    assert client.get(f"/revamp-assets/assets/brand/final/beer-run-loading.svg?v={ASSET_VERSION}").status_code == 200
+    assert "prefers-reduced-motion: reduce" in (final_brand_root / "beer-run-loading.svg").read_text(encoding="utf-8")
 
 
 def test_foundation_encodes_theme_motion_and_responsive_contracts():

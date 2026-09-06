@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-092-connected-pages";
-import { createApiClient } from "./api.js?v=revamp-092-connected-pages";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-092-connected-pages";
-import { createFormState } from "./form-state.js?v=revamp-092-connected-pages";
-import { createInviteController } from "./invite.js?v=revamp-092-connected-pages";
-import { createLandingController } from "./landing.js?v=revamp-092-connected-pages";
-import { createLegalController } from "./legal.js?v=revamp-092-connected-pages";
-import { createMapController } from "./map.js?v=revamp-092-connected-pages";
-import { createLogController } from "./log.js?v=revamp-092-connected-pages";
-import { bindNavigation } from "./navigation.js?v=revamp-092-connected-pages";
-import { createRunHomeController } from "./run-home.js?v=revamp-092-connected-pages";
-import { createRunLibraryController } from "./run-library.js?v=revamp-092-connected-pages";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-092-connected-pages";
-import { createStandingsController } from "./standings.js?v=revamp-092-connected-pages";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-092-connected-pages";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-092-connected-pages";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-092-connected-pages";
+import { createAccountController } from "./account.js?v=revamp-094-brand-outline";
+import { createApiClient } from "./api.js?v=revamp-094-brand-outline";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-094-brand-outline";
+import { createFormState } from "./form-state.js?v=revamp-094-brand-outline";
+import { createInviteController } from "./invite.js?v=revamp-094-brand-outline";
+import { createLandingController } from "./landing.js?v=revamp-094-brand-outline";
+import { createLegalController } from "./legal.js?v=revamp-094-brand-outline";
+import { createMapController } from "./map.js?v=revamp-094-brand-outline";
+import { createLogController } from "./log.js?v=revamp-094-brand-outline";
+import { bindNavigation } from "./navigation.js?v=revamp-094-brand-outline";
+import { createRunHomeController } from "./run-home.js?v=revamp-094-brand-outline";
+import { createRunLibraryController } from "./run-library.js?v=revamp-094-brand-outline";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-094-brand-outline";
+import { createStandingsController } from "./standings.js?v=revamp-094-brand-outline";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-094-brand-outline";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-094-brand-outline";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-094-brand-outline";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 

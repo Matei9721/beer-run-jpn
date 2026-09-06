@@ -1,3 +1,5 @@
+import { createBrandWordmark } from "./ui.js?v=revamp-094-brand-outline";
+
 export const ACCESS_TOKEN_KEY = "access_token";
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -60,10 +62,7 @@ function brand({ desktop = false } = {}) {
   identity.href = "#landing";
   identity.dataset.showLanding = "";
   identity.setAttribute("aria-label", "BeerRun landing page");
-  const name = element("span", "brand-wordmark__name");
-  name.setAttribute("aria-hidden", "true");
-  name.append(element("span", "", "Beer"), element("span", "", "Run"));
-  identity.append(name);
+  identity.append(createBrandWordmark());
   return identity;
 }
 

@@ -6,7 +6,7 @@ const element = (tag, className = "", text = "") => {
 };
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-const BRAND_WORDMARK_URL = "/revamp-assets/assets/brand/final/beer-run-wordmark.svg?v=revamp-094-brand-outline#beer-run-wordmark";
+const BRAND_WORDMARK_URL = "/revamp-assets/assets/brand/final/beer-run-wordmark.svg?v=revamp-095-mobile-hero#beer-run-wordmark";
 
 export function createBrandWordmark() {
   const artwork = document.createElementNS(SVG_NAMESPACE, "svg");

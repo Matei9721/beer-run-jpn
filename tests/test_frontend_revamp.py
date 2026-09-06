@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-094-brand-outline"
+ASSET_VERSION = "revamp-095-mobile-hero"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -108,6 +108,7 @@ def test_landing_page_routes_into_existing_revamp_flows():
     assert '@media (max-width: 767px)' in css
     mobile_css = css.split('@media (max-width: 767px)', 1)[1]
     assert '.landing-photo-map' in mobile_css
+    assert 'min-height: calc(100dvh - 64px);' in mobile_css
     assert 'height: clamp(300px, 78vw, 340px);' in mobile_css
     assert 'overflow-x: auto' not in mobile_css
     assert '-webkit-mask-image: linear-gradient' in css
@@ -125,6 +126,7 @@ def test_landing_page_routes_into_existing_revamp_flows():
     assert 'height: 108%;' not in css
     assert 'height: 110%;' not in mobile_css
     assert 'transparent 36%' in mobile_css
+    assert 'rgb(0 0 0 / 0.12)' in mobile_css
     assert '--photo-rotation: -4.5deg;' in css
     photo_card_css = css.split('.landing-photo-rail figure {', 1)[1].split('}', 1)[0]
     assert 'box-shadow: none;' in photo_card_css

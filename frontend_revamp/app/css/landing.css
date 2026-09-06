@@ -578,7 +578,7 @@ body.landing-view {
   }
 
   .landing-hero {
-    min-height: auto;
+    min-height: calc(100dvh - 64px);
     align-items: start;
     padding-block: 28px;
   }
@@ -615,8 +615,8 @@ body.landing-view {
   }
 
   .landing-photo-map__canvas {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.32) 90%, transparent);
-    mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.32) 90%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.28) 90%, rgb(0 0 0 / 0.12));
+    mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.28) 90%, rgb(0 0 0 / 0.12));
   }
 
   .landing-photo-rail figure {

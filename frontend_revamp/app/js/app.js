@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-094-brand-outline";
-import { createApiClient } from "./api.js?v=revamp-094-brand-outline";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-094-brand-outline";
-import { createFormState } from "./form-state.js?v=revamp-094-brand-outline";
-import { createInviteController } from "./invite.js?v=revamp-094-brand-outline";
-import { createLandingController } from "./landing.js?v=revamp-094-brand-outline";
-import { createLegalController } from "./legal.js?v=revamp-094-brand-outline";
-import { createMapController } from "./map.js?v=revamp-094-brand-outline";
-import { createLogController } from "./log.js?v=revamp-094-brand-outline";
-import { bindNavigation } from "./navigation.js?v=revamp-094-brand-outline";
-import { createRunHomeController } from "./run-home.js?v=revamp-094-brand-outline";
-import { createRunLibraryController } from "./run-library.js?v=revamp-094-brand-outline";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-094-brand-outline";
-import { createStandingsController } from "./standings.js?v=revamp-094-brand-outline";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-094-brand-outline";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-094-brand-outline";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-094-brand-outline";
+import { createAccountController } from "./account.js?v=revamp-095-mobile-hero";
+import { createApiClient } from "./api.js?v=revamp-095-mobile-hero";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-095-mobile-hero";
+import { createFormState } from "./form-state.js?v=revamp-095-mobile-hero";
+import { createInviteController } from "./invite.js?v=revamp-095-mobile-hero";
+import { createLandingController } from "./landing.js?v=revamp-095-mobile-hero";
+import { createLegalController } from "./legal.js?v=revamp-095-mobile-hero";
+import { createMapController } from "./map.js?v=revamp-095-mobile-hero";
+import { createLogController } from "./log.js?v=revamp-095-mobile-hero";
+import { bindNavigation } from "./navigation.js?v=revamp-095-mobile-hero";
+import { createRunHomeController } from "./run-home.js?v=revamp-095-mobile-hero";
+import { createRunLibraryController } from "./run-library.js?v=revamp-095-mobile-hero";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-095-mobile-hero";
+import { createStandingsController } from "./standings.js?v=revamp-095-mobile-hero";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-095-mobile-hero";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-095-mobile-hero";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-095-mobile-hero";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 

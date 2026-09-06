@@ -119,9 +119,22 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   function isFallbackFullscreen() {
     return root.querySelector("[data-map-workspace]")?.classList.contains("is-fullscreen-fallback");
   }
+  function nativeFullscreenElement() {
+    return document.fullscreenElement || null;
+  }
+  async function exitNativeFullscreen() {
+    if (typeof document.exitFullscreen !== "function") return false;
+    await document.exitFullscreen();
+    return true;
+  }
+  async function requestNativeFullscreen(workspace) {
+    if (typeof workspace.requestFullscreen !== "function" || typeof document.exitFullscreen !== "function") return false;
+    await workspace.requestFullscreen();
+    return true;
+  }
   function syncFullscreenControl() {
     const workspace = root.querySelector("[data-map-workspace]");
-    const expanded = document.fullscreenElement === workspace || workspace?.classList.contains("is-fullscreen-fallback");
+    const expanded = nativeFullscreenElement() === workspace || workspace?.classList.contains("is-fullscreen-fallback");
     if (fullscreenButton) {
       const label = expanded ? "Exit full screen map" : "Enter full screen map";
       fullscreenButton.setAttribute("aria-label", label);
@@ -138,18 +151,22 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   async function toggleFullscreen() {
     const workspace = root.querySelector("[data-map-workspace]");
     if (!workspace) return;
-    if (document.fullscreenElement === workspace) {
-      await document.exitFullscreen();
+    if (nativeFullscreenElement() === workspace) {
+      try {
+        await exitNativeFullscreen();
+      } catch {
+        syncFullscreenControl();
+      }
     } else if (workspace.classList.contains("is-fullscreen-fallback")) {
       workspace.classList.remove("is-fullscreen-fallback");
       syncFullscreenControl();
-    } else if (workspace.requestFullscreen) {
+    } else {
       try {
-        await workspace.requestFullscreen();
+        if (!await requestNativeFullscreen(workspace)) enterFallbackFullscreen(workspace);
       } catch {
         enterFallbackFullscreen(workspace);
       }
-    } else enterFallbackFullscreen(workspace);
+    }
   }
   function addFullscreenControl() {
     const control = window.L.control({ position: "topright" });
@@ -185,7 +202,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const workspace = root.querySelector("[data-map-workspace]");
     workspace?.classList.remove("is-fullscreen-fallback");
     document.body.classList.remove("map-fallback-fullscreen");
-    if (document.fullscreenElement === workspace) void document.exitFullscreen().catch(() => {});
+    if (workspace && nativeFullscreenElement() === workspace) void exitNativeFullscreen().catch(() => {});
     map?.remove();
     map = null;
     markerGroup = null;

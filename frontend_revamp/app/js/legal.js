@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=revamp-095-mobile-hero";
+import { createBrandWordmark } from "./ui.js?v=revamp-099-ios-fullscreen-clean";
 
 const DOCUMENTS = Object.freeze({
   terms: { url: "/terms", label: "Terms" },

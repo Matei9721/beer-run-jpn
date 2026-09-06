@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=revamp-095-mobile-hero";
-import { createApiClient } from "./api.js?v=revamp-095-mobile-hero";
-import { createAuthController, createAuthState } from "./auth.js?v=revamp-095-mobile-hero";
-import { createFormState } from "./form-state.js?v=revamp-095-mobile-hero";
-import { createInviteController } from "./invite.js?v=revamp-095-mobile-hero";
-import { createLandingController } from "./landing.js?v=revamp-095-mobile-hero";
-import { createLegalController } from "./legal.js?v=revamp-095-mobile-hero";
-import { createMapController } from "./map.js?v=revamp-095-mobile-hero";
-import { createLogController } from "./log.js?v=revamp-095-mobile-hero";
-import { bindNavigation } from "./navigation.js?v=revamp-095-mobile-hero";
-import { createRunHomeController } from "./run-home.js?v=revamp-095-mobile-hero";
-import { createRunLibraryController } from "./run-library.js?v=revamp-095-mobile-hero";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-095-mobile-hero";
-import { createStandingsController } from "./standings.js?v=revamp-095-mobile-hero";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-095-mobile-hero";
-import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-095-mobile-hero";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-095-mobile-hero";
+import { createAccountController } from "./account.js?v=revamp-099-ios-fullscreen-clean";
+import { createApiClient } from "./api.js?v=revamp-099-ios-fullscreen-clean";
+import { createAuthController, createAuthState } from "./auth.js?v=revamp-099-ios-fullscreen-clean";
+import { createFormState } from "./form-state.js?v=revamp-099-ios-fullscreen-clean";
+import { createInviteController } from "./invite.js?v=revamp-099-ios-fullscreen-clean";
+import { createLandingController } from "./landing.js?v=revamp-099-ios-fullscreen-clean";
+import { createLegalController } from "./legal.js?v=revamp-099-ios-fullscreen-clean";
+import { createMapController } from "./map.js?v=revamp-099-ios-fullscreen-clean";
+import { createLogController } from "./log.js?v=revamp-099-ios-fullscreen-clean";
+import { bindNavigation } from "./navigation.js?v=revamp-099-ios-fullscreen-clean";
+import { createRunHomeController } from "./run-home.js?v=revamp-099-ios-fullscreen-clean";
+import { createRunLibraryController } from "./run-library.js?v=revamp-099-ios-fullscreen-clean";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=revamp-099-ios-fullscreen-clean";
+import { createStandingsController } from "./standings.js?v=revamp-099-ios-fullscreen-clean";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=revamp-099-ios-fullscreen-clean";
+import { bindThemeControls, createThemeController } from "./theme.js?v=revamp-099-ios-fullscreen-clean";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=revamp-099-ios-fullscreen-clean";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 

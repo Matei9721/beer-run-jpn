@@ -25,8 +25,8 @@
       </g>
       <use href="#beer-run-wordmark-vessel" fill="none" stroke="#132C25" stroke-linejoin="round" stroke-width="10"/>
     </g>
-    <text x="174" y="163" fill="currentColor" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5">eer</text>
-    <text x="346" y="163" fill="#B33C2E" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5">Run</text>
+    <text x="174" y="163" fill="currentColor" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5" textLength="166" lengthAdjust="spacingAndGlyphs">eer</text>
+    <text x="346" y="163" fill="#B33C2E" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="142" font-weight="700" letter-spacing="-5" textLength="202" lengthAdjust="spacingAndGlyphs">Run</text>
   </g>
 
 </svg>

@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=revamp-095-mobile-hero";
+import { createBrandWordmark } from "./ui.js?v=revamp-099-ios-fullscreen-clean";
 
 export const ACCESS_TOKEN_KEY = "access_token";
 

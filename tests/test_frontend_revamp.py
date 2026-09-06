@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REVAMP_ROOT = PROJECT_ROOT / "frontend_revamp" / "app"
-ASSET_VERSION = "revamp-095-mobile-hero"
+ASSET_VERSION = "revamp-099-ios-fullscreen-clean"
 
 
 def test_revamp_preview_is_distinct_from_production_root(client):
@@ -168,7 +168,9 @@ def test_revamp_pages_share_the_landing_wordmark_and_link_back_to_it():
     assert 'product-identity brand-wordmark' in html
     assert 'data-show-landing' in html
     assert '.brand-wordmark__asset' in css
-    assert html.count(f'beer-run-wordmark.svg?v={ASSET_VERSION}#beer-run-wordmark') == 2
+    assert html.count(f'beer-run-wordmark.svg?v={ASSET_VERSION}') == 2
+    assert html.count(f'beer-run-wordmark-dark.svg?v={ASSET_VERSION}') == 2
+    assert '<use href="/revamp-assets/assets/brand/' not in html
     assert 'createBrandWordmark' in auth
     assert 'createBrandWordmark' in legal
     assert 'createBrandWordmark' in onboarding
@@ -189,6 +191,7 @@ def test_revamp_brand_assets_are_finalized_and_the_mark_is_the_favicon(client):
         "beer-run-logo-loop.svg",
         "beer-run-loading.svg",
         "beer-run-mark.svg",
+        "beer-run-wordmark-dark.svg",
         "beer-run-wordmark.svg",
     }
     assert client.get(f"/revamp-assets/assets/brand/final/beer-run-mark.svg?v={ASSET_VERSION}").status_code == 200
@@ -727,6 +730,9 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "object-fit: contain" in css
     assert "requestFullscreen" in source
     assert "document.exitFullscreen" in source
+    assert 'typeof document.exitFullscreen !== "function"' in source
+    assert 'typeof workspace.requestFullscreen !== "function"' in source
+    assert "if (workspace && nativeFullscreenElement() === workspace)" in source
     assert "is-fullscreen-fallback" in source
     assert "invalidateSize" in source
     assert "refreshClusters" in source

@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=revamp-095-mobile-hero";
+import { createBrandWordmark } from "./ui.js?v=revamp-099-ios-fullscreen-clean";
 
 const ONBOARDING_STORAGE_KEY = "beer_run_revamp_onboarding_complete";
 const ONBOARDING_VERSION = "route-stamp-v5";

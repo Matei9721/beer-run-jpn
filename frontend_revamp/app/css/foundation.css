@@ -145,7 +145,11 @@ a { color: inherit; }
 .app-header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
 .product-identity { min-width: 0; }
 .brand-wordmark { width: 152px; height: 48px; display: inline-flex; flex: 0 0 auto; align-items: center; color: var(--color-text); text-decoration: none; }
-.brand-wordmark__asset { width: 100%; height: 100%; display: block; overflow: visible; color: inherit; }
+.brand-wordmark__artwork, .brand-wordmark__asset { width: 100%; height: 100%; display: block; }
+.brand-wordmark__asset { object-fit: contain; object-position: left center; }
+.brand-wordmark__asset--dark { display: none; }
+:root[data-theme="dark"] .brand-wordmark__asset--light { display: none; }
+:root[data-theme="dark"] .brand-wordmark__asset--dark { display: block; }
 .product-mark { width: 36px; height: 36px; display: inline-grid; place-items: center; flex: 0 0 auto; border: 2px solid var(--color-border-strong); border-radius: 50%; color: var(--color-action); font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; line-height: 1; }
 .product-wordmark { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; }
 

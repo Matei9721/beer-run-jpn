@@ -42,7 +42,7 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py --run-id <id>
 
 ## Architecture At A Glance
 
-- `src/beer_run/main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
+- `src/beer_run/main.py`: application startup, public/trip routes, legacy trip APIs, and image handling
 - `src/beer_run/auth_routes.py`: login, signup, current-user routes, and signup request error handling
 - `src/beer_run/auth.py`: JWT creation/validation and password hashing
 - `src/beer_run/database.py`: SQLite engine/session setup

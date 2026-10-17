@@ -1,4 +1,3 @@
-export const DEFAULT_RUN_NAME = "BeerRunJPN";
 export const SELECTED_RUN_STORAGE_PREFIX = "beerRunJpn.selectedRun.user.";
 const RUN_ID_PATTERN = /^[1-9]\d*$/;
 

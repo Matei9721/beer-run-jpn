@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=beerrun-101-portable-landing-photos";
+import { createBrandWordmark } from "./ui.js?v=beerrun-105-tour-end";
 
 export const ACCESS_TOKEN_KEY = "access_token";
 

@@ -6,6 +6,8 @@ trip recaps in one mobile-first experience.
 
 ## Features
 - **Run-scoped trips**: Create public or private runs and invite a group.
+- **Public discovery**: Choose a featured trip, one of the three newest public runs, or search and browse public runs in pages of six. No run is selected automatically.
+- **Optional tour**: A self-hosted Driver.js walkthrough opens BeerRunJPN, a runner's history, and a drink's map pin before explaining authenticated logging and offering signup. The browser remembers a completed or declined invitation; use Take a tour or the account's quick guide to replay it.
 - **Leaderboard**: Compare a selected run by liters or alcohol volume.
 - **Interactive map**: Browse clustered drink locations and entry details.
 - **Mobile logging**: Capture GPS, local time, timezone, drink details, and a photo.

@@ -38,7 +38,7 @@ def test_root(client):
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "data-app-shell" in response.text
-    assert "/assets/js/app.js?v=beerrun-101-portable-landing-photos" in response.text
+    assert "/assets/js/app.js?v=beerrun-105-tour-end" in response.text
 
 def test_create_entry_and_leaderboard(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})

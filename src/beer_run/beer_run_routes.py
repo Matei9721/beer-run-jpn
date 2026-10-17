@@ -267,6 +267,7 @@ async def list_beer_runs(
     name: str | None = None,
     q: str | None = None,
     limit: int | None = None,
+    offset: int | None = None,
     current_user: models.User | None = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -275,6 +276,25 @@ async def list_beer_runs(
     Authenticated callers see their own private runs plus all public runs.
     Logged-out callers see only public runs.
     """
+    if view == "discover":
+        page_limit = 10 if limit is None else limit
+        page_offset = 0 if offset is None else offset
+        if name is not None or not 1 <= page_limit <= 21 or not 0 <= page_offset <= 100000:
+            raise _selector_query_error()
+        query = _selector_runs_query(db, current_user).filter(models.BeerRun.is_public == True)  # noqa: E712
+        if q is not None:
+            search = q.strip()
+            if not 2 <= len(search) <= 64:
+                raise _selector_query_error()
+            query = query.filter(models.BeerRun.name.collate("NOCASE").like(
+                f"%{_escape_like_prefix(search)}%", escape="\\",
+            ))
+        rows = (query.order_by(models.BeerRun.created_at.desc(), models.BeerRun.id.desc())
+                .offset(page_offset).limit(page_limit).all())
+        return [_selector_response(row) for row in rows]
+
+    if offset is not None:
+        raise _selector_query_error()
     if view is None and name is None and q is None and limit is None:
         runs = _visible_runs_query(db, current_user).all()
         return [_beer_run_response(r, _caller_membership(r, current_user)) for r in runs]

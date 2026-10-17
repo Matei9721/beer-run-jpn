@@ -110,6 +110,12 @@ export function createApiClient({ fetchImpl = fetch } = {}) {
       return readJson(fetchImpl, "/api/beer-runs", { token, signal });
     },
 
+    discoverPublicBeerRuns({ query = "", offset = 0, limit = 7 } = {}, signal = null) {
+      const params = new URLSearchParams({ view: "discover", offset, limit });
+      if (query) params.set("q", query);
+      return readJson(fetchImpl, `/api/beer-runs?${params}`, { signal, cache: "no-store" });
+    },
+
     fetchMyBeerRuns(token, signal = null) {
       const query = new URLSearchParams({ view: "mine" });
       return readJson(fetchImpl, `/api/beer-runs?${query.toString()}`, { token, signal });

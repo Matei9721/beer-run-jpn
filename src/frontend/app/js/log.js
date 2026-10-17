@@ -203,6 +203,7 @@ function formView({
   locationHeading.append(locationTitle, coordinateInfo);
   const locationCopy = location
     ? "Location captured. Ready to save."
+    : locationState === "demo" ? "Location capture is off during the tour."
     : locationState === "pending" ? "Finding your current location…" : entry ? "Using the saved location while a fresh position is requested." : "Finding your current location…";
   const locationStatus = el("div", "log-location-field__status");
   const statusDot = el("span", "log-location-field__dot");
@@ -559,7 +560,7 @@ export function createLogController({ root = document, api, auth, formState, get
     });
   }
 
-  function show(nextEntry = null) {
+  function show(nextEntry = null, { autoLocate = true } = {}) {
     if (active && entry && !nextEntry) {
       render();
       return;
@@ -567,7 +568,7 @@ export function createLogController({ root = document, api, auth, formState, get
     active = true;
     entry = nextEntry;
     location = null;
-    locationState = "idle";
+    locationState = autoLocate ? "idle" : "demo";
     locationError = "";
     photoAction = "keep";
     error = "";
@@ -575,7 +576,7 @@ export function createLogController({ root = document, api, auth, formState, get
     formDirty = false;
     formState.reset();
     render();
-    if (getSnapshot().currentUser && auth.getAccessToken()) captureLocation();
+    if (autoLocate && getSnapshot().currentUser && auth.getAccessToken()) captureLocation();
     void loadDrinkConfig();
   }
   function hide() {

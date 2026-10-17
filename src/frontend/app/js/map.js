@@ -1,4 +1,4 @@
-import { showConfirmation } from "./confirmation.js?v=beerrun-101-portable-landing-photos";
+import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
 
 const SELECTED_ENTRY_KEY = "beerRun.revamp.selectedEntry";
 const SELECTED_ENTRY_ZOOM = 16;
@@ -324,6 +324,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
       : workspace.querySelector(".map-detail__close");
     focusTarget?.focus({ preventScroll: true });
     resizeMap();
+    root.dispatchEvent(new CustomEvent("beer-run:map-detail-opened", { detail: { entryId: entry.id } }));
   }
   function focusEntry(entry) {
     const marker = markers.get(Number(entry.id));
@@ -368,7 +369,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     tiles.addTo(map);
     addFullscreenControl();
     markerGroup = typeof window.L.markerClusterGroup === "function"
-      ? window.L.markerClusterGroup({ showCoverageOnHover: false, spiderfyOnMaxZoom: true }) : window.L.layerGroup();
+      ? window.L.markerClusterGroup({ showCoverageOnHover: false, spiderfyOnMaxZoom: true, animate: !document.body.classList.contains("tour-running") }) : window.L.layerGroup();
     markerGroup.addTo(map);
     entries.forEach((entry) => markerFor(entry).addTo(markerGroup));
   }
@@ -524,6 +525,30 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   });
   document.addEventListener("fullscreenchange", syncFullscreenControl);
   return {
+    async prepareTourPin(entryId) {
+      if (!map) return false;
+      const requestedMap = map;
+      if (root.querySelector("[data-map-detail]")) {
+        closeDetail();
+        // Let the detail panel's scheduled map resize finish before zooming.
+        await new Promise((resolve) => window.setTimeout(resolve, 275));
+      } else clearSelection();
+      const marker = markers.get(Number(entryId));
+      if (!marker || map !== requestedMap) return false;
+      return new Promise((resolve) => {
+        const reveal = () => {
+          if (map !== requestedMap) return resolve(false);
+          map.stop?.();
+          map.setView(marker.getLatLng(), SELECTED_ENTRY_ZOOM, { animate: false });
+          const pin = marker.getElement();
+          if (!pin) return resolve(false);
+          pin.dataset.tour = "map-pin";
+          resolve(true);
+        };
+        if (markerGroup?.zoomToShowLayer) markerGroup.zoomToShowLayer(marker, reveal);
+        else reveal();
+      });
+    },
     show(entryId = null) {
       active = true;
       const requestedEntryId = entryId ?? sessionStorage.getItem(SELECTED_ENTRY_KEY);

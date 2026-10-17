@@ -5,8 +5,8 @@ const element = (tag, className = "", text = "") => {
   return node;
 };
 
-const BRAND_WORDMARK_URL = "/assets/assets/brand/final/beer-run-wordmark.svg?v=beerrun-101-portable-landing-photos";
-const BRAND_WORDMARK_DARK_URL = "/assets/assets/brand/final/beer-run-wordmark-dark.svg?v=beerrun-101-portable-landing-photos";
+const BRAND_WORDMARK_URL = "/assets/assets/brand/final/beer-run-wordmark.svg?v=beerrun-105-tour-end";
+const BRAND_WORDMARK_DARK_URL = "/assets/assets/brand/final/beer-run-wordmark-dark.svg?v=beerrun-105-tour-end";
 
 export function createBrandWordmark() {
   const artwork = document.createElement("span");
@@ -306,6 +306,10 @@ function renderShellState(root, state) {
 }
 
 export function setSyncStatus(root, message) {
+  const state = /^Synced/.test(message) ? "ready"
+    : /unavailable|offline|paused|could not|incomplete/i.test(message) ? "error"
+    : /loading|syncing/i.test(message) ? "pending" : "idle";
+  root.querySelectorAll(".sync-controls").forEach((controls) => { controls.dataset.syncState = state; });
   root.querySelectorAll("[data-sync-status]").forEach((region) => {
     region.textContent = message;
   });

@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=beerrun-101-portable-landing-photos";
+import { createBrandWordmark } from "./ui.js?v=beerrun-105-tour-end";
 
 const DOCUMENTS = Object.freeze({
   terms: { url: "/terms", label: "Terms" },

@@ -44,6 +44,7 @@ function standingsRow(runner, index, entries, onOpen, metric, leader) {
   const button = el("button", index === 0 ? "competition-row competition-row--leader" : "competition-row");
   button.type = "button";
   button.setAttribute("aria-label", `Open ${username}'s run history`);
+  button.dataset.tourRunner = username;
   const identity = el("span", "competition-runner");
   const copy = el("span", "competition-runner__copy");
   const currentValue = Number(metric === "volume" ? runner.total_liters : runner.total_alcohol) || 0;
@@ -324,6 +325,7 @@ export function createStandingsController({ root = document, api, auth, getSnaps
     selectedPlayer = username;
     if (pushHistory) history.pushState({ player: username }, "", `#standings/${encodeURIComponent(username)}`);
     paintPlayer();
+    root.dispatchEvent(new CustomEvent("beer-run:player-opened", { detail: { username } }));
   };
   return {
     showStandings,

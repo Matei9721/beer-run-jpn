@@ -6,7 +6,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
-ASSET_VERSION = "beerrun-101-portable-landing-photos"
+ASSET_VERSION = "beerrun-105-tour-end"
 
 
 def run_node_module(script):
@@ -89,6 +89,8 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
         "run-library.js",
         "run-selection.js",
         "run-home.js",
+        "run-discovery.js",
+        "tour.js",
         "standings.js",
         "system-states.js",
         "theme.js",
@@ -98,7 +100,7 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
 
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
-    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js"}
+    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
     assert {version for _, version in imports} == {ASSET_VERSION}
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
 
@@ -116,7 +118,7 @@ def test_landing_page_routes_into_production_application_flows():
     assert '<main' not in landing_markup
     assert html.count('data-landing-route="login"') == 1
     assert html.count('data-landing-route="signup"') == 1
-    assert html.count('data-landing-route="runs"') == 1
+    assert html.count('data-landing-route="tour"') == 1
     assert f'/assets/assets/images/landing-map-abstract.png?v={ASSET_VERSION}' in html
     assert all(f'/assets/assets/images/{name}?v={ASSET_VERSION}' in html for name in (
         "landing-drink-at-bar.jpg",
@@ -125,7 +127,8 @@ def test_landing_page_routes_into_production_application_flows():
     ))
     assert "/static/uploads/" not in landing_markup
     assert 'Open any logged drink on the map and see every friend\'s pin.' in html
-    assert html.count('View public runs') == 1
+    assert html.count('Take a tour') == 1
+    assert '<span>Track the drinks.</span><span>Remember the trip.</span>' in html
     assert 'https://github.com/Matei9721/beer-run-jpn' in html
     assert 'page.dataset.motionProfile = desktopMotion.matches ? "desktop" : "touch"' in landing
     assert '@media (max-width: 767px)' in css
@@ -187,7 +190,7 @@ def test_application_pages_share_the_landing_wordmark_and_link_back_to_it():
     css = (FRONTEND_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
     auth = (FRONTEND_ROOT / "js" / "auth.js").read_text(encoding="utf-8")
     legal = (FRONTEND_ROOT / "js" / "legal.js").read_text(encoding="utf-8")
-    onboarding = (FRONTEND_ROOT / "js" / "system-states.js").read_text(encoding="utf-8")
+    onboarding = (FRONTEND_ROOT / "js" / "tour.js").read_text(encoding="utf-8")
 
     assert html.count('class="brand-wordmark landing-wordmark"') == 1
     assert 'product-identity brand-wordmark' in html
@@ -282,6 +285,156 @@ def test_run_home_preserves_scoped_data_and_stale_refresh_boundaries():
     assert '"Latest"' not in ui
 
 
+def test_run_resolution_requires_an_explicit_or_remembered_choice():
+    result = run_node_module("""
+      import { createRunHomeController } from './src/frontend/app/js/run-home.js';
+      import { createRunSelectionState } from './src/frontend/app/js/run-selection.js';
+      const root = { querySelector: () => null, querySelectorAll: () => [], dispatchEvent: () => {} };
+      const locationLike = { href: 'https://example.test/#run' };
+      const historyLike = { replaceState: () => {} };
+      let token = null;
+      let removed = false;
+      let storedId = null;
+      let detailCalls = [];
+      let dataCalls = [];
+      const run = { id: 42, name: 'Remembered Crew', is_public: true };
+      const api = {
+        fetchCurrentUser: async () => ({ ok: true, data: { id: 7 } }),
+        fetchMyBeerRuns: async () => ({ ok: true, data: [run] }),
+        fetchBeerRun: async (id) => { detailCalls.push(Number(id)); return Number(id) === 42 ? { ok: true, data: run } : { ok: false, status: 404 }; },
+        fetchLeaderboard: async (id) => { dataCalls.push(id); return { ok: true, data: [] }; },
+        fetchEntries: async () => ({ ok: true, data: [] }),
+      };
+      const create = () => createRunHomeController({
+        root, api, auth: { getAccessToken: () => token }, selection: createRunSelectionState(),
+        storage: { getItem: () => storedId, removeItem: () => { removed = true; } },
+        locationLike, historyLike,
+      });
+      const guest = create(); await guest.initialize();
+      const guestRun = guest.getSnapshot().currentRun;
+      token = 'test-token';
+      const member = create(); await member.initialize();
+      const memberRun = member.getSnapshot().currentRun;
+      storedId = '404';
+      const stale = create(); await stale.initialize();
+      const staleRun = stale.getSnapshot().currentRun;
+      storedId = '42';
+      const remembered = create(); await remembered.initialize();
+      console.log(JSON.stringify({ guestRun, memberRun, staleRun, removed, remembered: remembered.getSnapshot().currentRun.id, dataCalls, detailCalls }));
+    """)
+    assert result["guestRun"] is None
+    assert result["memberRun"] is None
+    assert result["staleRun"] is None
+    assert result["removed"] is True
+    assert result["remembered"] == 42
+    assert result["dataCalls"] == [42]
+    assert result["detailCalls"] == [404, 42]
+
+
+def test_tour_visit_detection_respects_prior_visits_and_storage_failures():
+    result = run_node_module("""
+      import { hasVisited, TOUR_STORAGE_KEY } from './src/frontend/app/js/tour.js';
+      const storage = (values) => ({ getItem: (key) => values[key] || null, length: Object.keys(values).length, key: (i) => Object.keys(values)[i] });
+      console.log(JSON.stringify({
+        fresh: hasVisited(storage({})),
+        themeOnly: hasVisited(storage({ beer_run_revamp_theme_preference: 'dark' })),
+        declined: hasVisited(storage({ [TOUR_STORAGE_KEY]: 'declined' })),
+        oldGuide: hasVisited(storage({ beer_run_revamp_onboarding_complete: 'route-stamp-v5' })),
+        signedIn: hasVisited(storage({ access_token: 'test-token' })),
+        remembered: hasVisited(storage({ 'beerRunJpn.selectedRun.user.7': '42' })),
+        blocked: hasVisited({ getItem: () => { throw Error('Storage disabled'); } }),
+      }));
+    """)
+    assert result == {"fresh": False, "themeOnly": False, "declined": True, "oldGuide": True, "signedIn": True, "remembered": True, "blocked": False}
+
+
+def test_tour_includes_real_runner_and_map_actions_when_data_exists():
+    result = run_node_module("""
+      import { buildTourSteps } from './src/frontend/app/js/tour.js';
+      const data = { leaderboard: [{ username: 'A Runner' }], entries: [{ id: 12, latitude: 35, longitude: 139 }] };
+      const full = buildTourSteps({ data });
+      console.log(JSON.stringify({
+        ids: full.map((step) => step.id),
+        runner: full.find((step) => step.id === 'runner').username,
+        pin: full.find((step) => step.id === 'map-pin').entryId,
+        finalButtons: full.at(-1).popover.showButtons,
+        empty: buildTourSteps().map((step) => step.id),
+        offlineMap: buildTourSteps({ data, mapAvailable: false }).map((step) => step.id),
+        nullLocation: buildTourSteps({ data: { entries: [{ id: 1, latitude: null, longitude: 0 }] } }).map((step) => step.id),
+        tabs: full.filter((step) => step.clickDestination).map((step) => ({ destination: step.clickDestination, source: step.source.id, interactive: step.disableActiveInteraction === false, next: step.popover.showButtons.includes('next') })),
+      }));
+    """)
+    assert result["ids"] == ["featured", "run", "switcher", "tab-standings", "standings", "runner-choice", "runner", "tab-map", "map", "map-pin", "map-detail", "tab-log", "log", "finish"]
+    assert result["runner"] == "A Runner"
+    assert result["pin"] == 12
+    assert result["finalButtons"] == ["next", "close"]
+    assert "runner" not in result["empty"]
+    assert "map-pin" not in result["empty"]
+    assert "map-pin" not in result["offlineMap"]
+    assert "map-pin" not in result["nullLocation"]
+    assert result["tabs"] == [
+        {"destination": "standings", "source": "switcher", "interactive": True, "next": False},
+        {"destination": "map", "source": "runner", "interactive": True, "next": False},
+        {"destination": "log", "source": "map-detail", "interactive": True, "next": False},
+    ]
+
+
+def test_tour_targets_the_visible_menu_for_each_device():
+    result = run_node_module("""
+      import { visibleTourTab } from './src/frontend/app/js/tour.js';
+      const desktop = { name: 'desktop', getClientRects: () => [] };
+      const mobile = { name: 'mobile', getClientRects: () => [{}] };
+      const root = { querySelectorAll: () => [desktop, mobile] };
+      const phone = visibleTourTab('map', root).name;
+      desktop.getClientRects = () => [{}];
+      mobile.getClientRects = () => [];
+      console.log(JSON.stringify({ phone, desktop: visibleTourTab('map', root).name }));
+    """)
+    assert result == {"phone": "mobile", "desktop": "desktop"}
+
+
+def test_navigation_disables_run_pages_until_a_run_is_selected():
+    result = run_node_module("""
+      import { bindNavigation } from './src/frontend/app/js/navigation.js';
+      let click;
+      let pushed = 0;
+      let opened = null;
+      const navigated = [];
+      globalThis.window = { addEventListener: () => {} };
+      globalThis.history = { pushState: () => { pushed++; } };
+      const links = ['run', 'standings', 'log', 'map', 'you'].map((destination) => ({
+        dataset: { destination }, href: '#' + destination, attrs: {},
+        classList: { remove: () => {}, toggle: () => {} },
+        setAttribute(key, value) { this.attrs[key] = value; },
+        removeAttribute(key) { delete this.attrs[key]; },
+        getAttribute(key) { return this.attrs[key]; },
+      }));
+      const nav = bindNavigation({ querySelectorAll: () => links, addEventListener: (_, callback) => { click = callback; }, dispatchEvent: (event) => { navigated.push([event.detail.destination, opened]); } }, { onNavigate: (destination) => { opened = destination; } });
+      const disabled = links.filter((link) => link.attrs['aria-disabled'] === 'true').map((link) => link.dataset.destination);
+      const tap = () => click({ target: { closest: () => links[1] }, preventDefault: () => {} });
+      tap(); const before = pushed;
+      nav.setRunAvailable(true); tap();
+      console.log(JSON.stringify({ disabled, before, pushed, opened, navigated, enabled: links.every((link) => !link.attrs['aria-disabled']) }));
+    """)
+    assert result == {"disabled": ["standings", "log", "map"], "before": 0, "pushed": 1, "opened": "standings", "navigated": [["standings", "standings"]], "enabled": True}
+
+
+def test_sync_indicator_tracks_api_state_independently_of_run_selection():
+    result = run_node_module("""
+      import { setSyncStatus } from './src/frontend/app/js/ui.js';
+      const controls = { dataset: {} };
+      const region = {};
+      const root = { querySelectorAll: (selector) => selector === '.sync-controls' ? [controls] : [region] };
+      setSyncStatus(root, 'Synced 19:00');
+      const ready = { ...controls.dataset };
+      setSyncStatus(root, 'Connection unavailable');
+      const failed = { ...controls.dataset };
+      setSyncStatus(root, 'Syncing public runs');
+      console.log(JSON.stringify({ ready, failed, pending: controls.dataset, text: region.textContent }));
+    """)
+    assert result == {"ready": {"syncState": "ready"}, "failed": {"syncState": "error"}, "pending": {"syncState": "pending"}, "text": "Syncing public runs"}
+
+
 def test_run_home_has_responsive_content_and_feedback_contracts():
     css = (FRONTEND_ROOT / "css" / "foundation.css").read_text(encoding="utf-8")
     html = (FRONTEND_ROOT / "index.html").read_text(encoding="utf-8")
@@ -361,7 +514,7 @@ def test_sync_controls_keep_timestamped_manual_and_automatic_refresh():
 
     assert "const AUTO_REFRESH_INTERVAL_MS = 30_000;" in app
     assert "window.setInterval" in app
-    assert "void runHome.refresh();" in app
+    assert "void runHome.refresh({ background: true });" in app
     assert "function sameSnapshotData(left, right)" in home
     assert "const dataChanged = !sameSnapshotData(lastData, nextData);" in home
     assert "const presentationChanged = dataChanged || retainedRefreshError;" in home
@@ -435,7 +588,8 @@ def test_run_library_and_quick_switcher_contracts_are_present():
     )[0]
     assert "removeSelectedRunId" not in rejected_session_handler
     assert "removeSelectedRunId" in home
-    assert "firstFallbackRun" in home
+    assert "firstFallbackRun" not in home
+    assert 'reason: "choose"' in home
     assert "run-switcher-dialog" in html
     assert 'aria-expanded="false"' in html
     assert ".run-quick-switcher" in css

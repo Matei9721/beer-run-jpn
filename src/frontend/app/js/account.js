@@ -1,4 +1,4 @@
-import { showConfirmation } from "./confirmation.js?v=beerrun-101-portable-landing-photos";
+import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
 
 const ACCOUNT_CONFIRMATION = "DELETE MY ACCOUNT";
 

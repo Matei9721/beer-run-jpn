@@ -1,12 +1,12 @@
 import {
-  DEFAULT_RUN_NAME,
   removeSharedRunFromUrl,
   readSelectedRunId,
   removeSelectedRunId,
   saveSelectedRunId,
   sharedRunFromUrl,
-} from "./run-selection.js?v=beerrun-101-portable-landing-photos";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-101-portable-landing-photos";
+} from "./run-selection.js?v=beerrun-105-tour-end";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-105-tour-end";
+import { createRunDiscoveryController } from "./run-discovery.js?v=beerrun-105-tour-end";
 import {
   renderRunHome,
   renderRunHomeError,
@@ -15,7 +15,7 @@ import {
   setRefreshPending,
   setSyncStatus,
   updateRunSwitcher,
-} from "./ui.js?v=beerrun-101-portable-landing-photos";
+} from "./ui.js?v=beerrun-105-tour-end";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);
@@ -24,10 +24,6 @@ function sameRun(left, right) {
 function sameSnapshotData(left, right) {
   if (!left || !right) return false;
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function firstFallbackRun(runs) {
-  return runs.find((run) => !run.is_public) || runs.find((run) => run.is_public) || null;
 }
 
 function failureMessage(result) {
@@ -58,6 +54,7 @@ export function createRunHomeController({
   let resolutionController = null;
   let retainedRefreshError = false;
   const listeners = new Set();
+  const discovery = createRunDiscoveryController({ root, api, onSelectRun: selectRun });
 
   function ensureHomeTarget() {
     let target = root.querySelector("[data-run-home]");
@@ -82,7 +79,7 @@ export function createRunHomeController({
     resolutionController = null;
   }
 
-  async function resolveCurrentRun(signal) {
+  async function resolveCurrentRun(signal, sessionRun = null) {
     let token = auth.getAccessToken();
     let identity = null;
     let sessionRejected = false;
@@ -123,18 +120,17 @@ export function createRunHomeController({
       }
 
       if (selected) return { run: selected, identity, reason: "ready", sessionRejected };
-      const fallback = runsResult.ok ? firstFallbackRun(runsResult.data) : null;
-      if (fallback) return { run: fallback, identity, reason: "ready", sessionRejected };
     }
 
-    const fallbackResult = await api.findPublicBeerRunByName(DEFAULT_RUN_NAME, identity ? token : null, signal);
-    if (fallbackResult.ok && fallbackResult.data.length) {
-      return { run: fallbackResult.data[0], identity, reason: "ready", sessionRejected };
+    if (sessionRun?.is_public) {
+      const sessionResult = await api.fetchBeerRun(sessionRun.id, identity ? token : null, signal);
+      if (sessionResult.ok) return { run: sessionResult.data, identity, reason: "ready", sessionRejected };
     }
+
     return {
       run: null,
       identity,
-      reason: fallbackResult.network ? "network" : "missing",
+      reason: "choose",
       sessionRejected,
     };
   }
@@ -158,9 +154,9 @@ export function createRunHomeController({
     notify();
     renderRunHomeUnavailable(root, {
       title: "This run is no longer available",
-      message: "Choosing the next public run now.",
+      message: "Choose another run to continue.",
     });
-    setSyncStatus(root, "Run unavailable. Choosing another run.");
+    setSyncStatus(root, "Run unavailable. Choose another run.");
     return initialize();
   }
 
@@ -181,7 +177,7 @@ export function createRunHomeController({
   }
 
   async function refresh({ initial = false, context = contextGeneration, run = currentRun } = {}) {
-    if (!run) return initialize();
+    if (!run) return discovery.refresh();
     const request = ++refreshGeneration;
     refreshController?.abort();
     refreshController = new AbortController();
@@ -249,6 +245,8 @@ export function createRunHomeController({
   }
 
   async function initialize() {
+    const sessionRun = currentRun?.is_public ? currentRun : null;
+    discovery.hide();
     invalidateRefreshWork();
     const context = ++contextGeneration;
     currentUser = null;
@@ -262,20 +260,15 @@ export function createRunHomeController({
     setSyncStatus(root, "Loading run data");
 
     resolutionController = new AbortController();
-    const resolved = await resolveCurrentRun(resolutionController.signal);
+    const resolved = await resolveCurrentRun(resolutionController.signal, sessionRun);
     if (context !== contextGeneration) return { stale: true };
     resolutionController = null;
     currentUser = resolved.identity;
     if (!resolved.run) {
-      renderRunHomeUnavailable(root, {
-        title: resolved.reason === "network" ? "Connection unavailable" : "No run available",
-        message: resolved.reason === "network"
-          ? "BeerRun could not reach the run service. Use Refresh to try again."
-          : "The public BeerRunJPN run is not available right now.",
-        retry: resolved.reason === "network",
-      });
+      notify();
+      root.dispatchEvent(new CustomEvent("beer-run:selection-required"));
+      if (!discovery.isActive()) discovery.show();
       setRefreshPending(root, false);
-      setSyncStatus(root, resolved.reason === "network" ? "Connection unavailable" : "No run available");
       if (resolved.sessionRejected) root.dispatchEvent(new CustomEvent("beer-run:session-rejected"));
       return resolved;
     }
@@ -290,6 +283,7 @@ export function createRunHomeController({
 
   function selectRun(run, { persist = false } = {}) {
     if (!run) return refresh({ run: currentRun });
+    discovery.hide();
     if (sameRun(run, currentRun)) {
       currentRun = { ...currentRun, ...run };
       selection.selectRun(currentRun);
@@ -315,11 +309,26 @@ export function createRunHomeController({
 
   return {
     initialize,
-    refresh: () => refresh(),
+    refresh: (options = {}) => currentRun ? refresh() : discovery.refresh(options),
     selectRun,
+    hideDiscovery: discovery.hide,
+    showDiscovery: () => {
+      invalidateRefreshWork();
+      contextGeneration += 1;
+      currentRun = null;
+      lastData = null;
+      selection.clear();
+      removeSharedRunFromUrl(locationLike, historyLike);
+      notify();
+      ensureHomeTarget();
+      return discovery.showOverview();
+    },
     showHome: () => {
       ensureHomeTarget();
       if (lastData) renderRunHome(root, { ...lastData, now: now() });
+      else if (!currentRun) {
+        if (!discovery.isActive()) discovery.show();
+      }
       else renderRunHomeLoading(root);
     },
     subscribe(listener) {

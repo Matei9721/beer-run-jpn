@@ -68,7 +68,7 @@ explicitly requests otherwise.
 - Python 3.13+, FastAPI, SQLAlchemy 2.x, SQLite, Pydantic, Pillow, pytest, and `uv`
 - Vanilla HTML/CSS/ES modules with Leaflet CDN assets
 - Uvicorn for local serving and Caddy for local HTTPS
-- `src/beer_run/main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
+- `src/beer_run/main.py`: application startup, public/trip routes, legacy trip APIs, and image handling
 - `src/beer_run/auth_routes.py`: login, signup, current-user routes, and signup request error handling
 - `src/beer_run/auth.py`: JWT creation/validation and password hashing
 - `src/beer_run/database.py`: SQLite engine/session setup
@@ -132,8 +132,11 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
 
 ## Backend Rules
 
-- `BeerRunJPN` is the public fallback run for an unsigned visitor and for a
-  signed-in user without a valid remembered selection. Ranking, map, filters,
+- Visitors and signed-in users without a valid remembered selection start with
+  no selected run. The Run page offers public-run discovery with BeerRunJPN as
+  the featured example, the three newest public runs, search, and pagination.
+  This replaces the implicit fallback so new visitors choose their own context.
+  Shared links and valid remembered selections still open directly. Ranking, map, filters,
   and entry creation are scoped to the run selected in the shared picker.
 - Wrapped availability is persisted as `BeerRun.has_wrapped`. The selected-run
   UI shows Wrapped only when that flag is true, while the run-scoped API also
@@ -159,6 +162,8 @@ Retain these browser module responsibilities:
 - `src/frontend/app/js/map.js`: Leaflet and marker behavior
 - `src/frontend/app/js/ui.js`: rendering and UI helpers
 - `src/frontend/app/js/run-selection.js`, `run-home.js`, and `run-library.js`: run selection and management
+- `src/frontend/app/js/run-discovery.js`: public-run picker and paginated discovery
+- `src/frontend/app/js/tour.js`: optional Driver.js tour and browser-local visit decision
 - `src/frontend/app/js/app.js`: application orchestration
 - `src/frontend/static/js/wrapped.js`: Wrapped reel behavior
 

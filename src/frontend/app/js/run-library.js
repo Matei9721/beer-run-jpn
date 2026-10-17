@@ -1,8 +1,8 @@
-import { updateRunSwitcher } from "./ui.js?v=beerrun-101-portable-landing-photos";
-import { buildInviteShareUrl } from "./invite.js?v=beerrun-101-portable-landing-photos";
-import { showConfirmation } from "./confirmation.js?v=beerrun-101-portable-landing-photos";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-101-portable-landing-photos";
-import { buildRunShareUrl } from "./run-selection.js?v=beerrun-101-portable-landing-photos";
+import { updateRunSwitcher } from "./ui.js?v=beerrun-105-tour-end";
+import { buildInviteShareUrl } from "./invite.js?v=beerrun-105-tour-end";
+import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-105-tour-end";
+import { buildRunShareUrl } from "./run-selection.js?v=beerrun-105-tour-end";
 
 const SEARCH_MIN_LENGTH = 2;
 const QUICK_SWITCHER_LIMIT = 6;

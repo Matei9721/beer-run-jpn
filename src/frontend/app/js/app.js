@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=beerrun-101-portable-landing-photos";
-import { createApiClient } from "./api.js?v=beerrun-101-portable-landing-photos";
-import { createAuthController, createAuthState } from "./auth.js?v=beerrun-101-portable-landing-photos";
-import { createFormState } from "./form-state.js?v=beerrun-101-portable-landing-photos";
-import { createInviteController } from "./invite.js?v=beerrun-101-portable-landing-photos";
-import { createLandingController } from "./landing.js?v=beerrun-101-portable-landing-photos";
-import { createLegalController } from "./legal.js?v=beerrun-101-portable-landing-photos";
-import { createMapController } from "./map.js?v=beerrun-101-portable-landing-photos";
-import { createLogController } from "./log.js?v=beerrun-101-portable-landing-photos";
-import { bindNavigation } from "./navigation.js?v=beerrun-101-portable-landing-photos";
-import { createRunHomeController } from "./run-home.js?v=beerrun-101-portable-landing-photos";
-import { createRunLibraryController } from "./run-library.js?v=beerrun-101-portable-landing-photos";
-import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=beerrun-101-portable-landing-photos";
-import { createStandingsController } from "./standings.js?v=beerrun-101-portable-landing-photos";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-101-portable-landing-photos";
-import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-101-portable-landing-photos";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-101-portable-landing-photos";
+import { createAccountController } from "./account.js?v=beerrun-105-tour-end";
+import { createApiClient } from "./api.js?v=beerrun-105-tour-end";
+import { createAuthController, createAuthState } from "./auth.js?v=beerrun-105-tour-end";
+import { createFormState } from "./form-state.js?v=beerrun-105-tour-end";
+import { createInviteController } from "./invite.js?v=beerrun-105-tour-end";
+import { createLandingController } from "./landing.js?v=beerrun-105-tour-end";
+import { createLegalController } from "./legal.js?v=beerrun-105-tour-end";
+import { createMapController } from "./map.js?v=beerrun-105-tour-end";
+import { createLogController } from "./log.js?v=beerrun-105-tour-end";
+import { bindNavigation } from "./navigation.js?v=beerrun-105-tour-end";
+import { createRunHomeController } from "./run-home.js?v=beerrun-105-tour-end";
+import { createRunLibraryController } from "./run-library.js?v=beerrun-105-tour-end";
+import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=beerrun-105-tour-end";
+import { createStandingsController } from "./standings.js?v=beerrun-105-tour-end";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-105-tour-end";
+import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-105-tour-end";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-105-tour-end";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
@@ -31,10 +31,28 @@ const landing = createLandingController({ root: document });
 const syncLandingSession = () => landing.setAuthenticated(Boolean(services.auth.getAccessToken()));
 syncLandingSession();
 const onboarding = createOnboardingController({
-  onComplete: ({ destination }) => {
+  onPrepare: () => {
+    history.pushState(null, "", "#run");
+    navigation.selectDestination("run");
+    return runHome.showDiscovery();
+  },
+  navigate: (destination) => {
     history.pushState(null, "", `#${destination}`);
-    navigation.selectDestination(destination);
-    document.querySelector("main")?.focus({ preventScroll: true });
+    if (destination === "signup") authController.show("signup", { returnTo: "#run", closeTo: "#run" });
+    else navigation.selectDestination(destination);
+  },
+  isAuthenticated: () => Boolean(runHome.getSnapshot().currentUser),
+  getSnapshot: () => runHome.getSnapshot(),
+  visit: async (step) => {
+    if (step.id === "runner" && document.querySelector(".runner-summary")) return;
+    if (step.id === "map-detail" && document.querySelector("[data-map-detail]")) return;
+    if (location.hash !== `#${step.destination}`) {
+      history.pushState(null, "", `#${step.destination}`);
+      navigation.selectDestination(step.destination);
+    }
+    if (step.id === "runner") standings.showPlayer(step.username);
+    if (step.id === "map-pin") return mapController.prepareTourPin(step.entryId);
+    if (step.id === "map-detail") mapController.show(step.entryId);
   },
 });
 const runHome = createRunHomeController({
@@ -61,6 +79,12 @@ const ensureContentSurface = () => {
   return surface;
 };
 const navigation = bindNavigation(document, { onNavigate: (destination) => {
+  if (destination !== "run") runHome.hideDiscovery();
+  if (!runHome.getSnapshot().currentRun && ["standings", "map", "log"].includes(destination)) {
+    history.replaceState(null, "", "#run");
+    navigation.selectDestination("run");
+    return;
+  }
   landing.hide();
   legalController?.hide();
   if (authController?.isActive()) authController.close({ notify: false });
@@ -80,7 +104,7 @@ const navigation = bindNavigation(document, { onNavigate: (destination) => {
   else if (destination === "log") {
     standings.hide();
     mapController.hide();
-    logController.show();
+    logController.show(null, { autoLocate: !onboarding.isActive() });
   }
   else if (destination === "you" && !runHome.getSnapshot().currentUser) {
     logController.hide();
@@ -242,7 +266,7 @@ const resetPrivateSurfaces = () => {
   standings.reset();
   mapController.reset();
 };
-const showPublicFallback = async (message) => {
+const showPublicDiscovery = async (message) => {
   accountController?.completeSuccess();
   resetPrivateSurfaces();
   ensureContentSurface();
@@ -261,7 +285,7 @@ accountController = createAccountController({
   onSignOut: async () => {
     services.auth.removeAccessToken();
     syncLandingSession();
-    await showPublicFallback("Signed out. Showing the public run.");
+    await showPublicDiscovery("Signed out.");
   },
   onDeleteAccount: async ({ userId, token, password, confirmation }) => {
     const user = runHome.getSnapshot().currentUser;
@@ -282,11 +306,11 @@ accountController = createAccountController({
     history.replaceState(null, "", `${url.pathname}${url.search}#run`);
     services.auth.removeAccessToken();
     syncLandingSession();
-    void showPublicFallback("Your account and personal data were deleted.").catch(() => {
+    void showPublicDiscovery("Your account and personal data were deleted.").catch(() => {
       ensureContentSurface();
       history.replaceState(null, "", `${location.pathname}#run`);
       navigation.selectDestination("run");
-      setSyncStatus(document, "Your account was deleted. Refresh to reload the public run.");
+      setSyncStatus(document, "Your account was deleted. Refresh to browse public runs.");
     });
     return { ...result, committed: true };
   },
@@ -347,12 +371,16 @@ const showLandingView = ({ push = false } = {}) => {
   syncLandingSession();
   landing.show();
 };
-document.querySelector("[data-run-switcher]")?.addEventListener("click", () => runLibrary.openSwitcher());
+document.querySelector("[data-run-switcher]")?.addEventListener("click", () => {
+  if (runHome.getSnapshot().currentRun) runLibrary.openSwitcher();
+  else { showRun(); runHome.showHome(); }
+});
 document.addEventListener("beer-run:open-player", (event) => {
   navigation.selectDestination("standings");
   standings.showPlayer(event.detail.username);
 });
 runHome.subscribe((snapshot) => {
+  navigation.setRunAvailable(Boolean(snapshot.currentRun));
   syncLandingSession();
   if (!snapshot.data) {
     standings.reset();
@@ -396,7 +424,7 @@ bindPreviewFeedback(document, { onRefresh: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
 ) });
 window.setInterval(() => {
-  if (!landing.isActive()) void runHome.refresh();
+  if (!landing.isActive() && !onboarding.isActive() && !runLibrary.isActive()) void runHome.refresh({ background: true });
 }, AUTO_REFRESH_INTERVAL_MS);
 bindSystemStateControls(document, { onRetry: () => (
   runLibrary.isActive() ? runLibrary.refresh() : runHome.refresh()
@@ -413,10 +441,16 @@ document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-landing-route]");
   if (!trigger) return;
   let destination = trigger.dataset.landingRoute;
-  if (!["login", "signup", "run", "runs"].includes(destination)) return;
+  if (!["login", "signup", "run", "runs", "tour"].includes(destination)) return;
   event.preventDefault();
   if (["login", "signup"].includes(destination) && services.auth.getAccessToken()) destination = "run";
   landing.hide();
+  if (destination === "tour") {
+    showRun();
+    void runHome.showDiscovery();
+    onboarding.show({ force: true });
+    return;
+  }
   if (destination === "login" || destination === "signup") {
     history.pushState(null, "", `#${destination}`);
     authController.show(destination, { returnTo: "#run", closeTo: "#landing" });
@@ -482,6 +516,21 @@ const restoreDestination = () => {
   else navigation.selectDestination("run");
 };
 window.addEventListener("popstate", restoreDestination);
+window.addEventListener("popstate", () => onboarding.close());
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-start-tour]")) onboarding.show({ force: true });
+});
+document.addEventListener("beer-run:discovery-ready", () => {
+  onboarding.consider({ blocked: landing.isActive() || location.hash !== "#run" || Boolean(document.querySelector("dialog[open]")) });
+});
+document.addEventListener("beer-run:selection-required", () => {
+  if (["#run", "#standings", "#map", "#log"].includes(location.hash)
+    && !landing.isActive() && !authController.isActive() && !inviteController.isActive()
+    && !legalController.isActive() && !runLibrary.isActive()) {
+    history.replaceState(null, "", "#run");
+    navigation.selectDestination("run");
+  }
+});
 const reconcileIdentity = async () => {
   const inviteWasActive = inviteController.isActive();
   await reconcileSelectionIdentity();

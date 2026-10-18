@@ -7,6 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
+FOUNDATION_ASSET_VERSION = "beerrun-106-map-pin-anchor"
 
 
 def run_node_module(script):
@@ -32,7 +33,7 @@ def test_production_root_serves_the_route_stamp_application(client):
 
 
 def test_production_assets_use_the_assets_namespace(client):
-    stylesheet = client.get(f"/assets/css/foundation.css?v={ASSET_VERSION}")
+    stylesheet = client.get(f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}")
     landing_stylesheet = client.get(f"/assets/css/landing.css?v={ASSET_VERSION}")
     module = client.get(f"/assets/js/app.js?v={ASSET_VERSION}")
     landing_photos = [
@@ -63,7 +64,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
     asset_urls = re.findall(r'(?:href|src)="(/assets/(?:css|js)/[^"]+)"', html)
 
     assert asset_urls == [
-        f"/assets/css/foundation.css?v={ASSET_VERSION}",
+        f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/landing.css?v={ASSET_VERSION}",
         f"/assets/js/app.js?v={ASSET_VERSION}",
     ]

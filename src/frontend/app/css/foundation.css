@@ -1186,8 +1186,9 @@ body:has(.confirmation-dialog[open]) { overflow: hidden; }
 .map-workspace--empty { display: grid; align-content: center; gap: var(--space-4); padding: var(--space-5); overflow: auto; }
 .map-empty { width: min(100%, 480px); min-height: 260px; justify-self: center; border: 0; background: transparent; }
 .map-canvas:focus-visible { outline-offset: -4px; }
-.map-canvas .leaflet-marker-icon { transition: scale var(--motion-control) var(--ease-enter), filter var(--motion-control) var(--ease-enter); }
-.map-canvas .leaflet-marker-icon.is-selected { scale: 1.12; transform-origin: 50% 100%; filter: hue-rotate(150deg) saturate(1.35) drop-shadow(0 0 1px var(--color-surface-raised)) drop-shadow(0 0 5px var(--color-action)); }
+/* Scaling this element also scales Leaflet's position translation and moves the pin. */
+.map-canvas .leaflet-marker-icon { transition: filter var(--motion-control) var(--ease-enter); }
+.map-canvas .leaflet-marker-icon.is-selected { filter: hue-rotate(150deg) saturate(1.35) drop-shadow(0 0 1px var(--color-surface-raised)) drop-shadow(0 0 5px var(--color-action)); }
 .marker-cluster div { background: var(--color-action); color: var(--color-on-action); font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
 .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: color-mix(in srgb, var(--color-action) 30%, transparent); }
 .map-fullscreen-control { border: 0 !important; background: transparent !important; box-shadow: none !important; }
@@ -1274,7 +1275,6 @@ body.map-fallback-fullscreen { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .map-canvas, .map-canvas .leaflet-marker-icon { transition: none; }
-  .map-canvas .leaflet-marker-icon.is-selected { scale: 1; }
   .map-fullscreen-control__button:active { scale: 1; }
   .map-fullscreen-control__icon { transition: none; }
 }

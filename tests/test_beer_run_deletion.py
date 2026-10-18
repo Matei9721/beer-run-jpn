@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy.orm import Session
 
-import models
+from beer_run import beer_run_routes, models
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -65,7 +65,7 @@ class TestDeleteBeerRunSafety:
         target = data["private_run"]
         other = data["public_run"]
         upload_root = tmp_path / "uploads"
-        monkeypatch.setattr(__import__("main"), "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(beer_run_routes, "UPLOAD_ROOT", upload_root)
 
         owned_path = _canonical_path(
             target.id,
@@ -177,7 +177,7 @@ class TestDeleteBeerRunSafety:
         target = data["private_run"]
         other = data["public_run"]
         upload_root = tmp_path / "uploads"
-        monkeypatch.setattr(__import__("main"), "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(beer_run_routes, "UPLOAD_ROOT", upload_root)
         stored_path = stored_path.format(run_id=target.id, other_run=other.id)
 
         if relative_path is None:
@@ -211,7 +211,7 @@ class TestDeleteBeerRunSafety:
         data = owner_member_nonmember_run
         target = data["private_run"]
         upload_root = tmp_path / "uploads"
-        monkeypatch.setattr(__import__("main"), "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(beer_run_routes, "UPLOAD_ROOT", upload_root)
         image_path = _canonical_path(
             target.id,
             "66666666-6666-4666-8666-666666666666.jpg",
@@ -249,7 +249,7 @@ class TestDeleteBeerRunSafety:
         data = owner_member_nonmember_run
         target = data["private_run"]
         upload_root = tmp_path / "uploads"
-        monkeypatch.setattr(__import__("main"), "UPLOAD_ROOT", upload_root)
+        monkeypatch.setattr(beer_run_routes, "UPLOAD_ROOT", upload_root)
         image_path = _canonical_path(
             target.id,
             "77777777-7777-4777-8777-777777777777.jpg",

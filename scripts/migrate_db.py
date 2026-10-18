@@ -1,11 +1,17 @@
 import argparse
-import os
+from pathlib import Path
 import sys
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from migrations.runner import MigrationError, MigrationRequired, apply_migrations, validate_database_ready
+from beer_run.migrations.runner import (
+    MigrationError,
+    MigrationRequired,
+    apply_migrations,
+    validate_database_ready,
+)
 
 
 def main(argv=None) -> int:

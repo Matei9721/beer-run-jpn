@@ -1,20 +1,34 @@
-# BeerRun 🍺
+# BeerRun
 
-A lightweight, high-performance web application designed to track drink consumption during a trip to Japan. Optimized for Raspberry Pi 3.
+A lightweight group-trip drink log built for Raspberry Pi-class hosting. The
+Route Stamp interface keeps photos, places, run membership, leaderboards, and
+trip recaps in one mobile-first experience.
 
 ## Features
-- **Cyber-Tokyo Aesthetic**: Modern glassmorphism UI with neon accents.
-- **Global Leaderboard**: Real-time ranking by liters and alcohol volume.
-- **Interactive Map**: Visualize drink locations with clustering and detail views.
-- **Slick Mobile UX**: Custom bottom detail sheets and user-gesture triggered GPS.
-- **Image Optimization**: Automatic server-side resizing and compression for fast roaming.
-- **Auto-Sync**: Background polling and manual refresh to keep data in sync.
+- **Run-scoped trips**: Create public or private runs and invite a group.
+- **Public discovery**: Choose a featured trip, one of the three newest public runs, or search and browse public runs in pages of six. No run is selected automatically.
+- **Optional tour**: A self-hosted Driver.js walkthrough opens BeerRunJPN, a runner's history, and a drink's map pin before explaining authenticated logging and offering signup. The browser remembers a completed or declined invitation; use Take a tour or the account's quick guide to replay it.
+- **Leaderboard**: Compare a selected run by liters or alcohol volume.
+- **Interactive map**: Browse clustered drink locations and entry details.
+- **Mobile logging**: Capture GPS, local time, timezone, drink details, and a photo.
+- **Image optimization**: Resize and compress uploads server-side for roaming use.
+- **Wrapped recap**: Open generated recaps only for runs with persisted availability.
 
 ## Tech Stack
 - **Backend**: FastAPI (Python 3.13)
 - **Database**: SQLite + SQLAlchemy
 - **Frontend**: Vanilla HTML5/CSS3/JS + Leaflet
 - **Deployment**: Uvicorn + Caddy (for HTTPS)
+
+## Source Layout
+
+- `src/beer_run/`: FastAPI application, auth, data models, routes, and migrations.
+- `src/frontend/app/`: production Route Stamp HTML, CSS, JavaScript, and local assets.
+- `src/frontend/pages/`: direct legal documents and the Wrapped document.
+- `src/frontend/static/`: shared legal and Wrapped assets served below `/static`.
+- `scripts/`: database, user-management, upload, and Wrapped utilities.
+- `tests/`: pytest coverage using disposable database and upload roots.
+- `data/`, `boozerun.db`, and `static/uploads/`: repository-root runtime or generated data; these do not move during the source refactor.
 
 ## Running the Application
 
@@ -122,8 +136,12 @@ procedure.
 ### 4. Start the Backend
 Run the FastAPI server on all interfaces:
 ```powershell
-uv --cache-dir .uv-cache run uvicorn main:app --host 0.0.0.0 --port 8000
+uv --cache-dir .uv-cache run uvicorn beer_run.main:app --app-dir src --host 0.0.0.0 --port 8000
 ```
+
+Use only the `beer_run.main:app --app-dir src` command above for this source
+layout. Update an existing systemd or process-manager service before deploying
+this branch; the repository does not contain the production service unit.
 
 ### 5. Expose with HTTPS (Caddy)
 To use Geolocation on mobile phones outside your local network, you **must** use HTTPS. Install [Caddy](https://caddyserver.com/) and run:
@@ -160,3 +178,11 @@ To verify API and database integrity:
 ```powershell
 uv --cache-dir .uv-cache run pytest
 ```
+
+## Rollback
+
+There is no runtime UI switch or retained legacy application. To roll back,
+stop the server, switch to the previously deployed Git branch or commit, run
+`uv sync`, and restart using the entry point documented on that revision. A UI
+rollback does not require changing `boozerun.db` or `static/uploads/` because
+this cutover does not migrate either runtime data location.

@@ -13,8 +13,8 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from conftest import engine
-import legal
-from main import app
+from beer_run import legal
+from beer_run.main import app
 
 VALID_SIGNUP_CODE = os.environ["SIGNUP_CODE"]
 

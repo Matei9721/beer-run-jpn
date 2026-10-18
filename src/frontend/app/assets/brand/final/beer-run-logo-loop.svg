@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 220" role="img" aria-labelledby="beer-run-loop-title beer-run-loop-description">
+  <title id="beer-run-loop-title">Animated BeerRun logo</title>
+  <desc id="beer-run-loop-description">Golden corner lines close around the BeerRun wordmark, reveal a B shaped beer vessel filling with beer, then restore the wordmark.</desc>
+  <style>
+    @font-face {
+      font-family: "Barlow Condensed";
+      src: url("../../fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 700;
+    }
+    .beer-run-loop__corner,
+    .beer-run-loop__word,
+    .beer-run-loop__icon,
+    .beer-run-loop__liquid {
+      transform-box: view-box;
+    }
+    .beer-run-loop__corner {
+      animation: beer-run-loop-frame 9.6s infinite;
+      transform-origin: var(--origin);
+    }
+    .beer-run-loop__word {
+      animation: beer-run-loop-word 9.6s infinite;
+      transform-origin: 350px 110px;
+    }
+    .beer-run-loop__icon {
+      animation: beer-run-loop-icon 9.6s infinite;
+      opacity: 0;
+      transform: scale(.16);
+      transform-origin: 350px 110px;
+    }
+    .beer-run-loop__liquid {
+      animation: beer-run-loop-liquid 9.6s infinite;
+      transform: translateY(168px);
+    }
+    @keyframes beer-run-loop-frame {
+      0%, 16% { transform: translate(0, 0) scale(1); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      28%, 31% { transform: translate(var(--close-x), var(--close-y)) scale(.34); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      43%, 74% { transform: translate(0, 0) scale(1); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      86%, 89% { transform: translate(var(--close-x), var(--close-y)) scale(.34); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+    @keyframes beer-run-loop-word {
+      0%, 16% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      21% { opacity: 1; }
+      28%, 31% { opacity: 0; transform: scale(.08); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      43%, 74% { opacity: 0; transform: scale(1); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      86%, 91% { opacity: 0; transform: scale(.08); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+      98%, 100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes beer-run-loop-icon {
+      0%, 31% { opacity: 0; transform: scale(.16); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+      38% { opacity: 1; }
+      43%, 74% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      79% { opacity: 1; }
+      86%, 100% { opacity: 0; transform: scale(.16); }
+    }
+    @keyframes beer-run-loop-liquid {
+      0%, 42% { transform: translateY(168px); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+      64%, 86% { transform: translateY(0); animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+      91%, 100% { transform: translateY(168px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .beer-run-loop__corner,
+      .beer-run-loop__word,
+      .beer-run-loop__icon,
+      .beer-run-loop__liquid { animation: none; }
+      .beer-run-loop__icon { display: none; }
+      .beer-run-loop__word { opacity: 1; transform: none; }
+    }
+  </style>
+  <defs>
+    <path id="beer-run-loop-vessel" fill-rule="evenodd" d="M38 66C38 52 49 41 64 40C69 22 87 14 103 23C115 8 139 11 148 29C162 27 176 37 180 52C190 60 195 73 195 88C195 108 186 123 169 133C189 141 201 159 201 181C201 217 172 237 126 237H38V66ZM81 76V119H111C130 119 141 111 141 97C141 83 130 76 111 76H81ZM81 153V201H118C139 201 151 192 151 177C151 162 139 153 118 153H81Z"/>
+    <clipPath id="beer-run-loop-clip">
+      <use href="#beer-run-loop-vessel"/>
+    </clipPath>
+  </defs>
+
+  <g fill="none" stroke="#F4AA27" stroke-linecap="square" stroke-width="4">
+    <path class="beer-run-loop__corner" style="--origin:32px 28px;--close-x:292px;--close-y:57px" vector-effect="non-scaling-stroke" d="M32 70V28H104"/>
+    <path class="beer-run-loop__corner" style="--origin:668px 28px;--close-x:-292px;--close-y:57px" vector-effect="non-scaling-stroke" d="M668 70V28H596"/>
+    <path class="beer-run-loop__corner" style="--origin:32px 192px;--close-x:292px;--close-y:-57px" vector-effect="non-scaling-stroke" d="M32 150V192H104"/>
+    <path class="beer-run-loop__corner" style="--origin:668px 192px;--close-x:-292px;--close-y:-57px" vector-effect="non-scaling-stroke" d="M668 150V192H596"/>
+  </g>
+
+  <g class="beer-run-loop__word">
+    <g transform="translate(111 17) scale(.66)">
+      <use href="#beer-run-loop-vessel" fill="#F4AA27"/>
+      <g clip-path="url(#beer-run-loop-clip)">
+        <path fill="#FFF0D2" d="M20 0H216V66C203 64 194 69 183 68C169 67 165 83 151 85C133 88 126 68 110 70C93 72 91 88 75 93C57 98 46 87 20 88V0Z"/>
+        <path d="M59 111V192" fill="none" stroke="#FFD66E" stroke-linecap="round" stroke-width="8" opacity=".78"/>
+      </g>
+      <use href="#beer-run-loop-vessel" fill="none" stroke="#132C25" stroke-linejoin="round" stroke-width="10"/>
+    </g>
+    <text x="252" y="151" fill="#132C25" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="120" font-weight="700" letter-spacing="-4">eer</text>
+    <text x="397" y="151" fill="#B33C2E" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="120" font-weight="700" letter-spacing="-4">Run</text>
+  </g>
+
+  <g class="beer-run-loop__icon">
+    <g transform="translate(259 16) scale(.76)">
+      <use href="#beer-run-loop-vessel" fill="#FFF9EA"/>
+      <g clip-path="url(#beer-run-loop-clip)">
+        <g class="beer-run-loop__liquid">
+          <rect x="20" y="73" width="196" height="185" fill="#F4AA27"/>
+          <path fill="#FFF0D2" d="M20 75V48H216V73C202 71 194 77 181 75C169 73 163 88 149 89C132 91 126 72 109 73C92 74 88 91 72 94C55 97 43 84 20 87V75Z"/>
+          <path d="M59 111V192" fill="none" stroke="#FFD66E" stroke-linecap="round" stroke-width="8" opacity=".68"/>
+        </g>
+      </g>
+      <use href="#beer-run-loop-vessel" fill="none" stroke="#132C25" stroke-linejoin="round" stroke-width="10"/>
+    </g>
+  </g>
+</svg>

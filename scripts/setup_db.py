@@ -1,18 +1,20 @@
 import os
 import json
+from pathlib import Path
 import sys
 
-# Add the project root to sys.path so we can import local modules
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-from database import SessionLocal
-import models
-from auth import get_password_hash
-from migrations.runner import apply_migrations
+from beer_run import models
+from beer_run.auth import get_password_hash
+from beer_run.database import SessionLocal
+from beer_run.migrations.runner import apply_migrations
+from beer_run.paths import DEFAULT_DATABASE_PATH, REPOSITORY_ROOT
 
-DB_FILE = os.path.join(BASE_DIR, "boozerun.db")
-CONFIG_FILE = os.path.join(BASE_DIR, "users.json")
+DB_FILE = str(DEFAULT_DATABASE_PATH)
+CONFIG_FILE = str(REPOSITORY_ROOT / "users.json")
 
 def migrate():
     """Apply repository database migrations."""

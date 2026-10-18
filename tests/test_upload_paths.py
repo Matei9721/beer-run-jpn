@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 from PIL import Image
 
-import main
+from beer_run import main
 
 
 def _image_bytes(

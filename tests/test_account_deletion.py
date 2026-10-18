@@ -6,10 +6,8 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-import auth_routes
-import legal
-import models
-from upload_cleanup import (
+from beer_run import auth_routes, legal, models
+from beer_run.upload_cleanup import (
     OwnedRunUpload,
     QuarantineRestoreError,
     purge_quarantined_uploads,

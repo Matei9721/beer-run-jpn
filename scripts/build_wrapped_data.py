@@ -1,14 +1,20 @@
 import argparse
 import json
 import sqlite3
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
-DEFAULT_DB_PATH = Path("boozerun.db")
-DEFAULT_OUTPUT_DIR = Path("data/wrapped")
-DEFAULT_ROOT = Path(".")
+from beer_run.paths import DATA_ROOT, DEFAULT_DATABASE_PATH, REPOSITORY_ROOT
+
+DEFAULT_DB_PATH = DEFAULT_DATABASE_PATH
+DEFAULT_OUTPUT_DIR = DATA_ROOT / "wrapped"
+DEFAULT_ROOT = REPOSITORY_ROOT
 DEFAULT_AUDIO_PATH = "/static/audio/wrapped.mp3"
 
 

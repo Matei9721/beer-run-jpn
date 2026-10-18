@@ -27,7 +27,7 @@ no frontend build step.
 uv sync
 
 # Run locally
-uv --cache-dir .uv-cache run uvicorn main:app --host 127.0.0.1 --port 8000
+uv --cache-dir .uv-cache run uvicorn beer_run.main:app --app-dir src --host 127.0.0.1 --port 8000
 
 # Run tests
 uv --cache-dir .uv-cache run pytest
@@ -42,13 +42,15 @@ uv --cache-dir .uv-cache run python scripts/build_wrapped_data.py --run-id <id>
 
 ## Architecture At A Glance
 
-- `main.py`: application startup, public/trip routes, default BeerRunJPN behavior, and image handling
-- `auth_routes.py`: login, signup, current-user routes, and signup request error handling
-- `auth.py`: JWT creation/validation and password hashing
-- `database.py`: SQLite engine/session setup
-- `models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
-- `migrations/`: ordered SQLite migrations
-- `templates/` and `static/`: browser-facing UI; no bundler
+- `src/beer_run/main.py`: application startup, public/trip routes, legacy trip APIs, and image handling
+- `src/beer_run/auth_routes.py`: login, signup, current-user routes, and signup request error handling
+- `src/beer_run/auth.py`: JWT creation/validation and password hashing
+- `src/beer_run/database.py`: SQLite engine/session setup
+- `src/beer_run/models.py`: SQLAlchemy models for users, entries, beer-runs, and memberships
+- `src/beer_run/migrations/`: ordered SQLite migrations
+- `src/frontend/app/`: production browser UI and assets; no bundler
+- `src/frontend/pages/` and `src/frontend/static/`: direct legal and Wrapped surfaces
+- `static/uploads/`: protected runtime uploads
 - `tests/`: pytest coverage using an isolated database
 - `specs/`: durable feature specifications and design history
 - `specs/004-harden-auth-tokens/spec.md`: Release 1 auth-hardening contract for private JWT configuration, stable ID-based tokens, and forced legacy-session login

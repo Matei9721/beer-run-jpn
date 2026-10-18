@@ -7,7 +7,7 @@ import sqlite3
 
 import pytest
 
-from migrations.runner import apply_migrations
+from beer_run.migrations.runner import apply_migrations
 from scripts import migrate_upload_paths as upload_migration
 
 

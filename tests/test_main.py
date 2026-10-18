@@ -2,7 +2,7 @@ import pytest
 import os
 import sqlite3
 
-from migrations.runner import MigrationRequired, validate_database_ready
+from beer_run.migrations.runner import MigrationRequired, validate_database_ready
 
 
 def _beer_run_jpn_id() -> int:
@@ -37,6 +37,8 @@ def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+    assert "data-app-shell" in response.text
+    assert "/assets/js/app.js?v=beerrun-105-tour-end" in response.text
 
 def test_create_entry_and_leaderboard(client):
     login_res = client.post("/token", data={"username": "user", "password": "password"})

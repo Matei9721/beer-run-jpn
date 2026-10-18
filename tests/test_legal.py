@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 
-import legal
+from beer_run import legal
 import pytest
 from sqlalchemy.orm import Session
 
@@ -41,6 +41,8 @@ def test_public_legal_metadata_and_documents_are_available_without_auth(client):
         assert title in response.text
         assert response.text.count("Test Controller") == 1
         assert response.text.count("privacy@example.test") == 1
+        assert "beer-run-wordmark.svg?v=beerrun-101-portable-landing-photos" in response.text
+        assert "/assets/css/foundation.css?v=beerrun-101-portable-landing-photos" in response.text
         assert "__LEGAL_CONTROLLER_NAME__" not in response.text
         assert "__LEGAL_CONTACT_EMAIL__" not in response.text
 
@@ -172,9 +174,13 @@ def test_existing_account_needs_no_terms_record_or_interstitial(client):
     assert client.get("/api/me/deletion-summary", headers=headers).status_code == 200
 
     page = client.get("/").text
-    assert 'id="signup-terms-agreement"' in page
+    auth_source = client.get("/assets/js/auth.js").text
+    account_source = client.get("/assets/js/account.js").text
+    assert 'checkbox.name = "terms_agreed"' in auth_source
+    assert "checkbox.required = true" in auth_source
     assert 'id="terms-acceptance-modal"' not in page
-    assert "Terms-acceptance records, and photos uploaded for your entries" in page
+    assert "accepted Terms records" in account_source
+    assert "photos uploaded for your entries" in account_source
 
 
 def test_signup_failure_rolls_back_account_and_acceptance(client, monkeypatch):

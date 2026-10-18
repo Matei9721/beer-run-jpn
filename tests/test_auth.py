@@ -15,9 +15,8 @@ from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query, Session
 
-import auth
-import legal
-from main import app
+from beer_run import auth, legal
+from beer_run.main import app
 
 
 ROOT_PATH = Path(__file__).resolve().parents[1]
@@ -220,7 +219,9 @@ def test_password_hashing_does_not_require_jwt_configuration(tmp_path):
     child_env = os.environ.copy()
     child_env.pop("SECRET_KEY", None)
     script = (
-        "from pathlib import Path; import auth; "
+        "from pathlib import Path; import sys; "
+        f"sys.path.insert(0, {str(ROOT_PATH / 'src')!r}); "
+        "from beer_run import auth; "
         f"auth.ENV_FILE_PATH = Path({str(missing_env)!r}); "
         "assert auth.get_password_hash('password')"
     )
@@ -242,7 +243,9 @@ def test_password_hashing_does_not_require_signup_configuration(tmp_path):
     child_env = os.environ.copy()
     child_env.pop("SIGNUP_CODE", None)
     script = (
-        "from pathlib import Path; import auth; "
+        "from pathlib import Path; import sys; "
+        f"sys.path.insert(0, {str(ROOT_PATH / 'src')!r}); "
+        "from beer_run import auth; "
         f"auth.ENV_FILE_PATH = Path({str(missing_env)!r}); "
         "assert auth.get_password_hash('password')"
     )
@@ -264,9 +267,11 @@ def test_main_import_refuses_missing_secret_with_safe_message(tmp_path):
     child_env = os.environ.copy()
     child_env.pop("SECRET_KEY", None)
     script = (
-        "from pathlib import Path; import auth; "
+        "from pathlib import Path; import sys; "
+        f"sys.path.insert(0, {str(ROOT_PATH / 'src')!r}); "
+        "from beer_run import auth; "
         f"auth.ENV_FILE_PATH = Path({str(missing_env)!r}); "
-        "import main"
+        "import beer_run.main"
     )
 
     result = subprocess.run(
@@ -305,9 +310,11 @@ def test_main_import_refuses_unsafe_signup_code_with_safe_message(
         child_env["SIGNUP_CODE"] = candidate
     configured_secret = child_env["SECRET_KEY"]
     script = (
-        "from pathlib import Path; import auth; "
+        "from pathlib import Path; import sys; "
+        f"sys.path.insert(0, {str(ROOT_PATH / 'src')!r}); "
+        "from beer_run import auth; "
         f"auth.ENV_FILE_PATH = Path({str(missing_env)!r}); "
-        "import main"
+        "import beer_run.main"
     )
 
     result = subprocess.run(

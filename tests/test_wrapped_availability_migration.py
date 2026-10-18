@@ -5,10 +5,12 @@ import sqlite3
 
 import pytest
 
-from migrations.runner import apply_migrations
+from beer_run.migrations.runner import apply_migrations
 
 
-migration = importlib.import_module("migrations.versions.009_add_beer_run_wrapped_flag")
+migration = importlib.import_module(
+    "beer_run.migrations.versions.009_add_beer_run_wrapped_flag"
+)
 
 
 def test_migration_enables_only_canonical_run_and_defaults_new_runs_off(tmp_path):

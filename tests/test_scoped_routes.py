@@ -20,7 +20,7 @@ import pytest
 from PIL import Image
 from sqlalchemy import event
 
-import models
+from beer_run import models
 
 # The shared concealed 404 detail for missing or inaccessible runs.
 MISSING_RUN_ID = 99999
@@ -44,7 +44,7 @@ EXPECTED_ENTRY_FIELDS = {
 
 def auth_token_for(user) -> str:
     """Create a valid bearer token for a User object (mirrors conftest)."""
-    import auth
+    from beer_run import auth
     return auth.create_access_token({"sub": user.auth_subject})
 
 
@@ -178,6 +178,30 @@ class TestScopedLeaderboard:
         assert [r["username"] for r in rows] == [data["member"].username, data["owner"].username]
         assert rows[0]["total_alcohol"] == 1.0 * (9.0 / 100.0)
         assert rows[1]["total_alcohol"] == 0.5 * (5.0 / 100.0)
+
+    def test_leaderboard_can_rank_by_volume_with_stable_ties(self, client, owner_member_nonmember_run):
+        """Volume ranking is backend-owned and alphabetic ties are deterministic."""
+        data = owner_member_nonmember_run
+        db = data["db"]
+        _add_entry(db, data["owner"], data["public_run"], quantity=1.0, abv=5.0)
+        _add_entry(db, data["member"], data["public_run"], quantity=1.0, abv=9.0)
+        db.commit()
+
+        response = client.get(
+            f"/api/beer-runs/{data['public_run'].id}/leaderboard?rank_by=volume"
+        )
+
+        assert response.status_code == 200
+        assert [row["username"] for row in response.json()] == sorted(
+            [data["owner"].username, data["member"].username]
+        )
+
+    def test_leaderboard_rejects_unknown_ranking(self, client, owner_member_nonmember_run):
+        response = client.get(
+            f"/api/beer-runs/{owner_member_nonmember_run['public_run'].id}/leaderboard?rank_by=drinks"
+        )
+
+        assert response.status_code == 422
 
 
 class TestScopedEntries:
@@ -487,7 +511,7 @@ class TestScopedCreate:
 
     def test_create_entry_with_image_uses_isolated_writer_seam(self, client, owner_member_nonmember_run, tmp_path, monkeypatch):
         """The real writer stores a canonical JPEG under an isolated root."""
-        import main as main_mod
+        from beer_run import main as main_mod
 
         upload_root = tmp_path / "uploads"
         monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
@@ -521,7 +545,7 @@ class TestScopedCreate:
     def test_hostile_filenames_and_same_timestamp_get_distinct_run_scoped_paths(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         upload_root = tmp_path / "uploads"
         monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
@@ -568,7 +592,7 @@ class TestScopedCreate:
     def test_run_rename_does_not_change_or_invalidate_upload_path(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         upload_root = tmp_path / "uploads"
         monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
@@ -599,7 +623,7 @@ class TestScopedCreate:
 
     def test_denied_create_writes_no_entry_and_no_upload(self, client, owner_member_nonmember_run, tmp_path, monkeypatch):
         """Auth/membership completes before any upload or row is written."""
-        import main as main_mod
+        from beer_run import main as main_mod
 
         writer_calls = {"n": 0}
 
@@ -634,7 +658,7 @@ class TestScopedCreate:
     def test_no_image_and_empty_image_create_no_upload_directory(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         upload_root = tmp_path / "uploads"
         monkeypatch.setattr(main_mod, "UPLOAD_ROOT", upload_root)
@@ -663,7 +687,7 @@ class TestScopedCreate:
     def test_uuid_retry_exhaustion_is_sanitized_and_preserves_sentinel(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         data = owner_member_nonmember_run
         upload_root = tmp_path / "uploads"
@@ -694,7 +718,7 @@ class TestScopedCreate:
     def test_upload_directory_failure_is_sanitized_without_an_entry(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         data = owner_member_nonmember_run
         upload_root = tmp_path / "not-a-directory"
@@ -718,7 +742,7 @@ class TestScopedCreate:
     def test_invalid_image_removes_only_request_owned_partial_file(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         data = owner_member_nonmember_run
         upload_root = tmp_path / "uploads"
@@ -747,7 +771,7 @@ class TestScopedCreate:
 
     def test_image_failure_is_sanitized_and_rolls_back(self, client, owner_member_nonmember_run, monkeypatch):
         """Image failure: exact detail, no entry row, no raw internals."""
-        import main as main_mod
+        from beer_run import main as main_mod
 
         def _boom(contents, beer_run_id):
             raise RuntimeError("secret local path /var/tmp/leak.jpg")
@@ -773,7 +797,7 @@ class TestScopedCreate:
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
         """A failing insert rolls back and targets only this request's file."""
-        import main as main_mod
+        from beer_run import main as main_mod
 
         data = owner_member_nonmember_run
         upload_root = tmp_path / "uploads"
@@ -812,7 +836,7 @@ class TestScopedCreate:
     def test_cleanup_failure_does_not_replace_sanitized_database_error(
         self, client, owner_member_nonmember_run, tmp_path, monkeypatch
     ):
-        import main as main_mod
+        from beer_run import main as main_mod
 
         data = owner_member_nonmember_run
         upload_root = tmp_path / "uploads"

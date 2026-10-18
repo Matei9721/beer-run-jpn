@@ -42,8 +42,11 @@
 .beer-run-tour--finish .driver-popover-navigation-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .beer-run-tour--member .driver-popover-navigation-btns { grid-template-columns: 1fr; }
 .beer-run-tour--finish .driver-popover-footer button { white-space: normal; }
-.tour-running { overflow: hidden; }
 .tour-running .log-content { overflow: visible; }
+.tour-running .mobile-navigation:has(> .driver-active-element) { overflow: visible !important; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element { margin-top: -14px; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element::before { top: 0; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element .icon { top: 14px; }
 .tour-changing .driver-overlay, .tour-changing .driver-popover { visibility: hidden; }
 .tour-changing [data-app-shell] { pointer-events: none; }
 .tour-running .leaflet-marker-pane:has(> [data-tour="map-pin"]) { overflow: visible !important; }

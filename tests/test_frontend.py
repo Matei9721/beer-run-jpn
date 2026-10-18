@@ -7,7 +7,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
-FOUNDATION_ASSET_VERSION = "beerrun-106-map-pin-anchor"
+FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
+MAP_ASSET_VERSION = "beerrun-112-stationary-pins"
+TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
 
 
 def run_node_module(script):
@@ -65,8 +67,9 @@ def test_production_document_references_only_versioned_entry_assets(client):
 
     assert asset_urls == [
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
+        f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
         f"/assets/css/landing.css?v={ASSET_VERSION}",
-        f"/assets/js/app.js?v={ASSET_VERSION}",
+        f"/assets/js/app.js?v={TOUR_ASSET_VERSION}",
     ]
     assert "/static/css/" not in html
     assert "/static/js/" not in html
@@ -102,7 +105,10 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
     assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
-    assert {version for _, version in imports} == {ASSET_VERSION}
+    updated_versions = {"map.js": MAP_ASSET_VERSION, **dict.fromkeys(
+        ("run-home.js", "run-library.js", "system-states.js"), TOUR_ASSET_VERSION
+    )}
+    assert all(version == updated_versions.get(Path(path).name, ASSET_VERSION) for path, version in imports)
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
 
 
@@ -378,6 +384,42 @@ def test_tour_includes_real_runner_and_map_actions_when_data_exists():
         {"destination": "map", "source": "runner", "interactive": True, "next": False},
         {"destination": "log", "source": "map-detail", "interactive": True, "next": False},
     ]
+
+
+def test_tour_scrolls_targets_clear_of_the_mobile_menu_and_browser_chrome():
+    result = run_node_module("""
+      import { scrollTourTargetIntoView } from './src/frontend/app/js/tour.js';
+      const check = ({ top, bottom, menu = true, viewport = null, fixed = false }) => {
+        const calls = [];
+        const target = {
+          closest: () => fixed ? {} : null,
+          getBoundingClientRect: () => ({ top, bottom }),
+          scrollIntoView: (options) => calls.push(options),
+        };
+        const root = { querySelector: () => ({
+          getClientRects: () => menu ? [{}] : [],
+          getBoundingClientRect: () => ({ top: 676 }),
+        }) };
+        scrollTourTargetIntoView(target, root, { innerHeight: 744, visualViewport: viewport });
+        return calls;
+      };
+      console.log(JSON.stringify({
+        obscuredByMenu: check({ top: 655, bottom: 703 }),
+        belowFold: check({ top: 820, bottom: 868 }),
+        visible: check({ top: 300, bottom: 348 }),
+        desktop: check({ top: 655, bottom: 703, menu: false }),
+        browserChrome: check({ top: 610, bottom: 658, viewport: { height: 620, offsetTop: 0 } }),
+        aboveViewport: check({ top: 0, bottom: 48, viewport: { height: 620, offsetTop: 56 } }),
+        fixedMenu: check({ top: 681, bottom: 744, fixed: true }),
+      }));
+    """)
+
+    scroll = [{"behavior": "instant", "block": "center", "inline": "nearest"}]
+    assert result == {
+        "obscuredByMenu": scroll, "belowFold": scroll, "visible": [],
+        "desktop": [], "browserChrome": scroll, "aboveViewport": scroll,
+        "fixedMenu": [],
+    }
 
 
 def test_tour_targets_the_visible_menu_for_each_device():
@@ -794,13 +836,15 @@ def test_account_and_shared_destructive_confirmation_contracts_are_present():
     assert 'api.deleteEntry(' in map_source
     assert 'if (root.querySelector("dialog[open]")) return;' in map_source
     assert 'const SELECTED_ENTRY_ZOOM = 16;' in map_source
-    assert 'map.setView(marker.getLatLng(), Math.max(map.getZoom(), SELECTED_ENTRY_ZOOM)' in map_source
-    assert 'markerGroup.zoomToShowLayer(marker, revealMarker)' in map_source
+    assert 'map.setView(center, zoom, { animate: false })' in map_source
+    assert 'zoomToShowLayer' not in map_source
+    assert 'cluster.spiderfy()' in map_source
     assert 'markerGroup?.removeLayer?.(marker)' not in map_source
-    assert 'window.L.divIcon' not in map_source
-    assert 'marker.on("click", () => focusEntry(entry))' in map_source
+    assert 'window.L.divIcon({ html: pin' in map_source
+    assert 'marker.on("click", () => { stopReplay(); focusEntry(entry, { recenter: false }); })' in map_source
+    assert 'autoPanOnFocus: false' in map_source
     assert 'maxZoom: 15, animate: false' in map_source
-    assert map_source.count('resizeMap();') >= 3
+    assert 'resizeMap(true);' in map_source
     assert 'showConfirmation({' in library
     assert 'safeLabel: "Stay in this run"' in library
     assert 'exactText: run.name' in library
@@ -990,14 +1034,14 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "leaflet.js" in html
     assert "markerClusterGroup" in source
     assert "const requestedEntryId = entryId ?? sessionStorage.getItem(SELECTED_ENTRY_KEY);" in source
-    assert "marker.setZIndexOffset?.(selected ? 1000 : 0);" in source
+    assert "updateMapSelection(markerGroup, markers, selectedEntryId, selectedLayer)" in source
     assert '"Show all pins"' in source
     assert 'event.key === "Escape"' in source
     assert 'alt: accessibleTitle' in source
     assert "tileerror" in source
     assert "Map tiles are offline" in source
     assert "Photo unavailable" in source
-    assert "missing or invalid coordinates" in source
+    assert "no saved location" in source
     assert "sessionStorage.removeItem(SELECTED_ENTRY_KEY)" in source
     assert 'entry.username === snapshot.identity.username' in source
     assert 'role === "owner" || role === "member"' in source
@@ -1014,7 +1058,6 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "if (workspace && nativeFullscreenElement() === workspace)" in source
     assert "is-fullscreen-fallback" in source
     assert "invalidateSize" in source
-    assert "refreshClusters" in source
     assert "Enter full screen map" in source
     assert "Exit full screen map" in source
     assert "map-fullscreen-control__icon--expand" in source

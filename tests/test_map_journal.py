@@ -59,6 +59,84 @@ def test_map_stops_bound_distance_and_duration_without_chaining_or_grouping_miss
     assert result["midnight"] == [[11], [12]]
 
 
+def test_replay_keeps_chronology_and_revisits_locations_as_separate_stops():
+    result = run_node_module("""
+      import { buildMapReplay, mapVisibleEntries } from './src/frontend/app/js/map.js';
+      const entry = (id, timestamp, username = 'Alex', latitude = 35) =>
+        ({ id, timestamp, username, latitude, longitude:139 });
+      const entries = [
+        entry(4, '2026-04-02T10:00:00'),
+        entry(2, '2026-04-01T10:10:00', 'Bo', 35.0001),
+        entry(3, '2026-04-01T11:00:00', 'Alex', 36),
+        entry(1, '2026-04-01T10:00:00'),
+        entry(5, '2026-04-02T11:00:00', 'Alex', null),
+      ];
+      const plan = buildMapReplay(entries);
+      console.log(JSON.stringify({
+        ids:plan.map(s => s.entry.id),
+        stops:plan.map(s => [s.stopIndex, s.entryIndex, s.stopCount, s.stop.entries.length]),
+        sharedStop:plan[0].stop === plan[1].stop,
+        filtered:buildMapReplay(mapVisibleEntries(entries, {username:'Alex', day:'2026-04-01'})).map(s => s.entry.id),
+        empty:buildMapReplay([]), original:entries.map(e => e.id),
+      }));
+    """)
+
+    assert result == {
+        "ids": [1, 2, 3, 4],
+        "stops": [[0, 0, 3, 2], [0, 1, 3, 2], [1, 0, 3, 1], [2, 0, 3, 1]],
+        "sharedStop": True,
+        "filtered": [1, 3],
+        "empty": [],
+        "original": [4, 2, 3, 1, 5],
+    }
+
+
+def test_replay_waits_for_arrival_and_cluster_reveal_and_cancels_pending_callbacks():
+    result = run_node_module("""
+      import { visitMapReplayStop } from './src/frontend/app/js/map.js';
+      const run = ({cancelAt = null, emitMove = true, cluster = true, animate = true} = {}) => {
+        const timers = new Map(), events = new Map(), calls = [];
+        let nextId = 0;
+        globalThis.window = {
+          setTimeout: (fn, ms) => { timers.set(++nextId, {fn, ms}); return nextId; },
+          clearTimeout: id => timers.delete(id),
+        };
+        const tick = () => { const [id, task] = timers.entries().next().value;
+          timers.delete(id); calls.push(['wait',task.ms]); task.fn(); };
+        const map = { on:(name,fn) => events.set(name,fn), off:name => events.delete(name),
+          flyToBounds:(bounds,options) => calls.push(['fly',bounds,options]) };
+        const group = { getVisibleParent: () => cluster ? {spiderfy:() => calls.push('reveal')} : {} };
+        const cancel = visitMapReplayStop(map,group,{}, {entries:[{latitude:35,longitude:139}]}, {
+          padding:{paddingTopLeft:[20,180],paddingBottomRight:[480,40]}, animate,
+          onReady:() => calls.push('ready'),
+        });
+        if (cancelAt === 'flight') cancel();
+        if (emitMove) events.get('moveend')?.();
+        if (cancelAt === 'arrival') cancel();
+        if (cancelAt === 'reveal') { tick(); cancel(); }
+        while (timers.size) tick();
+        return {calls,listeners:events.size,timers:timers.size};
+      };
+      console.log(JSON.stringify({normal:run(), noMove:run({emitMove:false}),
+        reduced:run({animate:false}), individual:run({cluster:false}),
+        flight:run({cancelAt:'flight'}), arrival:run({cancelAt:'arrival'}), reveal:run({cancelAt:'reveal'})}));
+    """)
+
+    fly = ["fly", [[35, 139]], {
+        "paddingTopLeft": [20, 180], "paddingBottomRight": [480, 40],
+        "maxZoom": 18, "animate": True, "duration": 1.2,
+    }]
+    assert result["normal"]["calls"] == [fly, ["wait", 350], "reveal", ["wait", 250], "ready"]
+    assert result["noMove"]["calls"] == [fly, ["wait", 1600], ["wait", 350], "reveal", ["wait", 250], "ready"]
+    assert result["individual"]["calls"] == [fly, ["wait", 350], ["wait", 0], "ready"]
+    assert result["reduced"]["calls"][0][2]["animate"] is False
+    assert result["reduced"]["calls"][1:] == [["wait", 0], "reveal", ["wait", 0], "ready"]
+    assert result["flight"]["calls"] == [fly]
+    assert result["arrival"]["calls"] == [fly]
+    assert result["reveal"]["calls"] == [fly, ["wait", 350], "reveal"]
+    assert all(case["listeners"] == 0 and case["timers"] == 0 for case in result.values())
+
+
 def test_selection_follows_the_existing_cluster_or_expanded_pin():
     result = run_node_module("""
       import { updateMapSelection } from './src/frontend/app/js/map.js';

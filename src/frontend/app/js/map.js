@@ -66,6 +66,47 @@ export function buildMapStops(entries) {
   return stops;
 }
 
+export function buildMapReplay(entries) {
+  const stops = buildMapStops(entries);
+  return stops.flatMap((stop, stopIndex) => stop.entries.map((entry, entryIndex) => ({
+    entry, stop, stopIndex, entryIndex, stopCount: stops.length,
+  })));
+}
+
+// Wait for the camera and cluster animation before starting the reading time.
+// The fallback also covers Leaflet's no-op move when already at the destination.
+export function visitMapReplayStop(map, group, marker, stop, { padding, animate, onReady }) {
+  let cancelled = false;
+  let arrived = false;
+  let timer = null;
+  const cancel = () => {
+    cancelled = true;
+    window.clearTimeout(timer);
+    map.off("moveend", arrival);
+  };
+  const arrival = () => {
+    if (cancelled || arrived) return;
+    arrived = true;
+    map.off("moveend", arrival);
+    window.clearTimeout(timer);
+    // Markercluster's zoom cleanup takes 300ms; spiderfy must run after it.
+    timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const parent = group.getVisibleParent?.(marker);
+      if (parent?.spiderfy) parent.spiderfy();
+      timer = window.setTimeout(() => {
+        if (!cancelled) onReady();
+      }, animate && parent?.spiderfy ? 250 : 0);
+    }, animate ? 350 : 0);
+  };
+  map.on("moveend", arrival);
+  timer = window.setTimeout(arrival, animate ? 1600 : 0);
+  map.flyToBounds(stop.entries.map((entry) => [Number(entry.latitude), Number(entry.longitude)]), {
+    ...padding, maxZoom: 18, animate, duration: 1.2,
+  });
+  return cancel;
+}
+
 // A drink is represented by its pin or its visible cluster, never both.
 // Re-resolve the parent after zooming because Leaflet replaces cluster icons.
 export function updateMapSelection(markerGroup, markers, selectedEntryId, previousLayer = null) {
@@ -267,6 +308,12 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   let lastSignature = "";
   let replayTimer = null;
   let replaying = false;
+  let replaySequence = [];
+  let replayIndex = -1;
+  let replayVisit = null;
+  let replayTravelling = false;
+  let replayDay = null;
+  let replayMapStatus = null;
   const data = () => getSnapshot().data || { run: null, identity: null, entries: [] };
   const journalEntries = () => clusterEntryIds ? visibleEntries.filter((entry) => clusterEntryIds.has(Number(entry.id))) : visibleEntries;
 
@@ -318,6 +365,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     syncFullscreenControl();
   }
   async function toggleFullscreen() {
+    stopReplay();
     const workspace = root.querySelector("[data-map-workspace]");
     if (!workspace) return;
     if (nativeFullscreenElement() === workspace) {
@@ -386,11 +434,34 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     });
   }
 
+  function setReplayMapDay(day = null) {
+    if (replayDay === day || !map || !markerGroup) return;
+    const status = root.querySelector("[data-map-status]");
+    if (replayDay === null) replayMapStatus = status?.textContent;
+    replayDay = day;
+    markerGroup.clearLayers();
+    expandedCluster = null;
+    expandedEntryIds = new Set();
+    selectedLayer = null;
+    const entries = day === null ? visibleEntries : journalEntries().filter((entry) => mapDayKey(entry) === day);
+    const mapped = entries.filter(isMapped);
+    mapped.forEach((entry) => markers.get(Number(entry.id))?.addTo(markerGroup));
+    if (status && !tileWarning) status.textContent = day === null
+      ? replayMapStatus : `${mapped.length} mapped ${mapped.length === 1 ? "drink" : "drinks"} · ${dayLabel(day)}`;
+    if (day === null) replayMapStatus = null;
+    syncSelection();
+  }
+
   function stopReplay() {
-    if (replaying) map?.stop?.();
+    replayVisit?.();
+    replayVisit = null;
     window.clearTimeout(replayTimer);
     replayTimer = null;
+    const wasPlaying = replaying;
     replaying = false;
+    if (wasPlaying) map?.stop?.();
+    setReplayMapDay();
+    root.querySelector("[data-map-replay-status]")?.remove();
     const button = root.querySelector("[data-map-replay]");
     if (button) {
       button.textContent = "▶ Replay";
@@ -401,24 +472,57 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
 
   function replayStep() {
     if (!active || !replaying || root.querySelector("dialog[open]")) { stopReplay(); return; }
-    const sequence = journalEntries().filter(isMapped);
-    const index = sequence.findIndex((entry) => Number(entry.id) === selectedEntryId);
-    const entry = sequence[index + 1];
-    if (!entry) { stopReplay(); return; }
-    focusEntry(entry, { focus: false, animate: true });
-    replayTimer = window.setTimeout(replayStep, 2800);
+    presentReplayStep(replayIndex + 1);
+  }
+
+  function replayCaption() {
+    const step = replaySequence[replayIndex];
+    if (!step) return "";
+    return replayTravelling
+      ? `Travelling to stop ${step.stopIndex + 1} of ${step.stopCount}`
+      : `${dayLabel(mapDayKey(step.entry))} · Stop ${step.stopIndex + 1} of ${step.stopCount} · Drink ${step.entryIndex + 1} of ${step.stop.entries.length}`;
+  }
+
+  function presentReplayStep(index) {
+    const step = replaySequence[index];
+    if (!step || !map) { stopReplay(); return; }
+    setReplayMapDay(mapDayKey(step.entry));
+    const previous = replaySequence[replayIndex];
+    const staying = previous?.stop === step.stop || expandedEntryIds.has(Number(step.entry.id));
+    replayIndex = index;
+    replayTravelling = !staying;
+    showDetail(step.entry, { focus: false });
+    const ready = () => {
+      replayVisit = null;
+      if (!active || !replaying || root.querySelector("dialog[open]")) { stopReplay(); return; }
+      replayTravelling = false;
+      syncSelection();
+      const status = root.querySelector("[data-map-replay-status]");
+      if (status) status.textContent = replayCaption();
+      replayTimer = window.setTimeout(replayStep, 3200);
+    };
+    const marker = markers.get(Number(step.entry.id));
+    if (staying) {
+      const parent = markerGroup.getVisibleParent?.(marker);
+      if (!expandedEntryIds.has(Number(step.entry.id)) && parent?.spiderfy) parent.spiderfy();
+      ready();
+    } else {
+      expandedCluster?.unspiderfy();
+      replayVisit = visitMapReplayStop(map, markerGroup, marker, step.stop, {
+        padding: mapPadding(), animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches, onReady: ready,
+      });
+    }
   }
 
   function toggleReplay() {
     if (replaying) { stopReplay(); return; }
-    const sequence = journalEntries().filter(isMapped);
-    if (sequence.length < 2) return;
+    replaySequence = buildMapReplay(journalEntries());
+    if (!map || replaySequence.length < 2) return;
     sheetExpanded = false;
     replaying = true;
-    const index = sequence.findIndex((entry) => Number(entry.id) === selectedEntryId);
-    if (index < 0 || index === sequence.length - 1) focusEntry(sequence[0], { focus: false, animate: true });
-    else renderJournal();
-    replayTimer = window.setTimeout(replayStep, 2800);
+    const index = replaySequence.findIndex(({ entry }) => Number(entry.id) === selectedEntryId);
+    replayIndex = -1;
+    presentReplayStep(index < 0 || index === replaySequence.length - 1 ? 0 : index);
   }
 
   function selectAdjacent(delta) {
@@ -448,6 +552,12 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const copy = el("div");
     copy.append(el("strong", "", clusterEntryIds ? `${entries.length} nearby drinks` : selectedDay ? dayLabel(selectedDay, true) : "The trip, in moments"));
     if (!entry) copy.append(el("span", "map-journal__meta", `${entries.length} drinks · ${new Set(entries.map((item) => item.username)).size} friends`));
+    if (replaying) {
+      const status = el("span", "map-journal__meta", replayCaption());
+      status.dataset.mapReplayStatus = "";
+      status.setAttribute("role", "status");
+      copy.append(status);
+    }
     if (clusterEntryIds) {
       const all = el("button", "map-journal-button map-journal__back", "All drinks");
       all.type = "button";
@@ -738,6 +848,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     markerGroup.addTo(map);
     markerGroup.on("animationend", syncSelection);
     markerGroup.on("spiderfied", ({ cluster, markers: children }) => {
+      if (!cluster.getElement()) return;
       expandedCluster = cluster;
       expandedEntryIds = new Set(children.map((marker) => marker.options.entryId));
       const icon = cluster.getElement();
@@ -762,6 +873,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
       syncSelection();
     });
     markerGroup.on("clusterclick", ({ layer }) => {
+      if (replaying) { stopReplay(); return; }
       stopReplay();
       expandMapCluster(map, layer, mapPadding, () => {
         clusterEntryIds = new Set(layer.getAllChildMarkers().map((marker) => marker.options.entryId));
@@ -825,6 +937,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const signature = JSON.stringify([runId, selectedUsername, selectedDay, snapshot.identity?.id, snapshot.run?.current_user_role, entries]);
     const existing = root.querySelector(".map-content:not(.map-content--loading)");
     if (existing && map && lastSignature === signature) return;
+    stopReplay();
     lastSignature = signature;
     visibleEntries = mapVisibleEntries(entries, { username: selectedUsername, day: selectedDay });
     if (clusterEntryIds) {
@@ -981,6 +1094,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   });
   window.addEventListener("resize", () => {
     if (!active || !map) return;
+    stopReplay();
     updateDockSpace();
     map.invalidateSize({ animate: false, pan: false });
     const entry = visibleEntries.find((item) => Number(item.id) === selectedEntryId);

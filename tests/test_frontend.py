@@ -9,6 +9,7 @@ FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
+MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
 TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
 
 
@@ -69,7 +70,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
         f"/assets/css/landing.css?v={ASSET_VERSION}",
-        f"/assets/js/app.js?v={MAP_ASSET_VERSION}",
+        f"/assets/js/app.js?v={MAP_MODULE_VERSION}",
     ]
     assert "/static/css/" not in html
     assert "/static/js/" not in html
@@ -105,7 +106,7 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
     assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
-    updated_versions = {"map.js": MAP_ASSET_VERSION, **dict.fromkeys(
+    updated_versions = {"map.js": MAP_MODULE_VERSION, **dict.fromkeys(
         ("run-home.js", "run-library.js", "system-states.js"), TOUR_ASSET_VERSION
     )}
     assert all(version == updated_versions.get(Path(path).name, ASSET_VERSION) for path, version in imports)

@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="/assets/assets/vendor/driver/driver.css?v=1.3.6">
     <link rel="stylesheet" href="/assets/css/foundation.css?v=beerrun-113-mobile-tour">
     <link rel="stylesheet" href="/assets/css/map.css?v=beerrun-114-desktop-map">
-    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-116-landing-performance">
+    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-118-map-pin-blend">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script type="module" src="/assets/js/app.js?v=beerrun-115-cluster-replay"></script>
@@ -49,7 +49,7 @@
 
       <div role="main">
         <section class="landing-section landing-hero" id="top" aria-labelledby="landing-hero-title">
-          <img class="landing-photo-map__canvas" src="/assets/assets/images/landing-map-abstract.webp?v=beerrun-116-landing-performance" alt="" width="1693" height="929" decoding="async" fetchpriority="low">
+          <img class="landing-photo-map__canvas" src="/assets/assets/images/landing-map-unpinned.webp?v=beerrun-117-photo-pins" alt="" width="1692" height="930" decoding="async" fetchpriority="low">
           <div class="landing-frame landing-hero__grid">
             <div class="landing-hero__copy">
               <p class="landing-kicker">Made for group trips</p>
@@ -62,9 +62,18 @@
             </div>
             <div class="landing-photo-map" aria-label="Illustrative map showing how drink photos stay connected to places">
               <div class="landing-photo-rail" aria-label="Real drinks logged with BeerRun">
-                <figure><img src="/assets/assets/images/landing-drink-at-bar.webp?v=beerrun-116-landing-performance" alt="A tall drink photographed at a bar" width="560" height="747" decoding="async" fetchpriority="high"></figure>
-                <figure><img src="/assets/assets/images/landing-canned-sour.webp?v=beerrun-116-landing-performance" alt="A canned sour drink photographed during a trip" width="560" height="744" decoding="async"></figure>
-                <figure><img src="/assets/assets/images/landing-drink-at-restaurant.webp?v=beerrun-116-landing-performance" alt="A cold drink photographed at a restaurant" width="560" height="744" decoding="async"></figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-drink-at-bar.webp?v=beerrun-117-photo-pins" alt="A tall drink photographed at a bar" width="560" height="747" decoding="async" fetchpriority="high"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-canned-sour.webp?v=beerrun-117-photo-pins" alt="A canned sour drink photographed during a trip" width="560" height="744" decoding="async"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-drink-at-restaurant.webp?v=beerrun-117-photo-pins" alt="A cold drink photographed at a restaurant" width="560" height="744" decoding="async"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
               </div>
             </div>
           </div>

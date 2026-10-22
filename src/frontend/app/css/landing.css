@@ -245,7 +245,15 @@ body.landing-view {
   --photo-rotation: 0deg;
   --photo-rotation-raised: 0deg;
   position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
   margin: 0;
+}
+
+.landing-photo-card {
+  display: block;
+  width: 100%;
   padding: 5px;
   border: 1px solid color-mix(in srgb, var(--landing-border) 70%, transparent);
   border-radius: 10px;
@@ -253,6 +261,7 @@ body.landing-view {
   box-shadow: none;
   opacity: 0;
   pointer-events: auto;
+  transform-origin: center bottom;
   rotate: var(--photo-rotation);
   scale: 0.94;
   translate: 0 32px;
@@ -262,6 +271,34 @@ body.landing-view {
     translate 160ms var(--ease-enter),
     rotate 160ms var(--ease-enter);
   overflow: hidden;
+}
+
+/* Keep each pin in its photo's layout so background cropping cannot move it. */
+.landing-photo-pin {
+  width: clamp(26px, 3vw, 34px);
+  height: auto;
+  overflow: visible;
+  color: var(--landing-text);
+  opacity: 0.6;
+  filter: blur(0.65px) saturate(0.7) contrast(0.9);
+}
+
+.landing-photo-pin path {
+  fill: currentColor;
+}
+
+.landing-photo-pin circle {
+  fill: var(--landing-canvas);
+}
+
+.landing-photo-pin ellipse {
+  fill: currentColor;
+  opacity: 0.22;
+  filter: blur(1.5px);
+}
+
+.landing-photo-rail figure:nth-child(2) .landing-photo-pin {
+  color: var(--landing-accent);
 }
 
 .landing-photo-rail figure:nth-child(1) {
@@ -476,14 +513,14 @@ body.landing-view {
   transition-delay: 40ms;
 }
 
-.landing-page.is-ready .landing-photo-rail figure {
+.landing-page.is-ready .landing-photo-card {
   opacity: 1;
   scale: 1;
   translate: 0 0;
 }
 
 @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-  .landing-page.is-ready .landing-photo-rail figure:hover {
+  .landing-page.is-ready .landing-photo-card:hover {
     rotate: var(--photo-rotation-raised);
     scale: 1.04;
     translate: 0 -12px;
@@ -616,14 +653,14 @@ body.landing-view {
     mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.28) 90%, rgb(0 0 0 / 0.12));
   }
 
-  .landing-photo-rail figure {
+  .landing-photo-card {
     padding: 4px;
   }
 
   .landing-photo-rail figure:nth-child(1) {
     top: 25%;
-    left: 1%;
-    width: 33%;
+    left: 5%;
+    width: 31%;
   }
 
   .landing-photo-rail figure:nth-child(2) {
@@ -633,9 +670,9 @@ body.landing-view {
   }
 
   .landing-photo-rail figure:nth-child(3) {
-    right: 1%;
+    right: 3%;
     bottom: 0;
-    width: 33%;
+    width: 31%;
   }
 
   .landing-features,
@@ -739,12 +776,12 @@ body.landing-view {
   .landing-hero__copy,
   .landing-photo-map,
   .landing-photo-map__canvas,
-  .landing-photo-rail figure {
+  .landing-photo-card {
     opacity: 1 !important;
     transform: none !important;
   }
 
-  .landing-photo-rail figure {
+  .landing-photo-card {
     animation: none !important;
     rotate: var(--photo-rotation) !important;
     scale: 1 !important;

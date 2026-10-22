@@ -7,7 +7,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
-LANDING_ASSET_VERSION = "beerrun-116-landing-performance"
+LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
+LANDING_STYLE_VERSION = "beerrun-118-map-pin-blend"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
@@ -38,7 +39,7 @@ def test_production_root_serves_the_route_stamp_application(client):
 
 def test_production_assets_use_the_assets_namespace(client):
     stylesheet = client.get(f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}")
-    landing_stylesheet = client.get(f"/assets/css/landing.css?v={LANDING_ASSET_VERSION}")
+    landing_stylesheet = client.get(f"/assets/css/landing.css?v={LANDING_STYLE_VERSION}")
     module = client.get(f"/assets/js/app.js?v={ASSET_VERSION}")
     landing_photos = [
         client.get(f"/assets/assets/images/{filename}?v={LANDING_ASSET_VERSION}")
@@ -46,7 +47,7 @@ def test_production_assets_use_the_assets_namespace(client):
             "landing-drink-at-bar.webp",
             "landing-canned-sour.webp",
             "landing-drink-at-restaurant.webp",
-            "landing-map-abstract.webp",
+            "landing-map-unpinned.webp",
         )
     ]
     missing = client.get("/assets/css/does-not-exist.css")
@@ -71,7 +72,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
     assert asset_urls == [
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
-        f"/assets/css/landing.css?v={LANDING_ASSET_VERSION}",
+        f"/assets/css/landing.css?v={LANDING_STYLE_VERSION}",
         f"/assets/js/app.js?v={MAP_MODULE_VERSION}",
     ]
     assert "/static/css/" not in html
@@ -129,7 +130,7 @@ def test_landing_page_routes_into_production_application_flows():
     assert html.count('data-landing-route="login"') == 1
     assert html.count('data-landing-route="signup"') == 1
     assert html.count('data-landing-route="tour"') == 1
-    assert f'/assets/assets/images/landing-map-abstract.webp?v={LANDING_ASSET_VERSION}' in html
+    assert f'/assets/assets/images/landing-map-unpinned.webp?v={LANDING_ASSET_VERSION}' in html
     assert all(f'/assets/assets/images/{name}?v={LANDING_ASSET_VERSION}' in html for name in (
         "landing-drink-at-bar.webp",
         "landing-canned-sour.webp",
@@ -164,14 +165,14 @@ def test_landing_page_routes_into_production_application_flows():
     assert 'transparent 36%' in mobile_css
     assert 'rgb(0 0 0 / 0.12)' in mobile_css
     assert '--photo-rotation: -4.5deg;' in css
-    photo_card_css = css.split('.landing-photo-rail figure {', 1)[1].split('}', 1)[0]
+    photo_card_css = css.split('.landing-photo-card {', 1)[1].split('}', 1)[0]
     assert 'box-shadow: none;' in photo_card_css
     assert 'left: 40%;' in css
     assert 'right: 19%;' not in css
-    hover_css = css.split('.landing-page.is-ready .landing-photo-rail figure:hover {', 1)[1].split('}', 1)[0]
+    hover_css = css.split('.landing-page.is-ready .landing-photo-card:hover {', 1)[1].split('}', 1)[0]
     assert 'box-shadow' not in hover_css
     assert '.landing-photo-rail figure::before' not in css
-    assert '.landing-page.is-ready .landing-photo-rail figure' in css
+    assert '.landing-page.is-ready .landing-photo-card' in css
     assert 'translate: 0 32px;' in css
     assert '@media (min-width: 768px) and (hover: hover) and (pointer: fine)' in css
     assert 'class="landing-map-signal"' not in html

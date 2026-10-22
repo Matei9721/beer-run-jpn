@@ -8,7 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
-MAP_ASSET_VERSION = "beerrun-112-stationary-pins"
+MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
 
 
@@ -69,7 +69,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
         f"/assets/css/landing.css?v={ASSET_VERSION}",
-        f"/assets/js/app.js?v={TOUR_ASSET_VERSION}",
+        f"/assets/js/app.js?v={MAP_ASSET_VERSION}",
     ]
     assert "/static/css/" not in html
     assert "/static/js/" not in html

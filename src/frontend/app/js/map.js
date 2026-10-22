@@ -133,7 +133,7 @@ function photoFor(entry) {
   return media;
 }
 
-function detailFor(entry, { canManage, onClose, onEdit, onDelete, expanded, onExpand, onPrevious, onNext, position, total, stop, onSelect }) {
+function detailFor(entry, { canManage, onClose, onEdit, onDelete, expanded, desktop, onExpand, onPrevious, onNext, position, total, stop, onSelect }) {
   const detail = el("article", "map-detail");
   detail.dataset.mapDetail = "";
   detail.setAttribute("aria-labelledby", "map-detail-title");
@@ -200,6 +200,7 @@ function detailFor(entry, { canManage, onClose, onEdit, onDelete, expanded, onEx
     facts.append(fact);
   });
   const location = el("details", "map-detail__location");
+  location.open = desktop;
   location.append(el("summary", "", isMapped(entry) ? "Saved location" : "Location unavailable"));
   if (isMapped(entry)) location.append(el("p", "", `${Number(entry.latitude).toFixed(4)}, ${Number(entry.longitude).toFixed(4)}`));
   body.append(photoFor(entry), facts, location);
@@ -253,6 +254,8 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   let fullscreenButton = null;
   let selectedDay = "";
   let sheetExpanded = false;
+  const desktopLayout = window.matchMedia("(min-width: 1200px)");
+  const detailsExpanded = () => desktopLayout.matches || sheetExpanded;
   let visibleEntries = [];
   let stops = [];
   let selectedLayer = null;
@@ -437,9 +440,9 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const scrollLeft = oldRail?.scrollLeft || 0;
     journal.replaceChildren();
     journal.hidden = entries.length === 0;
-    journal.classList.toggle("is-expanded", sheetExpanded && Boolean(entry));
+    journal.classList.toggle("is-expanded", detailsExpanded() && Boolean(entry));
     journal.classList.toggle("has-selection", Boolean(entry));
-    root.querySelector("[data-map-workspace]")?.classList.toggle("has-expanded-detail", sheetExpanded && Boolean(entry));
+    root.querySelector("[data-map-workspace]")?.classList.toggle("has-expanded-detail", detailsExpanded() && Boolean(entry));
     if (detail) journal.append(detail);
     const heading = el("div", "map-journal__heading");
     const copy = el("div");
@@ -489,7 +492,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     if (selected) rail.scrollLeft = selected.offsetLeft - rail.offsetLeft - (rail.clientWidth - selected.offsetWidth) / 2;
     if (focusKey) {
       const target = [...journal.querySelectorAll("[data-focus-key]")].find((node) => node.dataset.focusKey === focusKey);
-      (target && !target.disabled ? target : selected)?.focus({ preventScroll: true });
+      (target && !target.disabled && target.getClientRects().length ? target : selected)?.focus({ preventScroll: true });
     }
     updateDockSpace();
   }
@@ -507,7 +510,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const dockWidth = journal && !journal.hidden ? journal.getBoundingClientRect().width : 0;
     return {
       paddingTopLeft: [20, (panel?.offsetHeight || 0) + 58],
-      paddingBottomRight: [phone ? 20 : dockWidth + 32, phone ? dockHeight + 28 : 40],
+      paddingBottomRight: [phone ? 20 : dockWidth + (desktopLayout.matches ? 92 : 32), phone ? dockHeight + 28 : 40],
     };
   }
 
@@ -578,7 +581,8 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     workspace.classList.add("has-detail");
     const detail = detailFor(entry, {
       canManage,
-      expanded: sheetExpanded,
+      expanded: detailsExpanded(),
+      desktop: desktopLayout.matches,
       position: Math.max(0, journalEntries().findIndex((item) => Number(item.id) === selectedEntryId)),
       total: journalEntries().length,
       stop: stops.find((stop) => stop.entries.some((item) => Number(item.id) === selectedEntryId)),
@@ -674,7 +678,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     });
     renderJournal(detail);
     syncSelection();
-    if (focus) detail.querySelector(".map-detail__handle")?.focus({ preventScroll: true });
+    if (focus) detail.querySelector(desktopLayout.matches ? ".map-detail__close" : ".map-detail__handle")?.focus({ preventScroll: true });
     root.dispatchEvent(new CustomEvent("beer-run:map-detail-opened", { detail: { entryId: entry.id } }));
   }
   function focusEntry(entry, { focus = true, animate = false, recenter = true } = {}) {
@@ -972,6 +976,9 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
   });
   document.addEventListener("fullscreenchange", syncFullscreenControl);
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopReplay(); });
+  desktopLayout.addEventListener("change", () => {
+    if (active) renderJournal();
+  });
   window.addEventListener("resize", () => {
     if (!active || !map) return;
     updateDockSpace();

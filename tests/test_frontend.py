@@ -8,7 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
-LANDING_STYLE_VERSION = "beerrun-118-map-pin-blend"
+LANDING_STYLE_VERSION = "beerrun-119-immediate-landing"
+APP_MODULE_VERSION = "beerrun-119-immediate-landing"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
@@ -73,7 +74,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
         f"/assets/css/landing.css?v={LANDING_STYLE_VERSION}",
-        f"/assets/js/app.js?v={MAP_MODULE_VERSION}",
+        f"/assets/js/app.js?v={APP_MODULE_VERSION}",
     ]
     assert "/static/css/" not in html
     assert "/static/js/" not in html
@@ -173,7 +174,8 @@ def test_landing_page_routes_into_production_application_flows():
     assert 'box-shadow' not in hover_css
     assert '.landing-photo-rail figure::before' not in css
     assert '.landing-page.is-ready .landing-photo-card' in css
-    assert 'translate: 0 32px;' in css
+    assert 'opacity: 0;' not in photo_card_css
+    assert 'translate: 0 32px;' not in css
     assert '@media (min-width: 768px) and (hover: hover) and (pointer: fine)' in css
     assert 'class="landing-map-signal"' not in html
     assert '@keyframes landingMapDrift' not in css
@@ -194,6 +196,65 @@ def test_landing_page_routes_into_production_application_flows():
     assert "figure.hidden = true" in landing
     assert 'services.auth.getAccessToken()) destination = "run"' in app
     assert 'closeTo: "#landing"' in app
+
+
+def test_landing_is_shown_while_session_and_run_startup_are_pending():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      const app = fs.readFileSync("src/frontend/app/js/app.js", "utf8");
+      const startup = app.slice(app.lastIndexOf("void (async () => {")).replace(/^void /, "");
+      const cases = [];
+      for (const [hash, status, invite] of [
+        ["", "none", false], ["#landing", "valid", false],
+        ["#map", "valid", false], ["#login", "none", false],
+        ["#signup", "none", false], ["#map", "stale", false],
+        ["#landing", "stale", false], ["", "none", true],
+      ]) {
+        const events = [];
+        const location = { hash, pathname: "/", search: invite ? "?invite=example" : "" };
+        const history = { replaceState: (_state, _unused, url) => {
+          location.hash = new URL(url, "https://example.test").hash;
+        } };
+        let resolveSession, resolveRun;
+        const sessionPending = new Promise(resolve => { resolveSession = resolve; });
+        const runPending = new Promise(resolve => { resolveRun = resolve; });
+        const inactive = { isActive: () => false };
+        const landing = { ...inactive, hide: () => events.push("hide-landing") };
+        const authController = {
+          ...inactive,
+          validateStoredSession: () => { events.push("validate"); return sessionPending; },
+          show: mode => events.push(mode),
+        };
+        const runHome = { initialize: () => { events.push("initialize"); return runPending; } };
+        const inviteController = { ...inactive, hasInviteRoute: () => invite };
+        const runLibrary = inactive, legalController = inactive;
+        const onboarding = { consider: () => events.push("onboarding") };
+        const document = { querySelector: () => null };
+        const showLandingView = () => events.push("landing");
+        const syncLandingSession = () => events.push("sync-session");
+        const restoreDestination = () => events.push(`restore:${location.hash || "#landing"}`);
+        const finished = eval(startup);
+        const isLanding = !invite && (!hash || hash === "#landing");
+        assert.deepEqual(events, isLanding ? ["landing", "validate"] : ["validate"]);
+        resolveSession({ status });
+        await Promise.resolve();
+        assert.equal(events.at(-1), "initialize");
+        assert.equal(events.some(event => event.startsWith("restore:")), false);
+        resolveRun();
+        await finished;
+        if (status === "stale") {
+          assert.equal(location.hash, "#login");
+          assert.equal(events.at(-1), "login");
+        } else {
+          assert.ok(events.includes(`restore:${invite ? "#invite" : hash || "#landing"}`));
+        }
+        cases.push({ hash, status, invite, earlyLanding: isLanding });
+      }
+      console.log(JSON.stringify(cases));
+    ''')
+    assert len(result) == 8
+    assert sum(case["earlyLanding"] for case in result) == 3
 
 
 def test_application_pages_share_the_landing_wordmark_and_link_back_to_it():

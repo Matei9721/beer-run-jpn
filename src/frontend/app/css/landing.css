@@ -259,14 +259,10 @@ body.landing-view {
   border-radius: 10px;
   background: var(--landing-surface);
   box-shadow: none;
-  opacity: 0;
   pointer-events: auto;
   transform-origin: center bottom;
   rotate: var(--photo-rotation);
-  scale: 0.94;
-  translate: 0 32px;
   transition:
-    opacity 160ms var(--ease-enter),
     scale 160ms var(--ease-enter),
     translate 160ms var(--ease-enter),
     rotate 160ms var(--ease-enter);
@@ -496,29 +492,6 @@ body.landing-view {
   transform: none;
 }
 
-.landing-hero__copy,
-.landing-photo-map {
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 320ms var(--ease-enter), transform 320ms var(--ease-enter);
-}
-
-.landing-page.is-ready .landing-hero__copy,
-.landing-page.is-ready .landing-photo-map {
-  opacity: 1;
-  transform: none;
-}
-
-.landing-page.is-ready .landing-photo-map {
-  transition-delay: 40ms;
-}
-
-.landing-page.is-ready .landing-photo-card {
-  opacity: 1;
-  scale: 1;
-  translate: 0 0;
-}
-
 @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   .landing-page.is-ready .landing-photo-card:hover {
     rotate: var(--photo-rotation-raised);
@@ -743,11 +716,6 @@ body.landing-view {
     transition-duration: 360ms;
   }
 
-  .landing-hero__copy,
-  .landing-photo-map {
-    transform: translateY(12px);
-    transition-duration: 240ms;
-  }
 }
 
 @media (max-width: 380px) {

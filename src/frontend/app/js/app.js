@@ -559,6 +559,7 @@ void (async () => {
   const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash)
     ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
     : location.hash || "#landing";
+  if (destinationBeforeValidation === "#landing") showLandingView();
   const session = await authController.validateStoredSession();
   syncLandingSession();
   await runHome.initialize();

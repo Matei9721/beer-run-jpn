@@ -257,10 +257,10 @@ body.landing-view {
   scale: 0.94;
   translate: 0 32px;
   transition:
-    opacity 520ms var(--ease-enter),
-    scale 620ms var(--ease-enter),
-    translate 620ms var(--ease-enter),
-    rotate 300ms var(--ease-enter);
+    opacity 160ms var(--ease-enter),
+    scale 160ms var(--ease-enter),
+    translate 160ms var(--ease-enter),
+    rotate 160ms var(--ease-enter);
   overflow: hidden;
 }
 
@@ -271,7 +271,6 @@ body.landing-view {
   left: 4%;
   z-index: 2;
   width: 32%;
-  transition-delay: 180ms;
 }
 
 .landing-photo-rail figure:nth-child(2) {
@@ -281,7 +280,6 @@ body.landing-view {
   left: 40%;
   z-index: 4;
   width: 20%;
-  transition-delay: 270ms;
 }
 
 .landing-photo-rail figure:nth-child(3) {
@@ -291,7 +289,6 @@ body.landing-view {
   bottom: 1%;
   z-index: 3;
   width: 30%;
-  transition-delay: 360ms;
 }
 
 .landing-photo-rail img {
@@ -466,7 +463,7 @@ body.landing-view {
 .landing-photo-map {
   opacity: 0;
   transform: translateY(18px);
-  transition: opacity 620ms var(--ease-enter), transform 620ms var(--ease-enter);
+  transition: opacity 320ms var(--ease-enter), transform 320ms var(--ease-enter);
 }
 
 .landing-page.is-ready .landing-hero__copy,
@@ -476,7 +473,7 @@ body.landing-view {
 }
 
 .landing-page.is-ready .landing-photo-map {
-  transition-delay: 90ms;
+  transition-delay: 40ms;
 }
 
 .landing-page.is-ready .landing-photo-rail figure {
@@ -712,7 +709,7 @@ body.landing-view {
   .landing-hero__copy,
   .landing-photo-map {
     transform: translateY(12px);
-    transition-duration: 420ms;
+    transition-duration: 240ms;
   }
 }
 
@@ -733,6 +730,7 @@ body.landing-view {
   .landing-page *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }

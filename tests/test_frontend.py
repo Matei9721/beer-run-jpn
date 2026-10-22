@@ -7,6 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
+LANDING_ASSET_VERSION = "beerrun-116-landing-performance"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
@@ -37,14 +38,15 @@ def test_production_root_serves_the_route_stamp_application(client):
 
 def test_production_assets_use_the_assets_namespace(client):
     stylesheet = client.get(f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}")
-    landing_stylesheet = client.get(f"/assets/css/landing.css?v={ASSET_VERSION}")
+    landing_stylesheet = client.get(f"/assets/css/landing.css?v={LANDING_ASSET_VERSION}")
     module = client.get(f"/assets/js/app.js?v={ASSET_VERSION}")
     landing_photos = [
-        client.get(f"/assets/assets/images/{filename}?v={ASSET_VERSION}")
+        client.get(f"/assets/assets/images/{filename}?v={LANDING_ASSET_VERSION}")
         for filename in (
-            "landing-drink-at-bar.jpg",
-            "landing-canned-sour.jpg",
-            "landing-drink-at-restaurant.jpg",
+            "landing-drink-at-bar.webp",
+            "landing-canned-sour.webp",
+            "landing-drink-at-restaurant.webp",
+            "landing-map-abstract.webp",
         )
     ]
     missing = client.get("/assets/css/does-not-exist.css")
@@ -56,7 +58,7 @@ def test_production_assets_use_the_assets_namespace(client):
     assert module.status_code == 200
     assert "javascript" in module.headers["content-type"]
     assert all(photo.status_code == 200 for photo in landing_photos)
-    assert all(photo.headers["content-type"] == "image/jpeg" for photo in landing_photos)
+    assert all(photo.headers["content-type"] == "image/webp" for photo in landing_photos)
     assert missing.status_code == 404
     assert client.get("/revamp-preview").status_code == 404
     assert client.get("/revamp-assets/css/foundation.css").status_code == 404
@@ -69,7 +71,7 @@ def test_production_document_references_only_versioned_entry_assets(client):
     assert asset_urls == [
         f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
         f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
-        f"/assets/css/landing.css?v={ASSET_VERSION}",
+        f"/assets/css/landing.css?v={LANDING_ASSET_VERSION}",
         f"/assets/js/app.js?v={MAP_MODULE_VERSION}",
     ]
     assert "/static/css/" not in html
@@ -127,11 +129,11 @@ def test_landing_page_routes_into_production_application_flows():
     assert html.count('data-landing-route="login"') == 1
     assert html.count('data-landing-route="signup"') == 1
     assert html.count('data-landing-route="tour"') == 1
-    assert f'/assets/assets/images/landing-map-abstract.png?v={ASSET_VERSION}' in html
-    assert all(f'/assets/assets/images/{name}?v={ASSET_VERSION}' in html for name in (
-        "landing-drink-at-bar.jpg",
-        "landing-canned-sour.jpg",
-        "landing-drink-at-restaurant.jpg",
+    assert f'/assets/assets/images/landing-map-abstract.webp?v={LANDING_ASSET_VERSION}' in html
+    assert all(f'/assets/assets/images/{name}?v={LANDING_ASSET_VERSION}' in html for name in (
+        "landing-drink-at-bar.webp",
+        "landing-canned-sour.webp",
+        "landing-drink-at-restaurant.webp",
     ))
     assert "/static/uploads/" not in landing_markup
     assert 'Open any logged drink on the map and see every friend\'s pin.' in html

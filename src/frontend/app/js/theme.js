@@ -28,13 +28,17 @@ export function createThemeController({ root = document.documentElement, storage
   let preference = readPreference(storage);
   const apply = () => {
     root.dataset.theme = resolveTheme(preference, mediaQuery);
+    root.dataset.themePreference = preference;
     return root.dataset.theme;
   };
   const handleSystemChange = () => {
     if (preference === "system") withoutColorTransitions(root, apply);
   };
   mediaQuery.addEventListener("change", handleSystemChange);
-  apply();
+  // Keep the pre-paint choice when the app attaches to an already themed page.
+  const initialized = root.dataset.themePreference === preference
+    && ["light", "dark"].includes(root.dataset.theme);
+  if (!initialized) apply();
 
   return {
     getPreference: () => preference,

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#F3F1E8">
     <title>BeerRun | Track the trip together</title>
+    <style>
+      :root { background: #f3f1e8; color: #102722; color-scheme: light; }
+      :root[data-theme="dark"] { background: #0c1513; color: #f2efe6; color-scheme: dark; }
+    </style>
     <link rel="icon" href="/assets/assets/brand/final/beer-run-mark.svg?v=beerrun-105-tour-end" type="image/svg+xml" sizes="any">
     <script>
       (() => {
@@ -15,6 +19,7 @@
           ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
           : preference;
         document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themePreference = preference;
       })();
     </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
@@ -26,7 +31,7 @@
     <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-119-immediate-landing">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/assets/js/app.js?v=beerrun-119-immediate-landing"></script>
+    <script type="module" src="/assets/js/app.js?v=beerrun-120-stable-initial-theme"></script>
   </head>
   <body>
     <div class="landing-page" data-landing-page data-motion-profile="touch">

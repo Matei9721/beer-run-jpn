@@ -13,7 +13,7 @@ import { createRunLibraryController } from "./run-library.js?v=beerrun-113-mobil
 import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=beerrun-105-tour-end";
 import { createStandingsController } from "./standings.js?v=beerrun-105-tour-end";
 import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-113-mobile-tour";
-import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-105-tour-end";
+import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-120-stable-initial-theme";
 import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-105-tour-end";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;

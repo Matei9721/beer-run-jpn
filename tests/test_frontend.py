@@ -9,7 +9,8 @@ FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
 LANDING_STYLE_VERSION = "beerrun-119-immediate-landing"
-APP_MODULE_VERSION = "beerrun-119-immediate-landing"
+APP_MODULE_VERSION = "beerrun-120-stable-initial-theme"
+THEME_MODULE_VERSION = "beerrun-120-stable-initial-theme"
 FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
@@ -110,7 +111,7 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
     assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
-    updated_versions = {"map.js": MAP_MODULE_VERSION, **dict.fromkeys(
+    updated_versions = {"map.js": MAP_MODULE_VERSION, "theme.js": THEME_MODULE_VERSION, **dict.fromkeys(
         ("run-home.js", "run-library.js", "system-states.js"), TOUR_ASSET_VERSION
     )}
     assert all(version == updated_versions.get(Path(path).name, ASSET_VERSION) for path, version in imports)
@@ -315,6 +316,67 @@ def test_foundation_encodes_theme_motion_and_responsive_contracts():
     assert "beer_run_revamp_theme_preference" in theme
     assert "data-run-home" in html
     assert "access_token" not in html
+
+
+def test_initial_theme_is_preserved_when_the_app_starts():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      import { createThemeController } from "./src/frontend/app/js/theme.js";
+      const html = fs.readFileSync("src/frontend/app/index.html", "utf8");
+      const bootstrap = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+      const earlyStyle = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+      assert.ok(html.indexOf("<style>") < html.indexOf('rel="stylesheet"'));
+      assert.ok(earlyStyle.includes("color-scheme: light"));
+      assert.ok(earlyStyle.includes('data-theme="dark"'));
+      const cases = [];
+      for (const saved of [null, "invalid", "system", "light", "dark"]) {
+        for (const dark of [false, true]) {
+          let stored = saved;
+          const storage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
+          const root = { dataset: {} };
+          const document = { documentElement: root };
+          const localStorage = storage;
+          const matchMedia = () => ({ matches: dark });
+          eval(bootstrap);
+          const expected = saved === "light" || saved === "dark" ? saved : dark ? "dark" : "light";
+          assert.equal(root.dataset.theme, expected);
+          const writes = [];
+          const initialDataset = root.dataset;
+          root.dataset = new Proxy(initialDataset, { set: (target, key, value) => {
+            writes.push(key); target[key] = value; return true;
+          } });
+          let listener;
+          const media = {
+            matches: !dark,
+            addEventListener: (_type, callback) => { listener = callback; },
+            removeEventListener: () => {},
+          };
+          globalThis.matchMedia = () => media;
+          const controller = createThemeController({ root, storage });
+          assert.equal(root.dataset.theme, expected);
+          assert.deepEqual(writes, []);
+          listener();
+          if (controller.getPreference() === "system") {
+            assert.equal(root.dataset.theme, !dark ? "dark" : "light");
+          } else assert.equal(root.dataset.theme, saved);
+          controller.setPreference("dark");
+          assert.equal(root.dataset.theme, "dark");
+          assert.equal(stored, "dark");
+          controller.setPreference("light");
+          assert.equal(root.dataset.theme, "light");
+          assert.equal(stored, "light");
+          cases.push({ saved, dark, initial: expected });
+          controller.destroy();
+        }
+      }
+      const root = { dataset: {} };
+      const controller = createThemeController({ root, storage: { getItem: () => null } });
+      assert.ok(["light", "dark"].includes(root.dataset.theme));
+      controller.destroy();
+      console.log(JSON.stringify(cases));
+    ''')
+    assert len(result) == 10
 
 
 def test_run_home_preserves_scoped_data_and_stale_refresh_boundaries():

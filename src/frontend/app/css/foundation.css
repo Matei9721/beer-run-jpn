@@ -42,8 +42,11 @@
 .beer-run-tour--finish .driver-popover-navigation-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .beer-run-tour--member .driver-popover-navigation-btns { grid-template-columns: 1fr; }
 .beer-run-tour--finish .driver-popover-footer button { white-space: normal; }
-.tour-running { overflow: hidden; }
 .tour-running .log-content { overflow: visible; }
+.tour-running .mobile-navigation:has(> .driver-active-element) { overflow: visible !important; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element { margin-top: -14px; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element::before { top: 0; }
+.tour-running .mobile-navigation .nav-item--log.driver-active-element .icon { top: 14px; }
 .tour-changing .driver-overlay, .tour-changing .driver-popover { visibility: hidden; }
 .tour-changing [data-app-shell] { pointer-events: none; }
 .tour-running .leaflet-marker-pane:has(> [data-tour="map-pin"]) { overflow: visible !important; }
@@ -186,6 +189,43 @@
 }
 
 :root[data-theme="dark"] { color-scheme: dark; }
+
+/* System mode stays live in CSS instead of saving an early JavaScript reading. */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --color-canvas: #0c1513;
+    --color-surface: #111f1b;
+    --color-surface-raised: #192b25;
+    --color-surface-selected: #23483c;
+    --color-text: #f2efe6;
+    --color-text-muted: #a9b8b1;
+    --color-border: #3a5048;
+    --color-border-strong: #6f837a;
+    --color-accent: #ff745c;
+    --color-action: #ff745c;
+    --color-action-hover: #ff8c78;
+    --color-on-action: #0c1513;
+    --color-danger: #ff5a52;
+    --color-danger-surface: #4a2422;
+    --color-focus: #ff8c78;
+    --color-overlay: rgb(0 0 0 / 0.68);
+    --color-ticket: #192b25;
+    --color-ticket-text: #f2efe6;
+    --color-ticket-muted: #a9b8b1;
+    --color-wrapped: #ff745c;
+    --color-wrapped-ink: #0c1513;
+    --shadow-sticky: 0 -8px 24px rgb(0 0 0 / 0.25);
+    --shadow-raised: 0 14px 35px rgb(0 0 0 / 0.32);
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.13);
+  }
+  :root[data-theme="system"] .brand-wordmark__asset--light { display: none; }
+  :root[data-theme="system"] .brand-wordmark__asset--dark { display: block; }
+  :root[data-theme="system"] .activity-photo { outline-color: rgb(255 255 255 / 0.1); }
+  :root[data-theme="system"] .log-photo-preview,
+  :root[data-theme="system"] .map-detail__photo { outline-color: oklch(1 0 0 / 0.1); }
+}
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { min-width: 320px; background: var(--color-canvas); }
@@ -1186,8 +1226,9 @@ body:has(.confirmation-dialog[open]) { overflow: hidden; }
 .map-workspace--empty { display: grid; align-content: center; gap: var(--space-4); padding: var(--space-5); overflow: auto; }
 .map-empty { width: min(100%, 480px); min-height: 260px; justify-self: center; border: 0; background: transparent; }
 .map-canvas:focus-visible { outline-offset: -4px; }
-.map-canvas .leaflet-marker-icon { transition: scale var(--motion-control) var(--ease-enter), filter var(--motion-control) var(--ease-enter); }
-.map-canvas .leaflet-marker-icon.is-selected { scale: 1.12; transform-origin: 50% 100%; filter: hue-rotate(150deg) saturate(1.35) drop-shadow(0 0 1px var(--color-surface-raised)) drop-shadow(0 0 5px var(--color-action)); }
+/* Scaling this element also scales Leaflet's position translation and moves the pin. */
+.map-canvas .leaflet-marker-icon { transition: filter var(--motion-control) var(--ease-enter); }
+.map-canvas .leaflet-marker-icon.is-selected { filter: hue-rotate(150deg) saturate(1.35) drop-shadow(0 0 1px var(--color-surface-raised)) drop-shadow(0 0 5px var(--color-action)); }
 .marker-cluster div { background: var(--color-action); color: var(--color-on-action); font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
 .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: color-mix(in srgb, var(--color-action) 30%, transparent); }
 .map-fullscreen-control { border: 0 !important; background: transparent !important; box-shadow: none !important; }
@@ -1274,7 +1315,6 @@ body.map-fallback-fullscreen { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .map-canvas, .map-canvas .leaflet-marker-icon { transition: none; }
-  .map-canvas .leaflet-marker-icon.is-selected { scale: 1; }
   .map-fullscreen-control__button:active { scale: 1; }
   .map-fullscreen-control__icon { transition: none; }
 }

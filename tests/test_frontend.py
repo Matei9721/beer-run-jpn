@@ -7,6 +7,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
+LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
+LANDING_STYLE_VERSION = "beerrun-121-live-system-theme"
+APP_MODULE_VERSION = "beerrun-121-live-system-theme"
+THEME_MODULE_VERSION = "beerrun-121-live-system-theme"
+FOUNDATION_ASSET_VERSION = "beerrun-121-live-system-theme"
+MAP_ASSET_VERSION = "beerrun-114-desktop-map"
+MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
+TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
 
 
 def run_node_module(script):
@@ -32,15 +40,16 @@ def test_production_root_serves_the_route_stamp_application(client):
 
 
 def test_production_assets_use_the_assets_namespace(client):
-    stylesheet = client.get(f"/assets/css/foundation.css?v={ASSET_VERSION}")
-    landing_stylesheet = client.get(f"/assets/css/landing.css?v={ASSET_VERSION}")
+    stylesheet = client.get(f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}")
+    landing_stylesheet = client.get(f"/assets/css/landing.css?v={LANDING_STYLE_VERSION}")
     module = client.get(f"/assets/js/app.js?v={ASSET_VERSION}")
     landing_photos = [
-        client.get(f"/assets/assets/images/{filename}?v={ASSET_VERSION}")
+        client.get(f"/assets/assets/images/{filename}?v={LANDING_ASSET_VERSION}")
         for filename in (
-            "landing-drink-at-bar.jpg",
-            "landing-canned-sour.jpg",
-            "landing-drink-at-restaurant.jpg",
+            "landing-drink-at-bar.webp",
+            "landing-canned-sour.webp",
+            "landing-drink-at-restaurant.webp",
+            "landing-map-unpinned.webp",
         )
     ]
     missing = client.get("/assets/css/does-not-exist.css")
@@ -52,7 +61,7 @@ def test_production_assets_use_the_assets_namespace(client):
     assert module.status_code == 200
     assert "javascript" in module.headers["content-type"]
     assert all(photo.status_code == 200 for photo in landing_photos)
-    assert all(photo.headers["content-type"] == "image/jpeg" for photo in landing_photos)
+    assert all(photo.headers["content-type"] == "image/webp" for photo in landing_photos)
     assert missing.status_code == 404
     assert client.get("/revamp-preview").status_code == 404
     assert client.get("/revamp-assets/css/foundation.css").status_code == 404
@@ -63,9 +72,10 @@ def test_production_document_references_only_versioned_entry_assets(client):
     asset_urls = re.findall(r'(?:href|src)="(/assets/(?:css|js)/[^"]+)"', html)
 
     assert asset_urls == [
-        f"/assets/css/foundation.css?v={ASSET_VERSION}",
-        f"/assets/css/landing.css?v={ASSET_VERSION}",
-        f"/assets/js/app.js?v={ASSET_VERSION}",
+        f"/assets/css/foundation.css?v={FOUNDATION_ASSET_VERSION}",
+        f"/assets/css/map.css?v={MAP_ASSET_VERSION}",
+        f"/assets/css/landing.css?v={LANDING_STYLE_VERSION}",
+        f"/assets/js/app.js?v={APP_MODULE_VERSION}",
     ]
     assert "/static/css/" not in html
     assert "/static/js/" not in html
@@ -101,7 +111,10 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
     assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
-    assert {version for _, version in imports} == {ASSET_VERSION}
+    updated_versions = {"map.js": MAP_MODULE_VERSION, "theme.js": THEME_MODULE_VERSION, **dict.fromkeys(
+        ("run-home.js", "run-library.js", "system-states.js"), TOUR_ASSET_VERSION
+    )}
+    assert all(version == updated_versions.get(Path(path).name, ASSET_VERSION) for path, version in imports)
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
 
 
@@ -119,11 +132,11 @@ def test_landing_page_routes_into_production_application_flows():
     assert html.count('data-landing-route="login"') == 1
     assert html.count('data-landing-route="signup"') == 1
     assert html.count('data-landing-route="tour"') == 1
-    assert f'/assets/assets/images/landing-map-abstract.png?v={ASSET_VERSION}' in html
-    assert all(f'/assets/assets/images/{name}?v={ASSET_VERSION}' in html for name in (
-        "landing-drink-at-bar.jpg",
-        "landing-canned-sour.jpg",
-        "landing-drink-at-restaurant.jpg",
+    assert f'/assets/assets/images/landing-map-unpinned.webp?v={LANDING_ASSET_VERSION}' in html
+    assert all(f'/assets/assets/images/{name}?v={LANDING_ASSET_VERSION}' in html for name in (
+        "landing-drink-at-bar.webp",
+        "landing-canned-sour.webp",
+        "landing-drink-at-restaurant.webp",
     ))
     assert "/static/uploads/" not in landing_markup
     assert 'Open any logged drink on the map and see every friend\'s pin.' in html
@@ -154,15 +167,16 @@ def test_landing_page_routes_into_production_application_flows():
     assert 'transparent 36%' in mobile_css
     assert 'rgb(0 0 0 / 0.12)' in mobile_css
     assert '--photo-rotation: -4.5deg;' in css
-    photo_card_css = css.split('.landing-photo-rail figure {', 1)[1].split('}', 1)[0]
+    photo_card_css = css.split('.landing-photo-card {', 1)[1].split('}', 1)[0]
     assert 'box-shadow: none;' in photo_card_css
     assert 'left: 40%;' in css
     assert 'right: 19%;' not in css
-    hover_css = css.split('.landing-page.is-ready .landing-photo-rail figure:hover {', 1)[1].split('}', 1)[0]
+    hover_css = css.split('.landing-page.is-ready .landing-photo-card:hover {', 1)[1].split('}', 1)[0]
     assert 'box-shadow' not in hover_css
     assert '.landing-photo-rail figure::before' not in css
-    assert '.landing-page.is-ready .landing-photo-rail figure' in css
-    assert 'translate: 0 32px;' in css
+    assert '.landing-page.is-ready .landing-photo-card' in css
+    assert 'opacity: 0;' not in photo_card_css
+    assert 'translate: 0 32px;' not in css
     assert '@media (min-width: 768px) and (hover: hover) and (pointer: fine)' in css
     assert 'class="landing-map-signal"' not in html
     assert '@keyframes landingMapDrift' not in css
@@ -183,6 +197,65 @@ def test_landing_page_routes_into_production_application_flows():
     assert "figure.hidden = true" in landing
     assert 'services.auth.getAccessToken()) destination = "run"' in app
     assert 'closeTo: "#landing"' in app
+
+
+def test_landing_is_shown_while_session_and_run_startup_are_pending():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      const app = fs.readFileSync("src/frontend/app/js/app.js", "utf8");
+      const startup = app.slice(app.lastIndexOf("void (async () => {")).replace(/^void /, "");
+      const cases = [];
+      for (const [hash, status, invite] of [
+        ["", "none", false], ["#landing", "valid", false],
+        ["#map", "valid", false], ["#login", "none", false],
+        ["#signup", "none", false], ["#map", "stale", false],
+        ["#landing", "stale", false], ["", "none", true],
+      ]) {
+        const events = [];
+        const location = { hash, pathname: "/", search: invite ? "?invite=example" : "" };
+        const history = { replaceState: (_state, _unused, url) => {
+          location.hash = new URL(url, "https://example.test").hash;
+        } };
+        let resolveSession, resolveRun;
+        const sessionPending = new Promise(resolve => { resolveSession = resolve; });
+        const runPending = new Promise(resolve => { resolveRun = resolve; });
+        const inactive = { isActive: () => false };
+        const landing = { ...inactive, hide: () => events.push("hide-landing") };
+        const authController = {
+          ...inactive,
+          validateStoredSession: () => { events.push("validate"); return sessionPending; },
+          show: mode => events.push(mode),
+        };
+        const runHome = { initialize: () => { events.push("initialize"); return runPending; } };
+        const inviteController = { ...inactive, hasInviteRoute: () => invite };
+        const runLibrary = inactive, legalController = inactive;
+        const onboarding = { consider: () => events.push("onboarding") };
+        const document = { querySelector: () => null };
+        const showLandingView = () => events.push("landing");
+        const syncLandingSession = () => events.push("sync-session");
+        const restoreDestination = () => events.push(`restore:${location.hash || "#landing"}`);
+        const finished = eval(startup);
+        const isLanding = !invite && (!hash || hash === "#landing");
+        assert.deepEqual(events, isLanding ? ["landing", "validate"] : ["validate"]);
+        resolveSession({ status });
+        await Promise.resolve();
+        assert.equal(events.at(-1), "initialize");
+        assert.equal(events.some(event => event.startsWith("restore:")), false);
+        resolveRun();
+        await finished;
+        if (status === "stale") {
+          assert.equal(location.hash, "#login");
+          assert.equal(events.at(-1), "login");
+        } else {
+          assert.ok(events.includes(`restore:${invite ? "#invite" : hash || "#landing"}`));
+        }
+        cases.push({ hash, status, invite, earlyLanding: isLanding });
+      }
+      console.log(JSON.stringify(cases));
+    ''')
+    assert len(result) == 8
+    assert sum(case["earlyLanding"] for case in result) == 3
 
 
 def test_application_pages_share_the_landing_wordmark_and_link_back_to_it():
@@ -243,6 +316,66 @@ def test_foundation_encodes_theme_motion_and_responsive_contracts():
     assert "beer_run_revamp_theme_preference" in theme
     assert "data-run-home" in html
     assert "access_token" not in html
+
+
+def test_system_theme_does_not_freeze_an_early_browser_reading():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      import { createThemeController } from "./src/frontend/app/js/theme.js";
+      const html = fs.readFileSync("src/frontend/app/index.html", "utf8");
+      const bootstrap = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+      const earlyStyle = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+      assert.ok(html.indexOf("<style>") < html.indexOf('rel="stylesheet"'));
+      assert.ok(earlyStyle.includes("color-scheme: light"));
+      assert.ok(earlyStyle.includes('data-theme="dark"'));
+      assert.ok(earlyStyle.includes('data-theme="system"'));
+      assert.ok(earlyStyle.includes('@media (prefers-color-scheme: dark)'));
+      const cases = [];
+      for (const saved of [null, "invalid", "system", "light", "dark"]) {
+        for (const dark of [false, true]) {
+          let stored = saved;
+          const storage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
+          const root = { dataset: {} };
+          const document = { documentElement: root };
+          const localStorage = storage;
+          const matchMedia = () => { throw new Error("Bootstrap must let CSS resolve the system theme"); };
+          eval(bootstrap);
+          const expected = saved === "light" || saved === "dark" ? saved : "system";
+          assert.equal(root.dataset.theme, expected);
+          // An old or transient concrete theme must not pin system mode at startup.
+          root.dataset.theme = dark ? "dark" : "light";
+          let listener;
+          const media = {
+            get matches() { throw new Error("System appearance must stay live in CSS"); },
+            addEventListener: (_type, callback) => { listener = callback; },
+            removeEventListener: () => {},
+          };
+          globalThis.matchMedia = () => media;
+          const controller = createThemeController({ root, storage });
+          assert.equal(root.dataset.theme, expected);
+          listener();
+          assert.equal(root.dataset.theme, expected);
+          controller.setPreference("dark");
+          assert.equal(root.dataset.theme, "dark");
+          assert.equal(stored, "dark");
+          controller.setPreference("light");
+          assert.equal(root.dataset.theme, "light");
+          assert.equal(stored, "light");
+          controller.setPreference("system");
+          assert.equal(root.dataset.theme, "system");
+          assert.equal(stored, "system");
+          cases.push({ saved, dark, initial: expected });
+          controller.destroy();
+        }
+      }
+      const root = { dataset: {} };
+      const controller = createThemeController({ root, storage: { getItem: () => null } });
+      assert.equal(root.dataset.theme, "system");
+      controller.destroy();
+      console.log(JSON.stringify(cases));
+    ''')
+    assert len(result) == 10
 
 
 def test_run_home_preserves_scoped_data_and_stale_refresh_boundaries():
@@ -377,6 +510,42 @@ def test_tour_includes_real_runner_and_map_actions_when_data_exists():
         {"destination": "map", "source": "runner", "interactive": True, "next": False},
         {"destination": "log", "source": "map-detail", "interactive": True, "next": False},
     ]
+
+
+def test_tour_scrolls_targets_clear_of_the_mobile_menu_and_browser_chrome():
+    result = run_node_module("""
+      import { scrollTourTargetIntoView } from './src/frontend/app/js/tour.js';
+      const check = ({ top, bottom, menu = true, viewport = null, fixed = false }) => {
+        const calls = [];
+        const target = {
+          closest: () => fixed ? {} : null,
+          getBoundingClientRect: () => ({ top, bottom }),
+          scrollIntoView: (options) => calls.push(options),
+        };
+        const root = { querySelector: () => ({
+          getClientRects: () => menu ? [{}] : [],
+          getBoundingClientRect: () => ({ top: 676 }),
+        }) };
+        scrollTourTargetIntoView(target, root, { innerHeight: 744, visualViewport: viewport });
+        return calls;
+      };
+      console.log(JSON.stringify({
+        obscuredByMenu: check({ top: 655, bottom: 703 }),
+        belowFold: check({ top: 820, bottom: 868 }),
+        visible: check({ top: 300, bottom: 348 }),
+        desktop: check({ top: 655, bottom: 703, menu: false }),
+        browserChrome: check({ top: 610, bottom: 658, viewport: { height: 620, offsetTop: 0 } }),
+        aboveViewport: check({ top: 0, bottom: 48, viewport: { height: 620, offsetTop: 56 } }),
+        fixedMenu: check({ top: 681, bottom: 744, fixed: true }),
+      }));
+    """)
+
+    scroll = [{"behavior": "instant", "block": "center", "inline": "nearest"}]
+    assert result == {
+        "obscuredByMenu": scroll, "belowFold": scroll, "visible": [],
+        "desktop": [], "browserChrome": scroll, "aboveViewport": scroll,
+        "fixedMenu": [],
+    }
 
 
 def test_tour_targets_the_visible_menu_for_each_device():
@@ -793,13 +962,15 @@ def test_account_and_shared_destructive_confirmation_contracts_are_present():
     assert 'api.deleteEntry(' in map_source
     assert 'if (root.querySelector("dialog[open]")) return;' in map_source
     assert 'const SELECTED_ENTRY_ZOOM = 16;' in map_source
-    assert 'map.setView(marker.getLatLng(), Math.max(map.getZoom(), SELECTED_ENTRY_ZOOM)' in map_source
-    assert 'markerGroup.zoomToShowLayer(marker, revealMarker)' in map_source
+    assert 'map.setView(center, zoom, { animate: false })' in map_source
+    assert 'zoomToShowLayer' not in map_source
+    assert 'cluster.spiderfy()' in map_source
     assert 'markerGroup?.removeLayer?.(marker)' not in map_source
-    assert 'window.L.divIcon' not in map_source
-    assert 'marker.on("click", () => focusEntry(entry))' in map_source
+    assert 'window.L.divIcon({ html: pin' in map_source
+    assert 'marker.on("click", () => { stopReplay(); focusEntry(entry, { recenter: false }); })' in map_source
+    assert 'autoPanOnFocus: false' in map_source
     assert 'maxZoom: 15, animate: false' in map_source
-    assert map_source.count('resizeMap();') >= 3
+    assert 'resizeMap(true);' in map_source
     assert 'showConfirmation({' in library
     assert 'safeLabel: "Stay in this run"' in library
     assert 'exactText: run.name' in library
@@ -989,14 +1160,14 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "leaflet.js" in html
     assert "markerClusterGroup" in source
     assert "const requestedEntryId = entryId ?? sessionStorage.getItem(SELECTED_ENTRY_KEY);" in source
-    assert "marker.setZIndexOffset?.(selected ? 1000 : 0);" in source
+    assert "updateMapSelection(markerGroup, markers, selectedEntryId, selectedLayer)" in source
     assert '"Show all pins"' in source
     assert 'event.key === "Escape"' in source
     assert 'alt: accessibleTitle' in source
     assert "tileerror" in source
     assert "Map tiles are offline" in source
     assert "Photo unavailable" in source
-    assert "missing or invalid coordinates" in source
+    assert "no saved location" in source
     assert "sessionStorage.removeItem(SELECTED_ENTRY_KEY)" in source
     assert 'entry.username === snapshot.identity.username' in source
     assert 'role === "owner" || role === "member"' in source
@@ -1013,7 +1184,6 @@ def test_map_and_drink_detail_contracts_are_present():
     assert "if (workspace && nativeFullscreenElement() === workspace)" in source
     assert "is-fullscreen-fallback" in source
     assert "invalidateSize" in source
-    assert "refreshClusters" in source
     assert "Enter full screen map" in source
     assert "Exit full screen map" in source
     assert "map-fullscreen-control__icon--expand" in source

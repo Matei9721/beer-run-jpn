@@ -5,7 +5,7 @@ import {
   saveSelectedRunId,
   sharedRunFromUrl,
 } from "./run-selection.js?v=beerrun-105-tour-end";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-105-tour-end";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-113-mobile-tour";
 import { createRunDiscoveryController } from "./run-discovery.js?v=beerrun-105-tour-end";
 import {
   renderRunHome,

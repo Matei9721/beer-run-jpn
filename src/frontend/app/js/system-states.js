@@ -1,4 +1,4 @@
-export { createOnboardingController } from "./tour.js?v=beerrun-105-tour-end";
+export { createOnboardingController } from "./tour.js?v=beerrun-113-mobile-tour";
 
 export function setSystemNotice(root, {
   kind = "offline",

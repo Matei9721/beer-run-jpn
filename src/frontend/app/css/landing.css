@@ -28,6 +28,21 @@
   color-scheme: dark;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .landing-page {
+    --landing-canvas: #0c1513;
+    --landing-surface: #111f1b;
+    --landing-surface-raised: #192b25;
+    --landing-text: #f2efe6;
+    --landing-muted: #a9b8b1;
+    --landing-border: #3a5048;
+    --landing-accent: #ff745c;
+    --landing-accent-hover: #ff8c78;
+    --landing-on-accent: #0c1513;
+    color-scheme: dark;
+  }
+}
+
 body.landing-view {
   background: var(--landing-canvas);
 }
@@ -234,6 +249,13 @@ body.landing-view {
   filter: blur(2px) grayscale(1) brightness(0.28) contrast(1.25);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .landing-photo-map__canvas {
+    opacity: 0.56;
+    filter: blur(2px) grayscale(1) brightness(0.28) contrast(1.25);
+  }
+}
+
 .landing-photo-rail {
   position: absolute;
   inset: 0;
@@ -245,23 +267,56 @@ body.landing-view {
   --photo-rotation: 0deg;
   --photo-rotation-raised: 0deg;
   position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
   margin: 0;
+}
+
+.landing-photo-card {
+  display: block;
+  width: 100%;
   padding: 5px;
   border: 1px solid color-mix(in srgb, var(--landing-border) 70%, transparent);
   border-radius: 10px;
   background: var(--landing-surface);
   box-shadow: none;
-  opacity: 0;
   pointer-events: auto;
+  transform-origin: center bottom;
   rotate: var(--photo-rotation);
-  scale: 0.94;
-  translate: 0 32px;
   transition:
-    opacity 520ms var(--ease-enter),
-    scale 620ms var(--ease-enter),
-    translate 620ms var(--ease-enter),
-    rotate 300ms var(--ease-enter);
+    scale 160ms var(--ease-enter),
+    translate 160ms var(--ease-enter),
+    rotate 160ms var(--ease-enter);
   overflow: hidden;
+}
+
+/* Keep each pin in its photo's layout so background cropping cannot move it. */
+.landing-photo-pin {
+  width: clamp(26px, 3vw, 34px);
+  height: auto;
+  overflow: visible;
+  color: var(--landing-text);
+  opacity: 0.6;
+  filter: blur(0.65px) saturate(0.7) contrast(0.9);
+}
+
+.landing-photo-pin path {
+  fill: currentColor;
+}
+
+.landing-photo-pin circle {
+  fill: var(--landing-canvas);
+}
+
+.landing-photo-pin ellipse {
+  fill: currentColor;
+  opacity: 0.22;
+  filter: blur(1.5px);
+}
+
+.landing-photo-rail figure:nth-child(2) .landing-photo-pin {
+  color: var(--landing-accent);
 }
 
 .landing-photo-rail figure:nth-child(1) {
@@ -271,7 +326,6 @@ body.landing-view {
   left: 4%;
   z-index: 2;
   width: 32%;
-  transition-delay: 180ms;
 }
 
 .landing-photo-rail figure:nth-child(2) {
@@ -281,7 +335,6 @@ body.landing-view {
   left: 40%;
   z-index: 4;
   width: 20%;
-  transition-delay: 270ms;
 }
 
 .landing-photo-rail figure:nth-child(3) {
@@ -291,7 +344,6 @@ body.landing-view {
   bottom: 1%;
   z-index: 3;
   width: 30%;
-  transition-delay: 360ms;
 }
 
 .landing-photo-rail img {
@@ -462,31 +514,8 @@ body.landing-view {
   transform: none;
 }
 
-.landing-hero__copy,
-.landing-photo-map {
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 620ms var(--ease-enter), transform 620ms var(--ease-enter);
-}
-
-.landing-page.is-ready .landing-hero__copy,
-.landing-page.is-ready .landing-photo-map {
-  opacity: 1;
-  transform: none;
-}
-
-.landing-page.is-ready .landing-photo-map {
-  transition-delay: 90ms;
-}
-
-.landing-page.is-ready .landing-photo-rail figure {
-  opacity: 1;
-  scale: 1;
-  translate: 0 0;
-}
-
 @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-  .landing-page.is-ready .landing-photo-rail figure:hover {
+  .landing-page.is-ready .landing-photo-card:hover {
     rotate: var(--photo-rotation-raised);
     scale: 1.04;
     translate: 0 -12px;
@@ -619,14 +648,14 @@ body.landing-view {
     mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent 36%, rgb(0 0 0 / 0.18) 48%, #000 64%, rgb(0 0 0 / 0.28) 90%, rgb(0 0 0 / 0.12));
   }
 
-  .landing-photo-rail figure {
+  .landing-photo-card {
     padding: 4px;
   }
 
   .landing-photo-rail figure:nth-child(1) {
     top: 25%;
-    left: 1%;
-    width: 33%;
+    left: 5%;
+    width: 31%;
   }
 
   .landing-photo-rail figure:nth-child(2) {
@@ -636,9 +665,9 @@ body.landing-view {
   }
 
   .landing-photo-rail figure:nth-child(3) {
-    right: 1%;
+    right: 3%;
     bottom: 0;
-    width: 33%;
+    width: 31%;
   }
 
   .landing-features,
@@ -709,11 +738,6 @@ body.landing-view {
     transition-duration: 360ms;
   }
 
-  .landing-hero__copy,
-  .landing-photo-map {
-    transform: translateY(12px);
-    transition-duration: 420ms;
-  }
 }
 
 @media (max-width: 380px) {
@@ -733,6 +757,7 @@ body.landing-view {
   .landing-page *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
@@ -741,12 +766,12 @@ body.landing-view {
   .landing-hero__copy,
   .landing-photo-map,
   .landing-photo-map__canvas,
-  .landing-photo-rail figure {
+  .landing-photo-card {
     opacity: 1 !important;
     transform: none !important;
   }
 
-  .landing-photo-rail figure {
+  .landing-photo-card {
     animation: none !important;
     rotate: var(--photo-rotation) !important;
     scale: 1 !important;

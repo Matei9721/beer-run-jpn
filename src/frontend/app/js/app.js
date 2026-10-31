@@ -5,15 +5,15 @@ import { createFormState } from "./form-state.js?v=beerrun-105-tour-end";
 import { createInviteController } from "./invite.js?v=beerrun-105-tour-end";
 import { createLandingController } from "./landing.js?v=beerrun-105-tour-end";
 import { createLegalController } from "./legal.js?v=beerrun-105-tour-end";
-import { createMapController } from "./map.js?v=beerrun-105-tour-end";
+import { createMapController } from "./map.js?v=beerrun-115-cluster-replay";
 import { createLogController } from "./log.js?v=beerrun-105-tour-end";
 import { bindNavigation } from "./navigation.js?v=beerrun-105-tour-end";
-import { createRunHomeController } from "./run-home.js?v=beerrun-105-tour-end";
-import { createRunLibraryController } from "./run-library.js?v=beerrun-105-tour-end";
+import { createRunHomeController } from "./run-home.js?v=beerrun-113-mobile-tour";
+import { createRunLibraryController } from "./run-library.js?v=beerrun-113-mobile-tour";
 import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=beerrun-105-tour-end";
 import { createStandingsController } from "./standings.js?v=beerrun-105-tour-end";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-105-tour-end";
-import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-105-tour-end";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-113-mobile-tour";
+import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-121-live-system-theme";
 import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-105-tour-end";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
@@ -559,6 +559,7 @@ void (async () => {
   const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash)
     ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
     : location.hash || "#landing";
+  if (destinationBeforeValidation === "#landing") showLandingView();
   const session = await authController.validateStoredSession();
   syncLandingSession();
   await runHome.initialize();

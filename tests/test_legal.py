@@ -42,7 +42,7 @@ def test_public_legal_metadata_and_documents_are_available_without_auth(client):
         assert response.text.count("Test Controller") == 1
         assert response.text.count("privacy@example.test") == 1
         assert "beer-run-wordmark.svg?v=beerrun-101-portable-landing-photos" in response.text
-        assert "/assets/css/foundation.css?v=beerrun-101-portable-landing-photos" in response.text
+        assert "/assets/css/foundation.css?v=beerrun-121-live-system-theme" in response.text
         assert "__LEGAL_CONTROLLER_NAME__" not in response.text
         assert "__LEGAL_CONTACT_EMAIL__" not in response.text
 

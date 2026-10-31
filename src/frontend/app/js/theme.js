@@ -6,10 +6,6 @@ function readPreference(storage) {
   return THEME_PREFERENCES.has(saved) ? saved : "system";
 }
 
-function resolveTheme(preference, mediaQuery) {
-  return preference === "system" ? (mediaQuery.matches ? "dark" : "light") : preference;
-}
-
 function withoutColorTransitions(root, apply) {
   const documentRoot = root.ownerDocument;
   if (!documentRoot?.head) return apply();
@@ -27,7 +23,8 @@ export function createThemeController({ root = document.documentElement, storage
   const mediaQuery = matchMedia("(prefers-color-scheme: dark)");
   let preference = readPreference(storage);
   const apply = () => {
-    root.dataset.theme = resolveTheme(preference, mediaQuery);
+    root.dataset.theme = preference;
+    root.dataset.themePreference = preference;
     return root.dataset.theme;
   };
   const handleSystemChange = () => {

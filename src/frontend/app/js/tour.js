@@ -6,6 +6,18 @@ export function visibleTourTab(destination, root = document) {
   return [...root.querySelectorAll(`.nav-item[data-destination="${destination}"]`)]
     .find((link) => link.getClientRects().length > 0);
 }
+export function scrollTourTargetIntoView(element, root = document, viewport = window) {
+  if (!element || element.closest(".mobile-footer")) return;
+  const bounds = element.getBoundingClientRect();
+  const top = viewport.visualViewport?.offsetTop || 0;
+  const footer = root.querySelector(".mobile-footer");
+  const bottom = Math.min(top + (viewport.visualViewport?.height || viewport.innerHeight),
+    footer?.getClientRects().length ? footer.getBoundingClientRect().top : viewport.innerHeight);
+  // A target behind the fixed menu is inside the viewport but cannot be tapped.
+  if (bounds.top < top + 16 || bounds.bottom > bottom - 16) {
+    element.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" });
+  }
+}
 export function hasVisited(storage) {
   try {
     if (storage.getItem(TOUR_STORAGE_KEY) || storage.getItem("beer_run_revamp_onboarding_complete") || storage.getItem("access_token")) return true;
@@ -95,7 +107,21 @@ export function createOnboardingController({ root = document, storage = localSto
     dialog = null;
     if (lastFocused?.isConnected) lastFocused.focus({ preventScroll: true });
   };
+  const refreshHighlight = () => {
+    if (!tour?.isActive() || changing) return;
+    const step = steps[tour.getActiveIndex()];
+    const tab = step?.clickDestination && visibleTourTab(step.clickDestination, root);
+    if (tab && tab !== tour.getActiveElement()) {
+      tour.moveTo(tour.getActiveIndex());
+      return;
+    }
+    scrollTourTargetIntoView(tour.getActiveElement(), root);
+    tour.refresh();
+  };
   const cleanup = () => {
+    window.removeEventListener("resize", refreshHighlight);
+    window.visualViewport?.removeEventListener("resize", refreshHighlight);
+    window.visualViewport?.removeEventListener("scroll", refreshHighlight);
     root.body.classList.remove("tour-running", "tour-changing");
     changing = false;
   };
@@ -155,6 +181,8 @@ export function createOnboardingController({ root = document, storage = localSto
         disableActiveInteraction: true,
         stagePadding: 6,
         stageRadius: 12,
+        onHighlightStarted: (element) => scrollTourTargetIntoView(element, root),
+        onHighlighted: refreshHighlight,
         showProgress: false,
         progressText: "{{current}} of {{total}}",
         nextBtnText: "Next",
@@ -183,6 +211,9 @@ export function createOnboardingController({ root = document, storage = localSto
           popover.footerButtons.prepend(explore);
         },
       });
+      window.addEventListener("resize", refreshHighlight);
+      window.visualViewport?.addEventListener("resize", refreshHighlight);
+      window.visualViewport?.addEventListener("scroll", refreshHighlight);
       tour.drive();
     } finally { preparing = false; }
   }

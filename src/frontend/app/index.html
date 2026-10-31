@@ -1,31 +1,37 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="system">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#F3F1E8">
     <title>BeerRun | Track the trip together</title>
+    <style>
+      :root { background: #f3f1e8; color: #102722; color-scheme: light; }
+      :root[data-theme="dark"] { background: #0c1513; color: #f2efe6; color-scheme: dark; }
+      @media (prefers-color-scheme: dark) {
+        :root[data-theme="system"] { background: #0c1513; color: #f2efe6; color-scheme: dark; }
+      }
+    </style>
     <link rel="icon" href="/assets/assets/brand/final/beer-run-mark.svg?v=beerrun-105-tour-end" type="image/svg+xml" sizes="any">
     <script>
       (() => {
         const key = "beer_run_revamp_theme_preference";
         const saved = localStorage.getItem(key);
         const preference = ["system", "light", "dark"].includes(saved) ? saved : "system";
-        const resolved = preference === "system"
-          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-          : preference;
-        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.theme = preference;
+        document.documentElement.dataset.themePreference = preference;
       })();
     </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
     <link rel="stylesheet" href="/assets/assets/vendor/driver/driver.css?v=1.3.6">
-    <link rel="stylesheet" href="/assets/css/foundation.css?v=beerrun-105-tour-end">
-    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-105-tour-end">
+    <link rel="stylesheet" href="/assets/css/foundation.css?v=beerrun-121-live-system-theme">
+    <link rel="stylesheet" href="/assets/css/map.css?v=beerrun-114-desktop-map">
+    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-121-live-system-theme">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/assets/js/app.js?v=beerrun-105-tour-end"></script>
+    <script type="module" src="/assets/js/app.js?v=beerrun-121-live-system-theme"></script>
   </head>
   <body>
     <div class="landing-page" data-landing-page data-motion-profile="touch">
@@ -48,7 +54,7 @@
 
       <div role="main">
         <section class="landing-section landing-hero" id="top" aria-labelledby="landing-hero-title">
-          <img class="landing-photo-map__canvas" src="/assets/assets/images/landing-map-abstract.png?v=beerrun-105-tour-end" alt="" width="1693" height="929">
+          <img class="landing-photo-map__canvas" src="/assets/assets/images/landing-map-unpinned.webp?v=beerrun-117-photo-pins" alt="" width="1692" height="930" decoding="async" fetchpriority="low">
           <div class="landing-frame landing-hero__grid">
             <div class="landing-hero__copy">
               <p class="landing-kicker">Made for group trips</p>
@@ -61,9 +67,18 @@
             </div>
             <div class="landing-photo-map" aria-label="Illustrative map showing how drink photos stay connected to places">
               <div class="landing-photo-rail" aria-label="Real drinks logged with BeerRun">
-                <figure><img src="/assets/assets/images/landing-drink-at-bar.jpg?v=beerrun-105-tour-end" alt="A tall drink photographed at a bar" width="810" height="1080" fetchpriority="high"></figure>
-                <figure><img src="/assets/assets/images/landing-canned-sour.jpg?v=beerrun-105-tour-end" alt="A canned sour drink photographed during a trip" width="813" height="1080"></figure>
-                <figure><img src="/assets/assets/images/landing-drink-at-restaurant.jpg?v=beerrun-105-tour-end" alt="A cold drink photographed at a restaurant" width="813" height="1080"></figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-drink-at-bar.webp?v=beerrun-117-photo-pins" alt="A tall drink photographed at a bar" width="560" height="747" decoding="async" fetchpriority="high"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-canned-sour.webp?v=beerrun-117-photo-pins" alt="A canned sour drink photographed during a trip" width="560" height="744" decoding="async"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
+                <figure>
+                  <span class="landing-photo-card"><img src="/assets/assets/images/landing-drink-at-restaurant.webp?v=beerrun-117-photo-pins" alt="A cold drink photographed at a restaurant" width="560" height="744" decoding="async"></span>
+                  <svg class="landing-photo-pin" viewBox="0 0 32 40" aria-hidden="true"><ellipse cx="16" cy="38" rx="11" ry="3"/><path d="M16 38S2 24 2 16a14 14 0 0 1 28 0c0 8-14 22-14 22Z"/><circle cx="16" cy="16" r="4"/></svg>
+                </figure>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { updateRunSwitcher } from "./ui.js?v=beerrun-105-tour-end";
 import { buildInviteShareUrl } from "./invite.js?v=beerrun-105-tour-end";
 import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-105-tour-end";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-113-mobile-tour";
 import { buildRunShareUrl } from "./run-selection.js?v=beerrun-105-tour-end";
 
 const SEARCH_MIN_LENGTH = 2;

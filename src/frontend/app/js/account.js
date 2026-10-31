@@ -1,4 +1,5 @@
 import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
+import { createAccountAvatar } from "./avatar.js?v=beerrun-123-dicebear-gaze-muted";
 
 const ACCOUNT_CONFIRMATION = "DELETE MY ACCOUNT";
 
@@ -28,10 +29,6 @@ function runList(summary) {
   return Array.isArray(summary?.owned_runs)
     ? summary.owned_runs.filter((run) => Number.isInteger(Number(run?.id)) && typeof run?.name === "string")
     : [];
-}
-
-function initialFor(username) {
-  return Array.from(String(username || "?").trim())[0]?.toLocaleUpperCase() || "?";
 }
 
 function deletionMessage(result) {
@@ -84,8 +81,7 @@ export function createAccountController({
     const section = element("section", "account-summary");
     section.setAttribute("aria-labelledby", "account-identity-heading");
     const header = element("div", "account-summary__header");
-    const mark = element("span", "account-avatar", initialFor(identity.username));
-    mark.setAttribute("aria-hidden", "true");
+    const mark = createAccountAvatar(identity.username, "account-avatar");
     const copy = element("div", "account-summary__identity");
     const name = element("h2", "", identity.username);
     name.id = "account-identity-heading";
@@ -183,6 +179,7 @@ export function createAccountController({
       section.append(element("p", "account-section__copy", "Checking whether this account can be deleted..."));
       const review = action("Loading account summary...", "button button--danger");
       review.disabled = true;
+      review.setAttribute("aria-busy", "true");
       section.append(review);
       return section;
     }

@@ -1,5 +1,5 @@
 import { driver } from "../assets/vendor/driver/driver.js?v=1.3.6";
-import { createBrandWordmark } from "./ui.js?v=beerrun-105-tour-end";
+import { createBrandWordmark } from "./ui.js?v=beerrun-126-wait-indicators";
 
 export const TOUR_STORAGE_KEY = "beer_run_tour_v1";
 export function visibleTourTab(destination, root = document) {

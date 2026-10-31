@@ -236,6 +236,7 @@ function formView({
   const submit = el("button", "button button--primary", pending ? (mode === "edit" ? "Saving changes…" : "Logging drink…") : (mode === "edit" ? "Save changes" : "Log this drink"));
   submit.type = "submit";
   submit.disabled = pending;
+  submit.setAttribute("aria-busy", String(pending));
   actions.append(cancel, submit);
   form.append(errorNode, actions);
   content.append(form);
@@ -332,7 +333,10 @@ export function createLogController({ root = document, api, auth, formState, get
     if (!form) return;
     form.querySelectorAll("button, input").forEach((control) => { control.disabled = pending; });
     const submit = form.querySelector("button[type='submit']");
-    if (submit) submit.textContent = pending ? (entry ? "Saving changes…" : "Logging drink…") : (entry ? "Save changes" : "Log this drink");
+    if (submit) {
+      submit.setAttribute("aria-busy", String(pending));
+      submit.textContent = pending ? (entry ? "Saving changes…" : "Logging drink…") : (entry ? "Save changes" : "Log this drink");
+    }
   }
 
   function updateLocationUi() {

@@ -1,3 +1,5 @@
+import { createAccountAvatar } from "./avatar.js?v=beerrun-123-dicebear-gaze-muted";
+
 const PAGE_SIZE = 8;
 const el = (tag, className = "", text = "") => {
   const node = document.createElement(tag);
@@ -20,10 +22,6 @@ function heading(eyebrow, title, copy) {
   header.append(el("p", "eyebrow", eyebrow), el("h1", "", title));
   if (copy) header.append(el("p", "page-heading__copy", copy));
   return header;
-}
-
-function avatar(username) {
-  return el("span", "runner-mark", String(username || "?").trim().slice(0, 1) || "?");
 }
 
 function drinkPhoto(entry, className, fallbackText) {
@@ -55,7 +53,7 @@ function standingsRow(runner, index, entries, onOpen, metric, leader) {
     : `${metric === "volume" ? fixed(gap) + " L" : fixed(gap, 3) + " alc. L"} behind`;
   if (index === 0) copy.append(el("span", "competition-kicker", "Front runner"));
   copy.append(el("strong", "", username), el("small", "", `${playerEntries(entries, username).length} drinks · ${gapLabel}`));
-  identity.append(avatar(username), copy);
+  identity.append(createAccountAvatar(username), copy);
   const totals = el("span", "competition-figures");
   const primaryTotal = metric === "volume" ? liters(runner.total_liters) : alcohol(runner.total_alcohol);
   const secondaryTotal = metric === "volume" ? alcohol(runner.total_alcohol) : liters(runner.total_liters);
@@ -91,7 +89,7 @@ export function renderStandings(root, snapshot, {
     target.replaceChildren(pageHeading);
   }
   if (!snapshot?.data) {
-    const loading = el("section", "competition-list home-skeleton");
+    const loading = el("section", "competition-list home-skeleton waiting-state");
     loading.setAttribute("aria-label", "Loading standings");
     for (let index = 0; index < 4; index += 1) loading.append(el("span", "skeleton-row standings-skeleton-row"));
     target.append(loading);
@@ -199,7 +197,7 @@ export function renderPlayer(root, snapshot, username, { onBack, onOpenEntry }) 
   target.append(heading("Player history", username, ""));
   const summary = el("section", "runner-summary");
   const top = el("div", "runner-summary__top");
-  top.append(avatar(username), el("strong", "", `Rank ${index + 1}`));
+  top.append(createAccountAvatar(username), el("strong", "", `Rank ${index + 1}`));
   const metrics = el("dl", "runner-summary__metrics");
   metrics.append(metric(liters(runner.total_liters), "volume"), metric(alcohol(runner.total_alcohol), "pure alcohol"), metric(String(entriesForPlayer.length), "drinks"));
   summary.append(top, metrics);

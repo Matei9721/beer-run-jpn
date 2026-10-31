@@ -1,20 +1,20 @@
-import { createAccountController } from "./account.js?v=beerrun-105-tour-end";
+import { createAccountController } from "./account.js?v=beerrun-126-wait-indicators";
 import { createApiClient } from "./api.js?v=beerrun-105-tour-end";
-import { createAuthController, createAuthState } from "./auth.js?v=beerrun-105-tour-end";
+import { createAuthController, createAuthState } from "./auth.js?v=beerrun-126-wait-indicators";
 import { createFormState } from "./form-state.js?v=beerrun-105-tour-end";
-import { createInviteController } from "./invite.js?v=beerrun-105-tour-end";
+import { createInviteController } from "./invite.js?v=beerrun-126-wait-indicators";
 import { createLandingController } from "./landing.js?v=beerrun-105-tour-end";
-import { createLegalController } from "./legal.js?v=beerrun-105-tour-end";
-import { createMapController } from "./map.js?v=beerrun-115-cluster-replay";
-import { createLogController } from "./log.js?v=beerrun-105-tour-end";
-import { bindNavigation } from "./navigation.js?v=beerrun-105-tour-end";
-import { createRunHomeController } from "./run-home.js?v=beerrun-113-mobile-tour";
-import { createRunLibraryController } from "./run-library.js?v=beerrun-113-mobile-tour";
+import { createLegalController } from "./legal.js?v=beerrun-126-wait-indicators";
+import { createMapController } from "./map.js?v=beerrun-126-wait-indicators";
+import { createLogController } from "./log.js?v=beerrun-126-wait-indicators";
+import { bindNavigation } from "./navigation.js?v=beerrun-124-you-avatar";
+import { createRunHomeController } from "./run-home.js?v=beerrun-126-wait-indicators";
+import { createRunLibraryController } from "./run-library.js?v=beerrun-126-wait-indicators";
 import { createRunSelectionState, removeSelectedRunId } from "./run-selection.js?v=beerrun-105-tour-end";
-import { createStandingsController } from "./standings.js?v=beerrun-105-tour-end";
-import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-113-mobile-tour";
+import { createStandingsController } from "./standings.js?v=beerrun-126-wait-indicators";
+import { bindSystemStateControls, createOnboardingController } from "./system-states.js?v=beerrun-126-wait-indicators";
 import { bindThemeControls, createThemeController } from "./theme.js?v=beerrun-121-live-system-theme";
-import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-105-tour-end";
+import { bindPreviewFeedback, setSyncStatus } from "./ui.js?v=beerrun-126-wait-indicators";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
@@ -381,6 +381,7 @@ document.addEventListener("beer-run:open-player", (event) => {
 });
 runHome.subscribe((snapshot) => {
   navigation.setRunAvailable(Boolean(snapshot.currentRun));
+  navigation.setCurrentUser(snapshot.currentUser);
   syncLandingSession();
   if (!snapshot.data) {
     standings.reset();
@@ -559,25 +560,39 @@ void (async () => {
   const destinationBeforeValidation = ["#login", "#signup"].includes(location.hash)
     ? (inviteController.hasInviteRoute() ? "#invite" : "#run")
     : location.hash || "#landing";
-  if (destinationBeforeValidation === "#landing") showLandingView();
-  const session = await authController.validateStoredSession();
-  syncLandingSession();
-  await runHome.initialize();
-  if (session.status === "stale") {
-    history.replaceState(null, "", "#login");
-    landing.hide();
-    authController.show("login", {
-      returnTo: destinationBeforeValidation,
-      message: "Your session is no longer valid. Log in again to continue.",
-    });
-    return;
+  const finishStartup = () => document.querySelector("[data-startup-loading]")?.remove();
+  if (destinationBeforeValidation === "#landing") {
+    showLandingView();
+    finishStartup();
   }
-  restoreDestination();
-  onboarding.consider({
-    blocked: landing.isActive()
-      || authController.isActive()
-      || inviteController.isActive()
-      || legalController.isActive()
-      || Boolean(document.querySelector("dialog[open]")),
-  });
+  try {
+    const session = await authController.validateStoredSession();
+    syncLandingSession();
+    await runHome.initialize();
+    if (session.status === "stale") {
+      history.replaceState(null, "", "#login");
+      landing.hide();
+      authController.show("login", {
+        returnTo: destinationBeforeValidation,
+        message: "Your session is no longer valid. Log in again to continue.",
+      });
+      finishStartup();
+      return;
+    }
+    restoreDestination();
+    finishStartup();
+    onboarding.consider({
+      blocked: landing.isActive()
+        || authController.isActive()
+        || inviteController.isActive()
+        || legalController.isActive()
+        || Boolean(document.querySelector("dialog[open]")),
+    });
+  } catch (error) {
+    const status = document.querySelector("[data-startup-status]");
+    if (status) status.textContent = "BeerRun couldn’t load. Please try again.";
+    const retry = document.querySelector("[data-startup-retry]");
+    if (retry) retry.hidden = false;
+    console.error("BeerRun startup failed", error);
+  }
 })();

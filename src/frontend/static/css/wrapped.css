@@ -197,6 +197,9 @@ a {
     box-shadow: 0 12px 36px rgba(255, 209, 102, 0.28);
 }
 
+.start-btn[aria-busy="true"] { display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: wait; }
+.start-btn[aria-busy="true"]::before { content: ""; width: 24px; height: 26px; flex: 0 0 24px; background: url("/assets/assets/brand/final/beer-run-loading.svg?v=beerrun-105-tour-end") center / contain no-repeat; }
+
 .slide-stage {
     position: absolute;
     inset: 0;

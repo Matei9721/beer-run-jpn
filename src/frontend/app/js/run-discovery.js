@@ -1,4 +1,4 @@
-import { updateRunSwitcher, setRefreshPending, setSyncStatus } from "./ui.js?v=beerrun-105-tour-end";
+import { updateRunSwitcher, setRefreshPending, setSyncStatus } from "./ui.js?v=beerrun-126-wait-indicators";
 
 const PAGE_SIZE = 6;
 const el = (tag, className = "", text = "") => {
@@ -113,7 +113,7 @@ export function createRunDiscoveryController({ root, api, onSelectRun }) {
       page = 0;
       void loadDirectory();
     });
-    const status = el("p", "run-search__status");
+    const status = el("p", "run-search__status waiting-status");
     status.dataset.discoveryStatus = "";
     status.setAttribute("role", "status");
     const content = el("div", "discovery-content");
@@ -121,7 +121,11 @@ export function createRunDiscoveryController({ root, api, onSelectRun }) {
     target.append(header, search, status, content);
   }
   function contentNode() { return target.querySelector("[data-discovery-content]"); }
-  function status(message) { target.querySelector("[data-discovery-status]").textContent = message; }
+  function status(message, pending = false) {
+    const node = target.querySelector("[data-discovery-status]");
+    node.textContent = message;
+    node.setAttribute("aria-busy", String(pending));
+  }
   function failure(retry) {
     status("Public runs could not be loaded. Please try again.");
     const action = button("Retry");
@@ -171,7 +175,7 @@ export function createRunDiscoveryController({ root, api, onSelectRun }) {
     view.list.setAttribute("aria-busy", "true");
     view.list.style.minHeight = `${view.list.getBoundingClientRect().height}px`;
     syncPending();
-    status("Loading public runs…");
+    status("Loading public runs…", true);
     const result = await api.discoverPublicBeerRuns({ query, offset: requestedPage * PAGE_SIZE, limit: PAGE_SIZE + 1 }, controller.signal);
     if (!isCurrent(request)) return;
     directoryBusy = false;
@@ -200,7 +204,7 @@ export function createRunDiscoveryController({ root, api, onSelectRun }) {
     controller?.abort();
     controller = new AbortController();
     const request = ++generation;
-    status("Loading public runs…");
+    status("Loading public runs…", true);
     syncPending();
     const [featureResult, latestResult] = await Promise.all([
       api.findPublicBeerRunByName("BeerRunJPN", null, controller.signal),

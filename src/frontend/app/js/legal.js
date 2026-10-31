@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=beerrun-105-tour-end";
+import { createBrandWordmark } from "./ui.js?v=beerrun-126-wait-indicators";
 
 const DOCUMENTS = Object.freeze({
   terms: { url: "/terms", label: "Terms" },
@@ -70,8 +70,9 @@ function loadingView(current, returnTo) {
   back.href = returnTo;
   back.dataset.legalBack = "";
   header.append(brand(), documentTabs(current), back);
-  const status = element("div", "legal-loading");
+  const status = element("div", "legal-loading waiting-state");
   status.setAttribute("role", "status");
+  status.setAttribute("aria-label", `Loading ${DOCUMENTS[current].label}`);
   status.append(
     element("span", "skeleton-line skeleton-line--eyebrow"),
     element("span", "skeleton-line skeleton-line--heading"),

@@ -901,7 +901,7 @@ export function createMapController({ root = document, api, auth, getSnapshot, r
     const toolbar = el("div", "map-toolbar map-toolbar--skeleton home-skeleton");
     toolbar.setAttribute("aria-hidden", "true");
     toolbar.append(el("span", "skeleton-block"), el("span", "skeleton-block"));
-    const workspace = el("section", "map-workspace map-workspace--loading home-skeleton");
+    const workspace = el("section", "map-workspace map-workspace--loading home-skeleton waiting-state");
     workspace.setAttribute("aria-label", "Loading drink map");
     workspace.append(el("span", "map-skeleton-route"), el("span", "map-skeleton-pin map-skeleton-pin--one"), el("span", "map-skeleton-pin map-skeleton-pin--two"));
     content.append(heading, toolbar, workspace);

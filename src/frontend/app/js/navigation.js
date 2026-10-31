@@ -1,8 +1,26 @@
+import { createAccountAvatar } from "./avatar.js?v=beerrun-123-dicebear-gaze-muted";
+
 const DESTINATIONS = new Set(["run", "standings", "log", "map", "you"]);
 const RUN_DESTINATIONS = new Set(["standings", "log", "map"]);
 
 export function bindNavigation(root = document, { onNavigate = null } = {}) {
   let hasRun = false;
+  let currentUsername = null;
+  const setCurrentUser = (user) => {
+    const username = user?.username || null;
+    if (username === currentUsername) return;
+    currentUsername = username;
+    root.querySelectorAll('.nav-item[data-destination="you"]').forEach((link) => {
+      const mark = username
+        ? createAccountAvatar(username, "nav-avatar")
+        : document.createElement("span");
+      if (!username) {
+        mark.className = "icon icon--user";
+        mark.setAttribute("aria-hidden", "true");
+      }
+      link.firstElementChild.replaceWith(mark);
+    });
+  };
   const setRunAvailable = (available) => {
     hasRun = Boolean(available);
     root.querySelectorAll(".nav-item[data-destination]").forEach((link) => {
@@ -45,5 +63,5 @@ export function bindNavigation(root = document, { onNavigate = null } = {}) {
   });
   window.addEventListener("popstate", () => selectDestination(location.hash.slice(1) || "run"));
   setRunAvailable(false);
-  return { clearDestination, selectDestination, setRunAvailable };
+  return { clearDestination, selectDestination, setRunAvailable, setCurrentUser };
 }

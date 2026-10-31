@@ -1,8 +1,9 @@
-import { updateRunSwitcher } from "./ui.js?v=beerrun-105-tour-end";
-import { buildInviteShareUrl } from "./invite.js?v=beerrun-105-tour-end";
+import { updateRunSwitcher } from "./ui.js?v=beerrun-126-wait-indicators";
+import { buildInviteShareUrl } from "./invite.js?v=beerrun-126-wait-indicators";
 import { showConfirmation } from "./confirmation.js?v=beerrun-105-tour-end";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-113-mobile-tour";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-126-wait-indicators";
 import { buildRunShareUrl } from "./run-selection.js?v=beerrun-105-tour-end";
+import { createAccountAvatar } from "./avatar.js?v=beerrun-123-dicebear-gaze-muted";
 
 const SEARCH_MIN_LENGTH = 2;
 const QUICK_SWITCHER_LIMIT = 6;
@@ -278,7 +279,7 @@ export function createRunLibraryController({
     const optionsHeading = element("h3", "", "My other runs");
     options.append(optionsHeading);
     if (loading) {
-      const skeleton = element("div", "quick-switcher-skeleton run-library-skeleton");
+      const skeleton = element("div", "quick-switcher-skeleton run-library-skeleton waiting-state");
       skeleton.setAttribute("role", "status");
       skeleton.setAttribute("aria-label", "Loading your runs");
       skeleton.append(element("span", "skeleton-row"), element("span", "skeleton-row"));
@@ -439,7 +440,7 @@ export function createRunLibraryController({
     content.dataset.runLibrary = "";
     content.setAttribute("aria-labelledby", "run-library-heading");
     content.append(pageHeading("Run library", "Your beer runs", "Switch runs, discover public crews, or start a new one."));
-    const current = element("section", "ticket-surface run-library-current run-library-skeleton");
+    const current = element("section", "ticket-surface run-library-current run-library-skeleton waiting-state");
     current.setAttribute("aria-label", "Loading current run");
     current.append(
       element("span", "skeleton-line skeleton-line--eyebrow"),
@@ -775,16 +776,20 @@ export function createRunLibraryController({
     searchController?.abort();
     searchController = null;
     results.replaceChildren();
+    status.classList.add("waiting-status");
+    status.setAttribute("aria-busy", "false");
     if (query.length < SEARCH_MIN_LENGTH) {
       status.textContent = "Enter at least 2 characters to search.";
       return;
     }
 
     status.textContent = "Searching public runs…";
+    status.setAttribute("aria-busy", "true");
     searchController = new AbortController();
     const result = await api.searchPublicBeerRuns(query, identity ? auth.getAccessToken() : null, searchController.signal);
     if (request !== searchGeneration || result.aborted || !active || view !== "library") return;
     searchController = null;
+    status.setAttribute("aria-busy", "false");
     if (!result.ok) {
       status.textContent = result.network
         ? "Public search is offline. Try again when the connection returns."
@@ -916,8 +921,7 @@ export function createRunLibraryController({
 
   function memberRow(member) {
     const row = element("li", "manage-member");
-    const mark = element("span", "manage-member__mark", runInitial(member.username));
-    mark.setAttribute("aria-hidden", "true");
+    const mark = createAccountAvatar(member.username, "manage-member__mark");
     const copy = element("span", "manage-member__copy");
     copy.append(element("strong", "", member.username), element("small", "", roleLabel(member.role)));
     row.append(mark, copy);
@@ -936,7 +940,7 @@ export function createRunLibraryController({
     content.dataset.runLibrary = "";
     content.setAttribute("aria-labelledby", "run-library-heading");
     content.append(pageHeading(isOwner ? "Owner controls" : "Run membership", `Manage ${run?.name || "run"}`, "Members, invitations, identity, and permanent actions are separated by purpose."));
-    const loading = element("section", "manage-section manage-section--loading");
+    const loading = element("section", "manage-section manage-section--loading waiting-state");
     loading.append(element("h2", "", "Members"), element("p", "", "Loading the run roster…"));
     content.append(loading);
     target.replaceChildren(content);
@@ -1011,8 +1015,10 @@ export function createRunLibraryController({
         event.preventDefault();
         const name = renameForm.elements.name.value.trim();
         saveRename.disabled = true;
+        saveRename.setAttribute("aria-busy", "true");
         const update = await api.updateBeerRun(run.id, { name }, auth.getAccessToken());
         saveRename.disabled = false;
+        saveRename.setAttribute("aria-busy", "false");
         if (!update.ok) {
           setFormStatus(renameForm, apiMessage(update, "The run could not be renamed."), { error: true });
           return;

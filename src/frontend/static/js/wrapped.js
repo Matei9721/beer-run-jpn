@@ -625,6 +625,7 @@ function renderEmptyState(message) {
 
 async function loadWrapped() {
     startBtn.disabled = true;
+    startBtn.setAttribute('aria-busy', 'true');
     startBtn.textContent = 'LOADING';
 
     try {
@@ -640,6 +641,7 @@ async function loadWrapped() {
 
         if (!slides.length) {
             renderEmptyState('Wrapped has no slides yet.');
+            startBtn.textContent = 'UNAVAILABLE';
             return;
         }
 
@@ -658,6 +660,8 @@ async function loadWrapped() {
     } catch (error) {
         renderEmptyState('Wrapped data could not be loaded. Run the generator and try again.');
         startBtn.textContent = 'UNAVAILABLE';
+    } finally {
+        startBtn.setAttribute('aria-busy', 'false');
     }
 }
 

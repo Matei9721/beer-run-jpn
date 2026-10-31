@@ -33,6 +33,7 @@ function inviteTicket({ name = "", loading = false, unavailable = false } = {}) 
   mark.append(element("span", "icon icon--beer"));
   ticket.append(mark);
   if (loading) {
+    ticket.classList.add("waiting-state");
     ticket.setAttribute("aria-label", "Loading invitation");
     ticket.append(
       element("span", "skeleton-line skeleton-line--eyebrow"),

@@ -5,8 +5,8 @@ import {
   saveSelectedRunId,
   sharedRunFromUrl,
 } from "./run-selection.js?v=beerrun-105-tour-end";
-import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-113-mobile-tour";
-import { createRunDiscoveryController } from "./run-discovery.js?v=beerrun-105-tour-end";
+import { clearSystemNotice, setSystemNotice } from "./system-states.js?v=beerrun-126-wait-indicators";
+import { createRunDiscoveryController } from "./run-discovery.js?v=beerrun-126-wait-indicators";
 import {
   renderRunHome,
   renderRunHomeError,
@@ -15,7 +15,7 @@ import {
   setRefreshPending,
   setSyncStatus,
   updateRunSwitcher,
-} from "./ui.js?v=beerrun-105-tour-end";
+} from "./ui.js?v=beerrun-126-wait-indicators";
 
 function sameRun(left, right) {
   return left && right && Number(left.id) === Number(right.id);

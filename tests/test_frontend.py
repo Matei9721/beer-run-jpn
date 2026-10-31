@@ -9,9 +9,9 @@ FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
 LANDING_STYLE_VERSION = "beerrun-121-live-system-theme"
-APP_MODULE_VERSION = "beerrun-121-live-system-theme"
+APP_MODULE_VERSION = "beerrun-126-wait-indicators"
 THEME_MODULE_VERSION = "beerrun-121-live-system-theme"
-FOUNDATION_ASSET_VERSION = "beerrun-121-live-system-theme"
+FOUNDATION_ASSET_VERSION = "beerrun-126-wait-indicators"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
 TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
@@ -88,6 +88,7 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
         "api.js",
         "app.js",
         "auth.js",
+        "avatar.js",
         "confirmation.js",
         "form-state.js",
         "invite.js",
@@ -110,9 +111,14 @@ def test_frontend_module_boundaries_exist_and_imports_resolve():
 
     app_source = (javascript_root / "app.js").read_text(encoding="utf-8")
     imports = re.findall(r'from "(\./[^"?]+\.js)\?v=([^"?]+)"', app_source)
-    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "confirmation.js", "run-discovery.js", "tour.js"}
+    assert {Path(path).name for path, _ in imports} == expected_modules - {"app.js", "avatar.js", "confirmation.js", "run-discovery.js", "tour.js"}
     updated_versions = {"map.js": MAP_MODULE_VERSION, "theme.js": THEME_MODULE_VERSION, **dict.fromkeys(
         ("run-home.js", "run-library.js", "system-states.js"), TOUR_ASSET_VERSION
+    ), **dict.fromkeys(
+        ("account.js", "standings.js", "ui.js", "run-library.js"), "beerrun-123-dicebear-gaze-muted"
+    ), "navigation.js": "beerrun-124-you-avatar", **dict.fromkeys(
+        ("account.js", "auth.js", "invite.js", "legal.js", "log.js", "map.js", "run-home.js", "run-library.js", "standings.js", "system-states.js", "ui.js"),
+        "beerrun-126-wait-indicators"
     )}
     assert all(version == updated_versions.get(Path(path).name, ASSET_VERSION) for path, version in imports)
     assert all((javascript_root / path.removeprefix("./")).is_file() for path, _ in imports)
@@ -199,7 +205,11 @@ def test_landing_page_routes_into_production_application_flows():
     assert 'closeTo: "#landing"' in app
 
 
-def test_landing_is_shown_while_session_and_run_startup_are_pending():
+def test_startup_placeholder_stays_until_session_and_run_are_ready():
+    html = (FRONTEND_ROOT / "index.html").read_text(encoding="utf-8")
+    assert 'data-motion-profile="touch" hidden' in html
+    assert 'role="status" data-startup-status' in html
+    assert 'beer-run-loading.svg' in html.split('<body>', 1)[1]
     result = run_node_module(r'''
       import fs from "node:fs";
       import assert from "node:assert/strict";
@@ -211,6 +221,7 @@ def test_landing_is_shown_while_session_and_run_startup_are_pending():
         ["#map", "valid", false], ["#login", "none", false],
         ["#signup", "none", false], ["#map", "stale", false],
         ["#landing", "stale", false], ["", "none", true],
+        ["#run", "valid", false],
       ]) {
         const events = [];
         const location = { hash, pathname: "/", search: invite ? "?invite=example" : "" };
@@ -231,19 +242,24 @@ def test_landing_is_shown_while_session_and_run_startup_are_pending():
         const inviteController = { ...inactive, hasInviteRoute: () => invite };
         const runLibrary = inactive, legalController = inactive;
         const onboarding = { consider: () => events.push("onboarding") };
-        const document = { querySelector: () => null };
+        let loading = true;
+        const document = { querySelector: selector => selector === "[data-startup-loading]"
+          ? { remove: () => { loading = false; } } : null };
         const showLandingView = () => events.push("landing");
         const syncLandingSession = () => events.push("sync-session");
         const restoreDestination = () => events.push(`restore:${location.hash || "#landing"}`);
         const finished = eval(startup);
         const isLanding = !invite && (!hash || hash === "#landing");
         assert.deepEqual(events, isLanding ? ["landing", "validate"] : ["validate"]);
+        assert.equal(loading, !isLanding);
         resolveSession({ status });
         await Promise.resolve();
         assert.equal(events.at(-1), "initialize");
         assert.equal(events.some(event => event.startsWith("restore:")), false);
+        assert.equal(loading, !isLanding);
         resolveRun();
         await finished;
+        assert.equal(loading, false);
         if (status === "stale") {
           assert.equal(location.hash, "#login");
           assert.equal(events.at(-1), "login");
@@ -254,8 +270,79 @@ def test_landing_is_shown_while_session_and_run_startup_are_pending():
       }
       console.log(JSON.stringify(cases));
     ''')
-    assert len(result) == 8
+    assert len(result) == 9
     assert sum(case["earlyLanding"] for case in result) == 3
+
+
+def test_startup_failure_offers_retry_without_showing_the_landing_page():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      const app = fs.readFileSync("src/frontend/app/js/app.js", "utf8");
+      const startup = app.slice(app.lastIndexOf("void (async () => {")).replace(/^void /, "");
+      const cases = [];
+      for (const phase of ["session", "run"]) {
+        const location = { hash: "#run" };
+        const inviteController = { hasInviteRoute: () => false };
+        const authController = { validateStoredSession: async () => {
+          if (phase === "session") throw new Error("Session unavailable");
+          return { status: "valid" };
+        } };
+        const runHome = { initialize: async () => { throw new Error("Run unavailable"); } };
+        const status = { textContent: "Loading BeerRun…" };
+        const retry = { hidden: true };
+        const document = { querySelector: selector => {
+          if (selector === "[data-startup-status]") return status;
+          if (selector === "[data-startup-retry]") return retry;
+          throw new Error("Placeholder must remain until startup succeeds");
+        } };
+        const syncLandingSession = () => {};
+        const showLandingView = () => assert.fail("Landing must not appear");
+        const console = { error: () => {} };
+        await eval(startup);
+        assert.match(status.textContent, /couldn’t load/);
+        assert.equal(retry.hidden, false);
+        cases.push(phase);
+      }
+      console.log(JSON.stringify(cases));
+    ''')
+    assert result == ["session", "run"]
+
+
+def test_wrapped_loading_indicator_settles_on_success_empty_and_error():
+    result = run_node_module(r'''
+      import fs from "node:fs";
+      import assert from "node:assert/strict";
+      const source = fs.readFileSync("src/frontend/static/js/wrapped.js", "utf8");
+      const load = source.slice(source.indexOf("async function loadWrapped()"), source.indexOf("startBtn.addEventListener('click'"));
+      const cases = [];
+      for (const outcome of ["ready", "empty", "error"]) {
+        let completeFetch;
+        const fetch = () => new Promise(resolve => { completeFetch = resolve; });
+        const window = { location: { href: "https://example.test/wrapped?run=1" } };
+        const localStorage = { getItem: () => null };
+        const attributes = {};
+        const startBtn = { disabled: false, textContent: "START REEL", setAttribute: (key, value) => { attributes[key] = value; } };
+        let wrapped, slides, message;
+        const stage = { innerHTML: "", appendChild: () => {}, querySelectorAll: () => [], querySelector: () => ({ classList: { add: () => {} } }) };
+        const renderSlide = () => ({});
+        const renderEmptyState = value => { message = value; };
+        const renderProgress = () => {}, updateControls = () => {}, queueGalleryMotionUpdate = () => {}, fitSlideText = () => {};
+        const pending = eval(`${load}\nloadWrapped()`);
+        assert.equal(attributes["aria-busy"], "true");
+        assert.equal(startBtn.disabled, true);
+        assert.equal(startBtn.textContent, "LOADING");
+        completeFetch({ ok: outcome !== "error", status: 503, json: async () => ({ slides: outcome === "ready" ? [{ id: "intro" }] : [] }) });
+        await pending;
+        assert.equal(attributes["aria-busy"], "false");
+        assert.equal(startBtn.disabled, outcome !== "ready");
+        assert.equal(startBtn.textContent, outcome === "ready" ? "START REEL" : "UNAVAILABLE");
+        if (outcome !== "ready") assert.ok(message);
+        cases.push(outcome);
+      }
+      console.log(JSON.stringify(cases));
+    ''')
+    assert result == ["ready", "empty", "error"]
 
 
 def test_application_pages_share_the_landing_wordmark_and_link_back_to_it():
@@ -647,7 +734,7 @@ def test_annotated_ui_cleanup_removes_redundancy_and_keeps_alignment_rules():
     ):
         assert copy not in "\n".join((ui, standings, auth, map_module))
 
-    assert 'top.append(avatar(username), el("strong", "", `Rank ${index + 1}`));' in standings
+    assert 'top.append(createAccountAvatar(username), el("strong", "", `Rank ${index + 1}`));' in standings
     assert "Ranked by ${" not in standings
     assert "standings-legend" not in standings
     assert 'const ranking = el("div", "standings-ranking");' in standings

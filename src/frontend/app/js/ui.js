@@ -1,3 +1,5 @@
+import { createAccountAvatar } from "./avatar.js?v=beerrun-123-dicebear-gaze-muted";
+
 const element = (tag, className = "", text = "") => {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -214,6 +216,7 @@ function createStandings(leaderboard, entries, now, { canLog = false } = {}) {
     measures.append(volume, alcohol);
     action.append(
       rank,
+      createAccountAvatar(username, "home-runner-avatar"),
       element("strong", "standings-name", username),
       measures,
       element("span", "standings-disclosure", "›"),
@@ -258,7 +261,10 @@ function createActivityRow(entry, now) {
   title.append(element("strong", "", entry.drink_type || "Drink"));
   if (entry.brand) title.append(element("span", "activity-brand", entry.brand));
   const meta = element("span", "activity-meta");
-  appendMeta(meta, [formatQuantity(entry.quantity), formatAbv(entry.abv), entry.username || "Runner", formatRelativeTime(entry.timestamp, now)]);
+  appendMeta(meta, [formatQuantity(entry.quantity), formatAbv(entry.abv)]);
+  const runner = element("span", "activity-meta__runner");
+  runner.append(createAccountAvatar(entry.username || "Runner", "activity-runner-avatar"), element("span", "", entry.username || "Runner"));
+  meta.append(element("span", "activity-meta__separator", "·"), runner, element("span", "activity-meta__separator", "·"), element("span", "", formatRelativeTime(entry.timestamp, now)));
   copy.append(title, meta);
   link.append(createActivityMark(entry), copy, element("span", "activity-disclosure", "Open"));
   item.append(link);
@@ -331,7 +337,7 @@ export function renderRunHomeLoading(root) {
   const target = homeRoot(root);
   if (!target) return;
   target.replaceChildren();
-  const identity = element("section", "ticket-surface home-skeleton home-skeleton--identity");
+  const identity = element("section", "ticket-surface home-skeleton home-skeleton--identity waiting-state");
   identity.append(element("span", "skeleton-line skeleton-line--eyebrow"), element("span", "skeleton-line skeleton-line--heading"), element("span", "skeleton-line skeleton-line--copy"));
   const list = element("section", "home-section standings-card home-skeleton");
   list.setAttribute("aria-label", "Loading current standings");

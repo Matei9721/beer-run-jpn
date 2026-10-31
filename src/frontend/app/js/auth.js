@@ -1,4 +1,4 @@
-import { createBrandWordmark } from "./ui.js?v=beerrun-105-tour-end";
+import { createBrandWordmark } from "./ui.js?v=beerrun-126-wait-indicators";
 
 export const ACCESS_TOKEN_KEY = "access_token";
 
@@ -163,7 +163,7 @@ function signupForm() {
   privacy.dataset.privacyLink = "";
   copy.append(terms, document.createTextNode(" and "), privacy, document.createTextNode("."));
   legalLabel.append(checkbox, copy);
-  const legalStatus = element("p", "auth-legal__status", "Loading the current Terms...");
+  const legalStatus = element("p", "auth-legal__status waiting-status", "Loading the current Terms...");
   legalStatus.id = "signup-terms-status";
   legalStatus.dataset.legalStatus = "";
   legalStatus.setAttribute("role", "status");
@@ -284,10 +284,14 @@ export function createAuthController({
     const generation = ++legalGeneration;
     const status = view.querySelector("[data-legal-status]");
     const checkbox = view.querySelector("input[name='terms_agreed']");
-    if (status) status.textContent = "Loading the current Terms...";
+    if (status) {
+      status.textContent = "Loading the current Terms...";
+      status.setAttribute("aria-busy", "true");
+    }
     if (checkbox) checkbox.disabled = true;
     const result = await api.fetchLegalMetadata();
     if (generation !== legalGeneration || !active || mode !== "signup") return;
+    status?.setAttribute("aria-busy", "false");
     if (!result.ok || !result.data?.terms_version) {
       legalMetadata = null;
       if (status) status.textContent = result.network

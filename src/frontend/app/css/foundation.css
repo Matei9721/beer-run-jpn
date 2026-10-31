@@ -189,6 +189,43 @@
 }
 
 :root[data-theme="dark"] { color-scheme: dark; }
+
+/* System mode stays live in CSS instead of saving an early JavaScript reading. */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --color-canvas: #0c1513;
+    --color-surface: #111f1b;
+    --color-surface-raised: #192b25;
+    --color-surface-selected: #23483c;
+    --color-text: #f2efe6;
+    --color-text-muted: #a9b8b1;
+    --color-border: #3a5048;
+    --color-border-strong: #6f837a;
+    --color-accent: #ff745c;
+    --color-action: #ff745c;
+    --color-action-hover: #ff8c78;
+    --color-on-action: #0c1513;
+    --color-danger: #ff5a52;
+    --color-danger-surface: #4a2422;
+    --color-focus: #ff8c78;
+    --color-overlay: rgb(0 0 0 / 0.68);
+    --color-ticket: #192b25;
+    --color-ticket-text: #f2efe6;
+    --color-ticket-muted: #a9b8b1;
+    --color-wrapped: #ff745c;
+    --color-wrapped-ink: #0c1513;
+    --shadow-sticky: 0 -8px 24px rgb(0 0 0 / 0.25);
+    --shadow-raised: 0 14px 35px rgb(0 0 0 / 0.32);
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 0.13);
+  }
+  :root[data-theme="system"] .brand-wordmark__asset--light { display: none; }
+  :root[data-theme="system"] .brand-wordmark__asset--dark { display: block; }
+  :root[data-theme="system"] .activity-photo { outline-color: rgb(255 255 255 / 0.1); }
+  :root[data-theme="system"] .log-photo-preview,
+  :root[data-theme="system"] .map-detail__photo { outline-color: oklch(1 0 0 / 0.1); }
+}
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { min-width: 320px; background: var(--color-canvas); }

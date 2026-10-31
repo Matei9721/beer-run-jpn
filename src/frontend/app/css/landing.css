@@ -28,6 +28,21 @@
   color-scheme: dark;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .landing-page {
+    --landing-canvas: #0c1513;
+    --landing-surface: #111f1b;
+    --landing-surface-raised: #192b25;
+    --landing-text: #f2efe6;
+    --landing-muted: #a9b8b1;
+    --landing-border: #3a5048;
+    --landing-accent: #ff745c;
+    --landing-accent-hover: #ff8c78;
+    --landing-on-accent: #0c1513;
+    color-scheme: dark;
+  }
+}
+
 body.landing-view {
   background: var(--landing-canvas);
 }
@@ -232,6 +247,13 @@ body.landing-view {
 :root[data-theme="dark"] .landing-photo-map__canvas {
   opacity: 0.56;
   filter: blur(2px) grayscale(1) brightness(0.28) contrast(1.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .landing-photo-map__canvas {
+    opacity: 0.56;
+    filter: blur(2px) grayscale(1) brightness(0.28) contrast(1.25);
+  }
 }
 
 .landing-photo-rail {

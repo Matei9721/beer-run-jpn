@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="system">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,6 +8,9 @@
     <style>
       :root { background: #f3f1e8; color: #102722; color-scheme: light; }
       :root[data-theme="dark"] { background: #0c1513; color: #f2efe6; color-scheme: dark; }
+      @media (prefers-color-scheme: dark) {
+        :root[data-theme="system"] { background: #0c1513; color: #f2efe6; color-scheme: dark; }
+      }
     </style>
     <link rel="icon" href="/assets/assets/brand/final/beer-run-mark.svg?v=beerrun-105-tour-end" type="image/svg+xml" sizes="any">
     <script>
@@ -15,10 +18,7 @@
         const key = "beer_run_revamp_theme_preference";
         const saved = localStorage.getItem(key);
         const preference = ["system", "light", "dark"].includes(saved) ? saved : "system";
-        const resolved = preference === "system"
-          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-          : preference;
-        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.theme = preference;
         document.documentElement.dataset.themePreference = preference;
       })();
     </script>
@@ -26,12 +26,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
     <link rel="stylesheet" href="/assets/assets/vendor/driver/driver.css?v=1.3.6">
-    <link rel="stylesheet" href="/assets/css/foundation.css?v=beerrun-113-mobile-tour">
+    <link rel="stylesheet" href="/assets/css/foundation.css?v=beerrun-121-live-system-theme">
     <link rel="stylesheet" href="/assets/css/map.css?v=beerrun-114-desktop-map">
-    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-119-immediate-landing">
+    <link rel="stylesheet" href="/assets/css/landing.css?v=beerrun-121-live-system-theme">
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script defer src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script type="module" src="/assets/js/app.js?v=beerrun-120-stable-initial-theme"></script>
+    <script type="module" src="/assets/js/app.js?v=beerrun-121-live-system-theme"></script>
   </head>
   <body>
     <div class="landing-page" data-landing-page data-motion-profile="touch">

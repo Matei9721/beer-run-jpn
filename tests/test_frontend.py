@@ -8,10 +8,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "src" / "frontend" / "app"
 ASSET_VERSION = "beerrun-105-tour-end"
 LANDING_ASSET_VERSION = "beerrun-117-photo-pins"
-LANDING_STYLE_VERSION = "beerrun-119-immediate-landing"
-APP_MODULE_VERSION = "beerrun-120-stable-initial-theme"
-THEME_MODULE_VERSION = "beerrun-120-stable-initial-theme"
-FOUNDATION_ASSET_VERSION = "beerrun-113-mobile-tour"
+LANDING_STYLE_VERSION = "beerrun-121-live-system-theme"
+APP_MODULE_VERSION = "beerrun-121-live-system-theme"
+THEME_MODULE_VERSION = "beerrun-121-live-system-theme"
+FOUNDATION_ASSET_VERSION = "beerrun-121-live-system-theme"
 MAP_ASSET_VERSION = "beerrun-114-desktop-map"
 MAP_MODULE_VERSION = "beerrun-115-cluster-replay"
 TOUR_ASSET_VERSION = "beerrun-113-mobile-tour"
@@ -318,7 +318,7 @@ def test_foundation_encodes_theme_motion_and_responsive_contracts():
     assert "access_token" not in html
 
 
-def test_initial_theme_is_preserved_when_the_app_starts():
+def test_system_theme_does_not_freeze_an_early_browser_reading():
     result = run_node_module(r'''
       import fs from "node:fs";
       import assert from "node:assert/strict";
@@ -329,6 +329,8 @@ def test_initial_theme_is_preserved_when_the_app_starts():
       assert.ok(html.indexOf("<style>") < html.indexOf('rel="stylesheet"'));
       assert.ok(earlyStyle.includes("color-scheme: light"));
       assert.ok(earlyStyle.includes('data-theme="dark"'));
+      assert.ok(earlyStyle.includes('data-theme="system"'));
+      assert.ok(earlyStyle.includes('@media (prefers-color-scheme: dark)'));
       const cases = [];
       for (const saved of [null, "invalid", "system", "light", "dark"]) {
         for (const dark of [false, true]) {
@@ -337,42 +339,39 @@ def test_initial_theme_is_preserved_when_the_app_starts():
           const root = { dataset: {} };
           const document = { documentElement: root };
           const localStorage = storage;
-          const matchMedia = () => ({ matches: dark });
+          const matchMedia = () => { throw new Error("Bootstrap must let CSS resolve the system theme"); };
           eval(bootstrap);
-          const expected = saved === "light" || saved === "dark" ? saved : dark ? "dark" : "light";
+          const expected = saved === "light" || saved === "dark" ? saved : "system";
           assert.equal(root.dataset.theme, expected);
-          const writes = [];
-          const initialDataset = root.dataset;
-          root.dataset = new Proxy(initialDataset, { set: (target, key, value) => {
-            writes.push(key); target[key] = value; return true;
-          } });
+          // An old or transient concrete theme must not pin system mode at startup.
+          root.dataset.theme = dark ? "dark" : "light";
           let listener;
           const media = {
-            matches: !dark,
+            get matches() { throw new Error("System appearance must stay live in CSS"); },
             addEventListener: (_type, callback) => { listener = callback; },
             removeEventListener: () => {},
           };
           globalThis.matchMedia = () => media;
           const controller = createThemeController({ root, storage });
           assert.equal(root.dataset.theme, expected);
-          assert.deepEqual(writes, []);
           listener();
-          if (controller.getPreference() === "system") {
-            assert.equal(root.dataset.theme, !dark ? "dark" : "light");
-          } else assert.equal(root.dataset.theme, saved);
+          assert.equal(root.dataset.theme, expected);
           controller.setPreference("dark");
           assert.equal(root.dataset.theme, "dark");
           assert.equal(stored, "dark");
           controller.setPreference("light");
           assert.equal(root.dataset.theme, "light");
           assert.equal(stored, "light");
+          controller.setPreference("system");
+          assert.equal(root.dataset.theme, "system");
+          assert.equal(stored, "system");
           cases.push({ saved, dark, initial: expected });
           controller.destroy();
         }
       }
       const root = { dataset: {} };
       const controller = createThemeController({ root, storage: { getItem: () => null } });
-      assert.ok(["light", "dark"].includes(root.dataset.theme));
+      assert.equal(root.dataset.theme, "system");
       controller.destroy();
       console.log(JSON.stringify(cases));
     ''')

@@ -179,6 +179,50 @@ To verify API and database integrity:
 uv --cache-dir .uv-cache run pytest
 ```
 
+## Docker
+
+Local development continues to use the FastAPI commands above. To build and
+check the container with disposable data:
+
+```sh
+docker build -t beer-run:local .
+bash scripts/smoke_container.sh beer-run:local
+```
+
+GitHub Actions tests pull requests and publishes tested images on branch pushes
+or manual workflow runs. Images use `ghcr.io/matei9721/beer-run-jpn` with:
+
+- `latest`: updated only by `main`.
+- `branch-<branch-name>`: follows a branch, with slashes normalized to hyphens
+  (for example, `feature/map` becomes `branch-feature-map`).
+- `sha-<full-commit-sha>`: identifies an exact commit.
+
+Select a branch image with separate persistent data when testing a feature.
+Pull request events build and test without publishing images. Builds
+contain only source and locked dependencies. Private configuration, databases,
+uploads, and generated recaps must be mounted separately at runtime:
+
+| Container path | Contents |
+| --- | --- |
+| `/run/secrets/beer-run.env` | Read-only private configuration using the existing `.env.example` keys |
+| `/state/boozerun.db` | SQLite database and any SQLite sidecar files |
+| `/state/uploads/` | Existing uploaded images |
+| `/state/data/` | Drink configuration and generated recaps |
+| `/state/quarantine/` | Account-deletion quarantine, if present |
+
+Mount the whole persistent directory at `/state` and make it writable by
+UID/GID 1000. Reuse existing data when moving an installation. A deliberately
+empty installation can seed `data/drinks.json` from
+`/app/seed-data/drinks.json` and explicitly run
+`python scripts/migrate_db.py` inside the image before starting the app.
+
+The container listens on port 8000 and checks migration readiness at startup.
+For future schema-changing releases, stop the application, back up its complete
+persistent state, run the existing migration script explicitly using the new
+image, and verify readiness before restarting. Startup never migrates data
+automatically. Keep secrets and persistent data outside image layers so image
+replacement preserves them.
+
 ## Rollback
 
 There is no runtime UI switch or retained legacy application. To roll back,

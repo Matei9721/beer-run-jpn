@@ -1,0 +1,19 @@
+# Only source and locked dependency metadata may enter the build context.
+**
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!src/
+!src/**
+!scripts/
+!scripts/**
+!data/
+!data/drinks.json
+**/__pycache__/
+**/*.pyc
+**/*.db
+**/*.db-*
+**/.env
+**/.env.*
+**/users.json

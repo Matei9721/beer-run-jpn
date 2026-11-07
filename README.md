@@ -18,7 +18,7 @@ trip recaps in one mobile-first experience.
 - **Backend**: FastAPI (Python 3.13)
 - **Database**: SQLite + SQLAlchemy
 - **Frontend**: Vanilla HTML5/CSS3/JS + Leaflet
-- **Deployment**: Uvicorn + Caddy (for HTTPS)
+- **Deployment**: Uvicorn + Caddy (for HTTPS), with optional Docker/GHCR packaging
 
 ## Source Layout
 
@@ -31,6 +31,10 @@ trip recaps in one mobile-first experience.
 - `data/`, `boozerun.db`, and `static/uploads/`: repository-root runtime or generated data; these do not move during the source refactor.
 
 ## Running the Application
+
+For Docker hosting, persistent server data, image publishing, and guarded
+updates, see [the deployment plan and operator guide](deploy/README.md).
+The local FastAPI workflow below remains unchanged.
 
 ### 1. Install Dependencies
 Ensure you have `uv` installed, then run:

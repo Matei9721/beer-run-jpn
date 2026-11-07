@@ -1,0 +1,13 @@
+[Unit]
+Description=Pull and safely update only BeerRun
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lspataru
+WorkingDirectory=/home/lspataru/deployments/beer-run
+ExecStart=/usr/bin/python3 /home/lspataru/deployments/beer-run/update.py
+UMask=0077
+TimeoutStartSec=15min

@@ -988,7 +988,7 @@ body:has(.confirmation-dialog[open]) { overflow: hidden; }
 .home-skeleton { display: grid; gap: var(--space-3); }
 .waiting-state::before,
 .waiting-status[aria-busy="true"]::before,
-.button[aria-busy="true"]::before,
+.button[aria-busy="true"]:not(.refresh-button)::before,
 .auth-form[aria-busy="true"] .auth-submit::before,
 .confirmation-panel[aria-busy="true"] .confirmation-submit::before,
 .log-location-field__action.is-loading::before,
@@ -1004,7 +1004,7 @@ body:has(.confirmation-dialog[open]) { overflow: hidden; }
 .waiting-status[aria-busy="true"] { display: flex; align-items: center; gap: var(--space-2); }
 .standings-toggle[aria-busy="true"]::before { align-self: center; }
 .button[aria-busy="true"], .auth-form[aria-busy="true"] .auth-submit, .confirmation-panel[aria-busy="true"] .confirmation-submit { cursor: wait; opacity: 1; }
-.button[aria-busy="true"] > .icon, .log-location-field__action.is-loading > .icon { display: none; }
+.button[aria-busy="true"]:not(.refresh-button) > .icon, .log-location-field__action.is-loading > .icon { display: none; }
 .invite-ticket.waiting-state > .invite-ticket__mark { display: none; }
 .home-skeleton--identity { min-height: 180px; }
 .skeleton-line, .skeleton-block, .skeleton-row { display: block; background: var(--color-surface-selected); opacity: 0.7; }

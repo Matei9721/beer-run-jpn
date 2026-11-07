@@ -1,199 +1,171 @@
-# BeerRun container deployment
+# BeerRun deployment plan
 
-Status: prepared locally. **Server installation, data transfer, GitHub publishing,
-and the proxy cutover require the owner's confirmation before execution.**
+Revised 7 November 2026. This replaces the proposal for a separate BeerRun
+updater and systemd timer. Normal updates will use the existing signed registry
+webhook and `scripts/autoupdate.py`.
 
-Local development is unchanged: use the `uv` commands in the root README.
-The image packages the Python app, frontend, operator scripts, and locked
-dependencies. No database, uploads, secrets, or generated recaps enter the build.
+**Status: implementation validated locally; deployment authorized on 7 November
+2026.** Publishing and cutover progress are recorded separately during rollout.
+The timer templates were removed. `release.py` is an explicit maintenance
+command; routine updates use the existing server webhook. The files under
+`registry-updater/` are narrowly patched copies of the server's existing scripts;
+`original-sha256.json` records the source hashes that installation must verify.
 
-## Observed server layout (7 November 2026)
+## What the inspection established
 
-- Tailscale: `lspataru@100.109.118.111`, hostname `Luca-Lenovo`, Linux x86_64.
-- Docker 29.7.2 and Compose 5.4.0; projects live in
-  `/home/lspataru/deployments/<service>`.
-- Caddy already owns ports 80/443 and joins the external `caddy-net` network at
-  reserved address `172.23.0.100`. Its existing mounts and named volumes stay intact.
-- Both `beerrun.selfhaven.eu` and `beerrun.ddns.net` currently proxy to
-  `192.168.178.225:8000`. The selfhaven hostname resolves through Cloudflare.
-  No DNS change appears necessary; the Caddy upstream is the cutover point.
-- The shared registry webhook invokes an updater across opt-in labeled services.
-  BeerRun deliberately has no updater label and does not change that mechanism.
-- Existing projects include Immich, Jellyfin, Vaultwarden, media services,
-  monitoring, a portfolio backend, and a Discord bot. No existing project's
-  image, ports, mounts, credentials, or lifecycle is part of this deployment.
+- Independent Compose stacks live under `/home/lspataru/deployments`.
+- Caddy already serves both BeerRun domains, forwarding to the Pi at
+  `192.168.178.225:8000`. No DNS change appears necessary.
+- The signed webhook serializes runs of `scripts/autoupdate.py`. The script
+  discovers running containers labeled
+  `com.centurylinklabs.watchtower.enable=true`, pulls images, and recreates
+  services whose image changed. It expects `docker-compose.yml`.
+- The script currently scans every opted-in container. Its log check does
+  not provide database backups, migration gating, or health-based rollback.
+- The Pi app is in `/home/bot/Desktop/beer-run-jpn` at `c2cdd79`. SQLite
+  integrity passed and migrations 001-009 are applied: 6 users, 177 entries,
+  3 runs, 7 memberships, and 365 uploaded files totaling about 62 MB.
+  Preserve its modified `data/drinks.json` and private configuration.
+- The owner confirmed nobody currently uses the app, so a one-time transfer
+  is sufficient. DDNS will remain on the Pi copy without synchronization.
 
-## Proposed installation and cutover
+## 1. Keep development unchanged and publish schema-compatible image tags
 
-1. Merge the reviewed repository changes and publish a tested image to
-   `ghcr.io/matei9721/beer-run-jpn`. The workflow tests every PR and main update,
-   builds and smoke-tests the image, then publishes `latest` and a commit-specific
-   `sha-<full-commit>` tag on main. It uses GitHub's `GITHUB_TOKEN`; app secrets
-   never go into Actions. Automated semantic tags are not the publish trigger.
-2. After confirmation, create only
-   `/home/lspataru/deployments/beer-run`. Copy `compose.yaml`, `update.py`, and
-   the two systemd unit templates here. Use owner UID/GID 1000, mode 0700 for
-   the directory and 0600 for private configuration. A private GHCR image
-   needs read-only package access; prefer a public image when source is public.
-   Do not clear or replace shared Docker credentials. If needed, use a
-   BeerRun-only `DOCKER_CONFIG` and set it in its update service.
-   The workflow publishes images only; future changes to host Compose files,
-   the updater, or unit files must be reviewed and installed separately.
-3. Pi Connect inspection confirmed user `bot`, source directory
-   `/home/bot/Desktop/beer-run-jpn`, revision `c2cdd79`, and a manually started
-   `uv run uvicorn beer_run.main:app --host 0.0.0.0 --port 8000` process in a
-   shell session. The database is `boozerun.db` (157,944 bytes), passes SQLite
-   integrity, and has migrations 001-009, 6 users, 177 entries, 3 beer runs,
-   and 7 memberships. Uploads occupy about 62 MB. All four required config
-   values are present. Preserve the modified Pi `data/drinks.json`; ignore
-   the other stray/empty database files. Refresh these checks before transfer.
-   Pi SSH is active, but the new server does not yet trust its host key and
-   no Pi authorized-keys file was found. After approval, verify the fingerprint
-   through Pi Connect and arrange a temporary transfer key, removing its Pi
-   authorization after copying. Do not bypass host-key verification or expose
-   a data archive over HTTP. No SSH trust or authorization was changed during inspection.
-4. Rehearse with a **separate recoverable copy** of the Pi state. Preserve the
-   original database, image paths, login secret, and signup/legal settings.
-   Run SQLite `PRAGMA integrity_check`, migration readiness, representative row
-   counts, login, photo reads, public/private run access, and Wrapped checks
-   against the copy. Never export user rows or secrets into Git or build logs.
-5. During an agreed short cutover window, stop only the Pi's BeerRun writer,
-   capture a final consistent snapshot of its SQLite database (including any
-   WAL state via SQLite backup), uploads, data, quarantine, and private config.
-   Keep separately named recoverable backups on both machines. Transfer only
-   over an authenticated private channel; do not put an archive behind a public
-   download URL. Verify file checksums/counts and SQLite integrity after transfer.
-   Restart the Pi service to keep its DDNS endpoint available.
-6. Place the transferred state at the paths below. Start BeerRun and validate
-   it through Docker's internal network before changing the public route.
-   If migrations are pending, rehearse them against a disposable copy first,
-   review the result, then explicitly use `python3 update.py --migrate`.
-7. Save the exact existing Caddyfile and change **only** this site's upstream:
+Retain the local FastAPI workflow and Docker packaging. GitHub Actions tests,
+builds, and smoke-tests the image, then publishes that exact image to GHCR.
+No live database, photos, secrets, or generated recaps enter the image.
 
-   ```caddyfile
-   beerrun.selfhaven.eu {
-       reverse_proxy beer-run:8000
-   }
-   ```
+Publish `sha-<full-commit>`, `latest`, and a schema-channel tag such as
+`schema-009-<migration-hash>`. Compute the hash from the ordered migration
+files and runner, so any migration-content change creates a different channel.
+Models must continue to have corresponding migrations.
 
-   Leave `beerrun.ddns.net` forwarding to `192.168.178.225:8000`. Validate the
-   proposed complete Caddy configuration using the existing Caddy binary before
-   writing it. Preserve the inode of its file bind mount when installing the
-   update. Use `caddy reload` in the existing container; do not recreate or
-   restart the shared proxy. Check the new hostname and baseline HTTP status
-   of the other existing hostnames before and after the reload. If verification
-   fails, restore the saved file and reload it.
-8. Once the public app and persistent writes pass verification, install only
-   `beer-run-update.service` and `beer-run-update.timer` in `/etc/systemd/system`,
-   then enable the new timer. No existing service or timer is restarted.
-   The host requires a sudo password for this one-time installation. Its user
-   manager has lingering disabled, so a user timer would not reliably survive
-   logout. Do not change existing user-session behavior to work around this.
+The server follows the reviewed schema channel, rather than `latest`.
+Code-only releases update that channel automatically. A schema-changing release
+publishes a new channel while leaving the running server on its old channel.
+Startup retains its readiness check and never migrates automatically.
 
-The owner confirmed nobody is currently using the app, so a one-time snapshot
-is sufficient. DDNS stays on the Pi's retained copy; use the selfhaven domain
-for entries after cutover. There is no bidirectional database synchronization.
+## 2. Add one isolated BeerRun stack with host-owned data
 
-## Host-owned persistent layout
+Create `/home/lspataru/deployments/beer-run` with `docker-compose.yml`, a
+non-secret `.env` selecting the image channel, private `app.env`, `state/`,
+and `backups/`. Use UID/GID 1000 and private file permissions.
 
-```text
-/home/lspataru/deployments/beer-run/
-  compose.yaml
-  update.py
-  app.env                 # private auth/signup/legal values, read-only in container
-  .env                    # optional BOOZERUN_IMAGE override; no app secrets here
-  state/
-    boozerun.db           # SQLite; keep any SQLite sidecars in this directory
-    uploads/              # original static/uploads tree; URLs are unchanged
-    data/
-      drinks.json
-      wrapped.json        # legacy recap, if present
-      wrapped/            # run-scoped recaps, if present
-    quarantine/           # original .account-deletion-quarantine, if present
-  backups/                # full stopped-state archives; includes private app.env
-  release.json            # current/previous image IDs and last backup
+`state/` contains `boozerun.db`, `uploads/`, `data/` (including drink config
+and recaps), and quarantine if present. Mount it read-write into the app,
+and mount `app.env` read-only. Keep secrets, user data, and existing upload
+URL strings independent of image replacement. The container joins `caddy-net`
+with alias `beer-run`, publishes no host ports, and retains resource/log limits.
+
+## 3. Integrate with the existing updater
+
+Add the existing updater label. Mount only BeerRun's Compose file and
+non-secret image-selection `.env` read-only into `registry-updater`, at
+their exact host paths. Do not mount its database, photos, or `app.env`
+into that container. Verify this layout locally with the actual updater.
+
+To prevent a BeerRun publication from updating unrelated services, prepare
+a small additive extension to the existing updater:
+
+- An optional exact image-repository filter in `autoupdate.py`, applied
+  before any pull or Compose operation. No-argument behavior stays unchanged.
+- A signed `/update/beer-run` route in the existing webhook handler that passes
+  the fixed `ghcr.io/matei9721/beer-run-jpn` filter and uses the existing lock.
+- Preserve signature validation and the existing `/update` route unchanged.
+  Register BeerRun's package webhook against the scoped route. Existing
+  unfiltered runs may still update BeerRun within its selected schema channel.
+
+Prepare exact patches and tests locally before applying these shared changes.
+Reusing `/update` without this extension is possible, but it can also update
+other opted-in services; that is not the proposed default.
+
+**Existing service affected:** the new mounts require recreating only the
+`registry-updater` container once, briefly pausing webhook delivery. Check it
+is idle, retain its configuration, validate the proposed Compose file, and
+verify both webhook routes afterward. No hosted application is restarted.
+Do not trigger the global live updater as a test. Do not replace shared
+registry credentials. No new timer, daemon, or sudo installation is needed.
+
+## 4. Make database migrations deliberate maintenance releases
+
+The schema channel prevents an automatic rollout that requires migration.
+For a future schema-changing release:
+
+1. Rehearse migrations against a disposable copy; verify integrity, counts,
+   API behavior, photo reads, and recaps.
+2. Temporarily remove BeerRun from automatic updates, allow any active update
+   operation to finish, retain the previous image, and stop only BeerRun.
+3. Make and verify a unique consistent backup of database, uploads, data,
+   quarantine, private configuration, and current image selection.
+4. Explicitly run `scripts/migrate_db.py` in the candidate image. The upload-path
+   file migration remains a separate operator action.
+5. Start and verify the candidate, persist its new schema-channel selection,
+   and re-enable the updater label. The running container must record that
+   channel tag, rather than a bare image ID, for future shared updates.
+6. After a failed migration attempt, keep BeerRun out of automatic updates for
+   explicit recovery. Preserve failed state and backup; never automatically
+   rewind user data or start older code against a changed schema.
+
+The local `release.py` is a manual command for this maintenance. It does not
+poll, schedule, or replace the shared routine pull/recreate path.
+Code-only rollback can use a compatible commit tag; schema rollback requires
+a reviewed restore of matching state. Backups are never automatically pruned.
+
+## 5. Transfer the Pi state and switch only the selfhaven upstream
+
+After approval, verify the Pi SSH fingerprint through Pi Connect and authorize
+a temporary transfer key, removing its authorization after copying. Pi SSH
+is active, but the new server has no recorded host trust and no Pi authorized
+keys file was found. Do not bypass host-key verification.
+
+Briefly stop only the Pi app to take a final recoverable snapshot of its
+database and media, accounting for SQLite WAL state through SQLite backup.
+Transfer over authenticated private SSH, verify checksums and integrity,
+and restart the Pi app. Preserve its modified drink config and original
+auth/signup/legal settings without printing secrets.
+
+Validate the new container against a separate copy before public traffic.
+The current snapshot needs no additional schema migration. Save Caddy's
+original configuration, validate the full proposed file, and change only:
+
+```caddyfile
+beerrun.selfhaven.eu {
+    reverse_proxy beer-run:8000
+}
 ```
 
-Copy only the four required app values from the Pi's private configuration to
-`app.env`, preserving their values. Do not carry old database/path overrides:
-container paths are fixed in the image. Application secrets load from the
-read-only file rather than being baked into the image or Compose environment.
-Docker administrators can still read the mounted file.
+Keep `beerrun.ddns.net` forwarding to `192.168.178.225:8000`. Preserve the
+inode of Caddy's bind-mounted file and reload Caddy without recreating it.
+Verify both BeerRun domains and baseline responses from the other sites.
+Restore the saved configuration if verification fails.
 
-The container runs as UID/GID 1000 with a read-only application filesystem and
-bounded temporary storage, CPU, memory, and logs. It publishes **no host ports**;
-Caddy reaches `beer-run:8000` on `caddy-net`. The image trusts forwarded headers
-only from the existing Caddy address configured in Compose.
+## Verification and approval
 
-For a deliberately empty installation, create and own `state`, `state/data`,
-and `state/uploads`, provide private `app.env`, copy
-`/app/seed-data/drinks.json` from the image to `state/data/drinks.json`, and run
-`docker compose run --rm beer-run python scripts/migrate_db.py` explicitly.
-Never use fresh-install commands as a substitute for transferring the Pi data.
+Local verification passed: 575 Windows tests (one Linux-only test skipped),
+all 13 focused deployment/integration tests in Linux including real file-lock
+concurrency, the final image smoke test, and the real Docker CLI reading only
+the proposed Compose and image-selection file mounts. The initial packaging
+also passed an isolated image-replacement rehearsal. Rollout additionally checks:
 
-## Updates and future migrations
+- Code-only changes retain the schema channel; migration-content changes
+  create a new channel; publishing uses exactly the tested image.
+- The real updater can read the proposed stack with only the two file mounts.
+- Scoped BeerRun events cannot pull/recreate other services, while existing
+  webhook authentication, locking, and unfiltered behavior remain unchanged.
+- Image replacement preserves persistent data; migration and backup failures
+  cannot silently re-enable updates or destroy recoverable state.
 
-The timer pulls every five minutes using only this Compose project and service.
-Unchanged healthy images are left running. Before replacing a changed image:
+The owner authorized the revised implementation and server rollout after review.
+Remote source pushes retain their separate immediate confirmation gate.
+The owner chose to arrange the Pi archive transfer; do not add an SSH key.
 
-1. Pin the pulled image ID and check its migration readiness against host state.
-2. If that check fails, keep the old app running and fail the update visibly in
-   the systemd journal. Review the release; rehearse migrations on a copy.
-3. With `python3 update.py --migrate`, stop only BeerRun, create a unique full
-   database/media/config backup, then apply migrations in a one-off container.
-   Ordinary updates also take a stopped-state backup before replacing the app.
-4. Wait for the candidate's health check. Code-only failures restore the old
-   image while keeping current host data. After a migration attempt, a failure
-   leaves BeerRun stopped with a `recovery-required.json` marker that blocks
-   subsequent timer runs until explicit recovery. It never automatically rewinds
-   user data or starts older code against a changed schema.
+For a reviewed maintenance release, pause the shared webhook after its current
+update run finishes, then run:
 
 ```sh
-cd /home/lspataru/deployments/beer-run
-python3 update.py                      # routine guarded update
-python3 update.py --migrate            # explicitly reviewed migration release
-systemctl status beer-run-update.timer
-journalctl -u beer-run-update.service -n 100 --no-pager
-docker compose ps
-docker compose logs --tail 100 beer-run
+python3 release.py --image ghcr.io/matei9721/beer-run-jpn:schema-NEW-HASH --migrate
 ```
 
-Each update briefly stops BeerRun while archiving its state. Monitor backup
-space and archive duration; backups are never automatically pruned. Copy
-verified backups to separate protected storage regularly: same-disk archives
-are useful rollback copies, not protection from loss of the server. On a
-migration/health failure, inspect the journal and retained backup before recovery.
-
-## Rollback and recovery
-
-Stop the BeerRun timer first so it cannot undo a rollback. For a code-only
-rollback, set `BOOZERUN_IMAGE=ghcr.io/matei9721/beer-run-jpn:sha-<known-good-sha>`
-in the deployment's `.env`, then run `python3 update.py`. Review any schema
-compatibility first: readiness verifies required migrations, not downgrade
-compatibility. An older image may accept a newer schema but fail at runtime.
-
-After a migration failure, stop BeerRun and retain the failed state separately.
-Restore a selected archive into a **new staging directory**, inspect its database
-integrity and ownership, and explicitly choose whether to replace live state.
-Restore matching database, uploads, recaps, quarantine, and config as a set;
-do not extract over a live application. Use the recorded previous image and
-verify it before enabling traffic or the timer. Image rollback alone does not
-undo database migrations. No automatic destructive restore is provided.
-Remove `recovery-required.json` only after reviewing the failure and completing
-the chosen recovery, then run the updater explicitly before re-enabling its timer.
-
-The upload-path file migration remains a separate, explicitly authorized
-maintenance operation; neither image startup nor `update.py` invokes it.
-
-## Local container verification
-
-```sh
-docker build -t beer-run:local .
-bash deploy/smoke-test.sh beer-run:local
-```
-
-The smoke test uses only a newly named Docker volume and container, synthetic
-secrets, an empty migrated database, and seeded drink configuration. It checks
-HTTP routes, non-root execution, and persistence across restart, then removes
-only its own disposable resources. The normal host FastAPI workflow and live
-repository data remain untouched.
+The helper records the selected tag in `.env` without replacing its inode.
+It refuses migration maintenance while `registry-updater` is running. Verify
+the application and its new channel before resuming the shared webhook.

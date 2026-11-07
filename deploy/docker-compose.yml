@@ -2,7 +2,9 @@ name: beer-run
 
 services:
   beer-run:
-    image: ${BOOZERUN_IMAGE:-ghcr.io/matei9721/beer-run-jpn:latest}
+    image: ${BOOZERUN_IMAGE:?Set BOOZERUN_IMAGE to the reviewed schema channel}
+    labels:
+      com.centurylinklabs.watchtower.enable: ${BOOZERUN_AUTOUPDATE:-true}
     restart: unless-stopped
     init: true
     read_only: true

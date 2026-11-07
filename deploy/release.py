@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update only BeerRun, retaining host state and requiring consent for migrations."""
+"""Explicit BeerRun release maintenance; routine updates use the shared webhook."""
 
 import argparse
 from datetime import datetime, timezone
@@ -35,7 +35,7 @@ class Deployment:
     def compose(self, *arguments: str, image: str | None = None, check=True):
         return self.command(
             "docker", "compose", "--project-name", "beer-run",
-            "--file", str(self.directory / "compose.yaml"),
+            "--file", str(self.directory / "docker-compose.yml"),
             *arguments, image=image, check=check,
         )
 
@@ -53,6 +53,9 @@ class Deployment:
                 release = self.directory / "release.json"
                 if release.exists():
                     archive.add(release, arcname="release.json")
+                selection = self.directory / ".env"
+                if selection.exists():
+                    archive.add(selection, arcname=".env")
             output.flush()
             os.fsync(output.fileno())
         partial.rename(target)
@@ -87,12 +90,14 @@ class Deployment:
         ).stdout.strip()
         container = self.compose("ps", "--all", "--quiet", "beer-run").stdout.strip()
         previous = None
+        previous_reference = None
         was_running = False
         if container:
             details = json.loads(self.command("docker", "inspect", container).stdout)[0]
             previous = details["Image"]
+            previous_reference = details.get("Config", {}).get("Image", previous)
             was_running = details["State"]["Running"]
-            if (previous == candidate and was_running
+            if (previous == candidate and details.get("Config", {}).get("Image", configured[0]) == configured[0] and was_running
                     and details["State"].get("Health", {}).get("Status") == "healthy"):
                 print("BeerRun is already healthy on the current image.")
                 return False
@@ -104,11 +109,20 @@ class Deployment:
         if readiness.returncode and not migrate:
             raise DeploymentError(
                 "Candidate database check failed; existing BeerRun was left running. "
-                "Review the release and run update.py --migrate if migrations are required.\n"
+                "Review the release and run release.py --migrate if migrations are required.\n"
                 + (readiness.stderr.strip() or readiness.stdout.strip())
             )
 
-        # Pin every operation to the image just inspected, even if latest changes.
+        if previous and readiness.returncode:
+            updater = self.command(
+                "docker", "inspect", "registry-updater", "--format", "{{.State.Running}}",
+                check=False,
+            )
+            if updater.returncode == 0 and updater.stdout.strip() == "true":
+                raise DeploymentError("Pause the shared updater after its current run finishes before migration maintenance.")
+
+        # Migration commands use the exact inspected image. Keep the public tag
+        # on the resulting container so the existing updater can follow it.
         migration_attempted = False
         try:
             self.compose("stop", "beer-run")
@@ -124,14 +138,14 @@ class Deployment:
                     "run", "--rm", "--no-deps", "--pull", "never", "-T", "beer-run",
                     "python", "scripts/migrate_db.py", image=candidate,
                 )
-            self.start(candidate)
+            self.start(configured[0])
             if migration_attempted:
                 recovery.unlink()
         except Exception:
             # Never rewind a live database or put an older app on a changed schema.
             self.compose("stop", "beer-run", check=False)
             if previous and was_running and not migration_attempted:
-                self.start(previous)
+                self.start(previous_reference)
                 print("Previous image restored; current host data retained.", file=sys.stderr)
             elif migration_attempted:
                 print(
@@ -149,6 +163,10 @@ class Deployment:
         temporary = self.directory / "release.json.tmp"
         temporary.write_text(json.dumps(release, indent=2) + "\n", encoding="utf-8")
         temporary.replace(self.directory / "release.json")
+        selection = self.directory / ".env"
+        selection.write_text(
+            f"BOOZERUN_IMAGE={configured[0]}\nBOOZERUN_AUTOUPDATE=true\n", encoding="utf-8"
+        )
         print(f"BeerRun is healthy on {candidate}.")
         return True
 
@@ -157,12 +175,17 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", type=Path, default=Path(__file__).resolve().parent)
     parser.add_argument("--migrate", action="store_true", help="Allow reviewed schema migrations after backup.")
+    parser.add_argument("--image", help="Reviewed image tag to deploy and persist for future updates.")
     args = parser.parse_args(argv)
     if sys.platform == "win32":
         parser.error("Run this operator tool on the Linux Docker host.")
     import fcntl
 
     os.umask(0o077)
+    if args.image:
+        if not args.image.startswith("ghcr.io/matei9721/beer-run-jpn:"):
+            parser.error("--image must name this application's reviewed GHCR tag")
+        os.environ["BOOZERUN_IMAGE"] = args.image
     try:
         with (args.directory / ".update.lock").open("a") as lock:
             try:

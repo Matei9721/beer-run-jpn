@@ -6,7 +6,7 @@ import tarfile
 
 import pytest
 
-from deploy.update import Deployment, DeploymentError
+from deploy.release import Deployment, DeploymentError
 
 
 class FakeDeployment(Deployment):
@@ -25,13 +25,15 @@ class FakeDeployment(Deployment):
             return CompletedProcess(arguments, 0, "beer-run-container\n", "")
         if arguments[0] == "run" and arguments[-1] == "--check":
             return CompletedProcess(arguments, int(self.migration_required), "", "pending schema" if self.migration_required else "")
-        if arguments[0] == "up" and image == "sha256:new" and self.fail_start:
+        if arguments[0] == "up" and image == "ghcr.io/example/beer-run:latest" and self.fail_start:
             raise DeploymentError("health check failed")
         return CompletedProcess(arguments, 0, "", "")
 
     def command(self, *arguments, image=None, check=True):
         if arguments[1] == "image":
             return CompletedProcess(arguments, 0, "sha256:new\n", "")
+        if "registry-updater" in arguments:
+            return CompletedProcess(arguments, 0, "false\n", "")
         return CompletedProcess(arguments, 0, json.dumps([{
             "Image": self.current,
             "State": {"Running": True, "Health": {"Status": "healthy"}},
@@ -83,7 +85,7 @@ def test_failed_code_update_restarts_previous_image_without_replacing_data(deplo
     with pytest.raises(DeploymentError, match="health check"):
         deployment.update()
     starts = [image for arguments, image in deployment.events if arguments[0] == "up"]
-    assert starts == ["sha256:new", "sha256:old"]
+    assert starts == ["ghcr.io/example/beer-run:latest", "sha256:old"]
     assert (deployment_root / "state/boozerun.db").read_bytes() == b"database snapshot"
     assert not (deployment_root / "release.json").exists()
 
@@ -93,7 +95,7 @@ def test_failed_migrating_release_stays_stopped_for_explicit_recovery(deployment
     with pytest.raises(DeploymentError, match="health check"):
         deployment.update(migrate=True)
     starts = [image for arguments, image in deployment.events if arguments[0] == "up"]
-    assert starts == ["sha256:new"]
+    assert starts == ["ghcr.io/example/beer-run:latest"]
     assert deployment.events[-1][0] == ("stop", "beer-run")
     assert list((deployment_root / "backups").glob("*.tar.gz"))
     assert (deployment_root / "recovery-required.json").is_file()

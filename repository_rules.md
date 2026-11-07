@@ -78,8 +78,10 @@ explicitly requests otherwise.
 - `scripts/`: migration, user-management, setup, and generated-data utilities
 - `Dockerfile`, `.dockerignore`, `.github/workflows/container.yml`: optional
   container packaging and tested GHCR publishing; local FastAPI commands stay unchanged
-- `deploy/`: isolated server Compose project, guarded updater, timer templates,
-  and deployment runbook; server installation and proxy cutover need explicit approval
+- `deploy/`: server Compose configuration, explicit maintenance helper, and deployment
+  plan. Normal updates use the existing server registry webhook; do not add
+  a separate scheduler. Server installation, shared-updater integration, and
+  proxy cutover need explicit approval.
 - `src/frontend/app/`: production Route Stamp UI and its local assets; no bundler
 - `src/frontend/pages/` and `src/frontend/static/`: direct legal and Wrapped surfaces
 - `static/uploads/`: runtime uploads retained at their stable public URL
@@ -133,11 +135,13 @@ Use `uv --cache-dir .uv-cache run ...` for repeatable local dependency behavior.
   and generated recaps. Server-owned `deploy/state/` and private `deploy/app.env`
   persist independently of image replacement. Never mount a developer database
   during container verification; use disposable volumes.
-- Automated image updates may replace only BeerRun, with a stopped-state backup
-  and a health check. Pending migrations block routine updates; the operator
-  must explicitly invoke `deploy/update.py --migrate` after reviewing and rehearsing
-  the migration. Startup never migrates automatically. Do not automatically restore
-  a database or run older code after an attempted schema migration.
+- Normal updates must reuse the existing server registry updater. The
+  integration follows a schema-compatible image channel; migration changes
+  require explicit maintenance and a verified stopped-state backup. Keep
+  BeerRun-triggered updates scoped to BeerRun and preserve existing updater
+  behavior for other services. Startup never migrates automatically. Do not
+  automatically restore a database or run older code after an attempted schema
+  migration. See `deploy/README.md` for implementation status and approval gates.
 - `data/wrapped.json` is the tracked legacy BeerRunJPN artifact.
   `scripts/build_wrapped_data.py --run-id <id>` writes new run-scoped artifacts
   to `data/wrapped/<id>.json`. Regenerate the affected artifact when changed

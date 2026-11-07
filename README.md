@@ -32,8 +32,8 @@ trip recaps in one mobile-first experience.
 
 ## Running the Application
 
-For Docker hosting, persistent server data, image publishing, and guarded
-updates, see [the deployment plan and operator guide](deploy/README.md).
+For Docker hosting, persistent server data, image publishing, and integration
+with the existing registry updater, see [the deployment plan](deploy/README.md).
 The local FastAPI workflow below remains unchanged.
 
 ### 1. Install Dependencies
